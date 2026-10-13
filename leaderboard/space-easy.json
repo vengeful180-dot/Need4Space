@@ -15,8 +15,22 @@
         ],
         "points": 74,
         "recordedAt": "2026-10-13T21:38:50.666Z"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
+        "name": "Vengeful",
+        "totalMs": 263808,
+        "bestLapMs": 87000,
+        "lapsMs": [
+          88842,
+          87000,
+          87967
+        ],
+        "points": 74,
+        "recordedAt": "2026-10-13T21:39:01.569Z"
       }
     ]
   },
-  "updatedAt": "2026-10-13T21:38:50.666Z"
+  "updatedAt": "2026-10-13T21:39:01.569Z"
 }
