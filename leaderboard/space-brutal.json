@@ -1,50 +1,7 @@
 {
   "schema": 1,
   "boards": {
-    "space:brutal": [
-      {
-        "map": "space",
-        "difficulty": "brutal",
-        "name": "RELEASE CHECK 1",
-        "totalMs": 901000,
-        "bestLapMs": 300000,
-        "lapsMs": [
-          300000,
-          300000,
-          301000
-        ],
-        "points": 0,
-        "recordedAt": "2026-10-13T21:23:23.867Z"
-      },
-      {
-        "map": "space",
-        "difficulty": "brutal",
-        "name": "Release check 2",
-        "totalMs": 902000,
-        "bestLapMs": 300000,
-        "lapsMs": [
-          300000,
-          300000,
-          302000
-        ],
-        "points": 0,
-        "recordedAt": "2026-10-13T21:23:23.860Z"
-      },
-      {
-        "map": "space",
-        "difficulty": "brutal",
-        "name": "Release check 3",
-        "totalMs": 903000,
-        "bestLapMs": 300000,
-        "lapsMs": [
-          300000,
-          300000,
-          303000
-        ],
-        "points": 0,
-        "recordedAt": "2026-10-13T21:31:17.232Z"
-      }
-    ]
+    "space:brutal": []
   },
-  "updatedAt": "2026-10-13T21:31:17.232Z"
+  "updatedAt": null
 }
