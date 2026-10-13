@@ -6,17 +6,24 @@
         "map": "ice",
         "difficulty": "normal",
         "name": "V3ngeful",
-        "totalMs": 145692,
-        "bestLapMs": 47042,
+        "totalMs": 141767,
+        "bestLapMs": 44525,
         "lapsMs": [
-          50625,
-          47042,
-          48025
+          49500,
+          47742,
+          44525
         ],
-        "points": 48,
-        "recordedAt": "2026-10-13T21:54:55.809Z"
+        "points": 64,
+        "recordedAt": "2026-10-13T21:58:00.555Z",
+        "runId": "legacy:141767:49500:47742:44525:64"
       }
     ]
   },
-  "updatedAt": "2026-10-13T21:54:55.809Z"
+  "updatedAt": "2026-10-13T21:58:00.555Z",
+  "submissions": {
+    "ice:normal": {
+      "legacy:145692:50625:47042:48025:48": "V3ngeful",
+      "legacy:141767:49500:47742:44525:64": "V3ngeful"
+    }
+  }
 }
