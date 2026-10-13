@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "boards": {
+    "ice:normal": [
+      {
+        "map": "ice",
+        "difficulty": "normal",
+        "name": "V3ngeful",
+        "totalMs": 145692,
+        "bestLapMs": 47042,
+        "lapsMs": [
+          50625,
+          47042,
+          48025
+        ],
+        "points": 48,
+        "recordedAt": "2026-10-13T21:54:55.809Z"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-13T21:54:55.809Z"
+}
