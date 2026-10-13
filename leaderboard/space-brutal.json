@@ -15,8 +15,22 @@
         ],
         "points": 0,
         "recordedAt": "2026-10-13T21:23:23.867Z"
+      },
+      {
+        "map": "space",
+        "difficulty": "brutal",
+        "name": "Release check 2",
+        "totalMs": 902000,
+        "bestLapMs": 300000,
+        "lapsMs": [
+          300000,
+          300000,
+          302000
+        ],
+        "points": 0,
+        "recordedAt": "2026-10-13T21:23:23.860Z"
       }
     ]
   },
-  "updatedAt": "2026-10-13T21:23:23.867Z"
+  "updatedAt": "2026-10-13T21:23:23.860Z"
 }
