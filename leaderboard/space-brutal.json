@@ -5,7 +5,7 @@
       {
         "map": "space",
         "difficulty": "brutal",
-        "name": "Release check 1",
+        "name": "RELEASE CHECK 1",
         "totalMs": 901000,
         "bestLapMs": 300000,
         "lapsMs": [
@@ -32,5 +32,5 @@
       }
     ]
   },
-  "updatedAt": "2026-10-13T21:23:23.860Z"
+  "updatedAt": "2026-10-13T21:23:27.260Z"
 }
