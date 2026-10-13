@@ -15,20 +15,6 @@
         ],
         "points": 72,
         "recordedAt": "2026-10-13T21:31:46.597Z"
-      },
-      {
-        "map": "space",
-        "difficulty": "easy",
-        "name": "Release check race",
-        "totalMs": 298850,
-        "bestLapMs": 97108,
-        "lapsMs": [
-          101475,
-          100267,
-          97108
-        ],
-        "points": 22,
-        "recordedAt": "2026-10-13T21:31:23.018Z"
       }
     ]
   },
