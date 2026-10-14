@@ -90,10 +90,25 @@
         "points": 60,
         "recordedAt": "2026-10-14T12:36:13.069Z",
         "runId": "ddfc5754-08f5-4921-8f5c-8a0792a896b0"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
+        "name": "rox",
+        "totalMs": 285717,
+        "bestLapMs": 90283,
+        "lapsMs": [
+          104625,
+          90808,
+          90283
+        ],
+        "points": 50,
+        "recordedAt": "2026-10-14T21:07:43.726Z",
+        "runId": "913af0c7-8deb-4f19-a15f-7e8b607f9db9"
       }
     ]
   },
-  "updatedAt": "2026-10-14T19:07:03.727Z",
+  "updatedAt": "2026-10-14T21:07:43.726Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -103,7 +118,8 @@
       "b1702720-c3fc-441c-b17b-87c483dd9bc9": "Mars",
       "d66cd687-fac6-4f5f-b76b-281ac8bd42a9": "Zlizz3R",
       "60da33ca-e121-4258-836c-2bf67faa3727": "Spermy",
-      "625b2945-fce2-4961-b1c0-8a130cc79a45": "V3ngeful"
+      "625b2945-fce2-4961-b1c0-8a130cc79a45": "V3ngeful",
+      "913af0c7-8deb-4f19-a15f-7e8b607f9db9": "rox"
     }
   }
 }
