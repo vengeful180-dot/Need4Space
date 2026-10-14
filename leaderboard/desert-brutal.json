@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "desert:brutal": [
+      {
+        "map": "desert",
+        "difficulty": "brutal",
+        "name": "V3ngeful",
+        "totalMs": 143383,
+        "bestLapMs": 46700,
+        "lapsMs": [
+          49592,
+          47092,
+          46700
+        ],
+        "points": 74,
+        "recordedAt": "2026-10-14T19:22:41.067Z",
+        "runId": "1017e260-0720-4600-916f-aad6ec0f246a"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-14T19:22:41.067Z",
+  "submissions": {
+    "desert:brutal": {
+      "1017e260-0720-4600-916f-aad6ec0f246a": "V3ngeful"
+    }
+  }
+}
