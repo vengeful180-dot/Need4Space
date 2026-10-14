@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "desert:easy": [
+      {
+        "map": "desert",
+        "difficulty": "easy",
+        "name": "V3ngeful",
+        "totalMs": 142275,
+        "bestLapMs": 46642,
+        "lapsMs": [
+          48967,
+          46667,
+          46642
+        ],
+        "points": 68,
+        "recordedAt": "2026-10-14T19:10:27.516Z",
+        "runId": "6cdf662d-99b7-4d71-a458-73a692352f4e"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-14T19:10:27.516Z",
+  "submissions": {
+    "desert:easy": {
+      "6cdf662d-99b7-4d71-a458-73a692352f4e": "V3ngeful"
+    }
+  }
+}
