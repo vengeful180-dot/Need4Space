@@ -49,6 +49,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Zlizz3R",
+        "totalMs": 273467,
+        "bestLapMs": 87958,
+        "lapsMs": [
+          96708,
+          88800,
+          87958
+        ],
+        "points": 68,
+        "recordedAt": "2026-10-14T14:07:36.063Z",
+        "runId": "d66cd687-fac6-4f5f-b76b-281ac8bd42a9"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "zprat",
         "totalMs": 275625,
         "bestLapMs": 89792,
@@ -63,14 +78,15 @@
       }
     ]
   },
-  "updatedAt": "2026-10-14T13:40:22.899Z",
+  "updatedAt": "2026-10-14T14:07:36.063Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
       "19c97a7a-1b7f-495d-90b0-0d144ec0f8fb": "SeanJohnMedia",
       "9a8c2607-40d9-44f1-9806-67316b2a19bf": "SeanJohnMedia",
       "ddfc5754-08f5-4921-8f5c-8a0792a896b0": "zprat",
-      "b1702720-c3fc-441c-b17b-87c483dd9bc9": "Mars"
+      "b1702720-c3fc-441c-b17b-87c483dd9bc9": "Mars",
+      "d66cd687-fac6-4f5f-b76b-281ac8bd42a9": "Zlizz3R"
     }
   }
 }
