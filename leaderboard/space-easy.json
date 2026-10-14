@@ -20,24 +20,25 @@
         "map": "space",
         "difficulty": "easy",
         "name": "SeanJohnMedia",
-        "totalMs": 269100,
-        "bestLapMs": 87875,
+        "totalMs": 264575,
+        "bestLapMs": 86625,
         "lapsMs": [
-          92125,
-          89100,
-          87875
+          90467,
+          87483,
+          86625
         ],
-        "points": 68,
-        "recordedAt": "2026-10-14T00:31:43.914Z",
-        "runId": "19c97a7a-1b7f-495d-90b0-0d144ec0f8fb"
+        "points": 74,
+        "recordedAt": "2026-10-14T00:37:21.869Z",
+        "runId": "9a8c2607-40d9-44f1-9806-67316b2a19bf"
       }
     ]
   },
-  "updatedAt": "2026-10-14T00:31:43.914Z",
+  "updatedAt": "2026-10-14T00:37:21.869Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
-      "19c97a7a-1b7f-495d-90b0-0d144ec0f8fb": "SeanJohnMedia"
+      "19c97a7a-1b7f-495d-90b0-0d144ec0f8fb": "SeanJohnMedia",
+      "9a8c2607-40d9-44f1-9806-67316b2a19bf": "SeanJohnMedia"
     }
   }
 }
