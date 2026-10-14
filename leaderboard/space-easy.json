@@ -34,6 +34,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Mars",
+        "totalMs": 269900,
+        "bestLapMs": 88617,
+        "lapsMs": [
+          92108,
+          88617,
+          89175
+        ],
+        "points": 70,
+        "recordedAt": "2026-10-14T13:40:22.899Z",
+        "runId": "b1702720-c3fc-441c-b17b-87c483dd9bc9"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "zprat",
         "totalMs": 275625,
         "bestLapMs": 89792,
@@ -48,13 +63,14 @@
       }
     ]
   },
-  "updatedAt": "2026-10-14T12:36:13.069Z",
+  "updatedAt": "2026-10-14T13:40:22.899Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
       "19c97a7a-1b7f-495d-90b0-0d144ec0f8fb": "SeanJohnMedia",
       "9a8c2607-40d9-44f1-9806-67316b2a19bf": "SeanJohnMedia",
-      "ddfc5754-08f5-4921-8f5c-8a0792a896b0": "zprat"
+      "ddfc5754-08f5-4921-8f5c-8a0792a896b0": "zprat",
+      "b1702720-c3fc-441c-b17b-87c483dd9bc9": "Mars"
     }
   }
 }
