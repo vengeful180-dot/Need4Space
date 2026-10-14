@@ -34,6 +34,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Spermy",
+        "totalMs": 264925,
+        "bestLapMs": 85692,
+        "lapsMs": [
+          90175,
+          89058,
+          85692
+        ],
+        "points": 76,
+        "recordedAt": "2026-10-14T19:01:18.055Z",
+        "runId": "60da33ca-e121-4258-836c-2bf67faa3727"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Mars",
         "totalMs": 269900,
         "bestLapMs": 88617,
@@ -78,7 +93,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-14T14:07:36.063Z",
+  "updatedAt": "2026-10-14T19:01:18.055Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -86,7 +101,8 @@
       "9a8c2607-40d9-44f1-9806-67316b2a19bf": "SeanJohnMedia",
       "ddfc5754-08f5-4921-8f5c-8a0792a896b0": "zprat",
       "b1702720-c3fc-441c-b17b-87c483dd9bc9": "Mars",
-      "d66cd687-fac6-4f5f-b76b-281ac8bd42a9": "Zlizz3R"
+      "d66cd687-fac6-4f5f-b76b-281ac8bd42a9": "Zlizz3R",
+      "60da33ca-e121-4258-836c-2bf67faa3727": "Spermy"
     }
   }
 }
