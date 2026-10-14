@@ -5,6 +5,21 @@
       {
         "map": "desert",
         "difficulty": "easy",
+        "name": "Omar",
+        "totalMs": 141875,
+        "bestLapMs": 45983,
+        "lapsMs": [
+          49242,
+          46650,
+          45983
+        ],
+        "points": 70,
+        "recordedAt": "2026-10-14T22:10:28.571Z",
+        "runId": "b7875428-9247-42a2-9a33-aa8061c12b3a"
+      },
+      {
+        "map": "desert",
+        "difficulty": "easy",
         "name": "V3ngeful",
         "totalMs": 142275,
         "bestLapMs": 46642,
@@ -34,11 +49,12 @@
       }
     ]
   },
-  "updatedAt": "2026-10-14T21:16:05.761Z",
+  "updatedAt": "2026-10-14T22:10:28.571Z",
   "submissions": {
     "desert:easy": {
       "6cdf662d-99b7-4d71-a458-73a692352f4e": "V3ngeful",
-      "f3392656-f58d-43e9-aafd-3ccb5006f10c": "rox"
+      "f3392656-f58d-43e9-aafd-3ccb5006f10c": "rox",
+      "b7875428-9247-42a2-9a33-aa8061c12b3a": "Omar"
     }
   }
 }
