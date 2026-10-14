@@ -16,14 +16,30 @@
         "points": 64,
         "recordedAt": "2026-10-13T21:58:00.555Z",
         "runId": "legacy:141767:49500:47742:44525:64"
+      },
+      {
+        "map": "ice",
+        "difficulty": "normal",
+        "name": "Spermy",
+        "totalMs": 145100,
+        "bestLapMs": 47333,
+        "lapsMs": [
+          49275,
+          48492,
+          47333
+        ],
+        "points": 57,
+        "recordedAt": "2026-10-14T13:55:16.540Z",
+        "runId": "899138c7-8ea1-4359-a0e4-594be337caa5"
       }
     ]
   },
-  "updatedAt": "2026-10-13T21:58:00.555Z",
+  "updatedAt": "2026-10-14T13:55:16.540Z",
   "submissions": {
     "ice:normal": {
       "legacy:145692:50625:47042:48025:48": "V3ngeful",
-      "legacy:141767:49500:47742:44525:64": "V3ngeful"
+      "legacy:141767:49500:47742:44525:64": "V3ngeful",
+      "899138c7-8ea1-4359-a0e4-594be337caa5": "Spermy"
     }
   }
 }
