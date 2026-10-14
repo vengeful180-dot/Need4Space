@@ -16,13 +16,29 @@
         "points": 68,
         "recordedAt": "2026-10-14T19:10:27.516Z",
         "runId": "6cdf662d-99b7-4d71-a458-73a692352f4e"
+      },
+      {
+        "map": "desert",
+        "difficulty": "easy",
+        "name": "rox",
+        "totalMs": 142567,
+        "bestLapMs": 45875,
+        "lapsMs": [
+          49433,
+          45875,
+          47258
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-14T21:16:05.761Z",
+        "runId": "f3392656-f58d-43e9-aafd-3ccb5006f10c"
       }
     ]
   },
-  "updatedAt": "2026-10-14T19:10:27.516Z",
+  "updatedAt": "2026-10-14T21:16:05.761Z",
   "submissions": {
     "desert:easy": {
-      "6cdf662d-99b7-4d71-a458-73a692352f4e": "V3ngeful"
+      "6cdf662d-99b7-4d71-a458-73a692352f4e": "V3ngeful",
+      "f3392656-f58d-43e9-aafd-3ccb5006f10c": "rox"
     }
   }
 }
