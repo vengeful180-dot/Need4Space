@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "forest:easy": [
+      {
+        "map": "forest",
+        "difficulty": "easy",
+        "name": "Mangooo",
+        "totalMs": 155792,
+        "bestLapMs": 48817,
+        "lapsMs": [
+          56475,
+          50500,
+          48817
+        ],
+        "points": 52,
+        "recordedAt": "2026-10-14T10:20:59.745Z",
+        "runId": "9890f660-e75b-4006-98dc-72aaeb9a3e95"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-14T10:20:59.745Z",
+  "submissions": {
+    "forest:easy": {
+      "9890f660-e75b-4006-98dc-72aaeb9a3e95": "Mangooo"
+    }
+  }
+}
