@@ -16,14 +16,30 @@
         "points": 74,
         "recordedAt": "2026-10-14T19:22:41.067Z",
         "runId": "1017e260-0720-4600-916f-aad6ec0f246a"
+      },
+      {
+        "map": "desert",
+        "difficulty": "brutal",
+        "name": "N8dawg00",
+        "totalMs": 143825,
+        "bestLapMs": 47133,
+        "lapsMs": [
+          49342,
+          47133,
+          47350
+        ],
+        "points": 58,
+        "recordedAt": "2026-10-15T02:54:34.319Z",
+        "runId": "0522bbb1-f33a-4157-af88-8f7504672e0a"
       }
     ]
   },
-  "updatedAt": "2026-10-14T23:44:07.277Z",
+  "updatedAt": "2026-10-15T02:54:34.319Z",
   "submissions": {
     "desert:brutal": {
       "1017e260-0720-4600-916f-aad6ec0f246a": "V3ngeful",
-      "b3759834-d212-4220-a7c9-ff2a6b58315f": "V3ngeful"
+      "b3759834-d212-4220-a7c9-ff2a6b58315f": "V3ngeful",
+      "0522bbb1-f33a-4157-af88-8f7504672e0a": "N8dawg00"
     }
   }
 }
