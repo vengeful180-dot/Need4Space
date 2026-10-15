@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "ocean:normal": [
+      {
+        "map": "ocean",
+        "difficulty": "normal",
+        "name": "V3ngeful",
+        "totalMs": 222775,
+        "bestLapMs": 72583,
+        "lapsMs": [
+          76508,
+          73683,
+          72583
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-15T21:11:30.515Z",
+        "runId": "6a4b30cc-e8e4-4bee-a782-2035d6937e7c"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-15T21:11:30.515Z",
+  "submissions": {
+    "ocean:normal": {
+      "6a4b30cc-e8e4-4bee-a782-2035d6937e7c": "V3ngeful"
+    }
+  }
+}
