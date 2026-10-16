@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "space:hard": [
+      {
+        "map": "space",
+        "difficulty": "hard",
+        "name": "CannonRunn",
+        "totalMs": 326333,
+        "bestLapMs": 102808,
+        "lapsMs": [
+          116525,
+          107000,
+          102808
+        ],
+        "points": 24,
+        "recordedAt": "2026-10-16T01:19:03.376Z",
+        "runId": "e828bf41-398c-4381-8a63-8c38b6859dc0"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-16T01:19:03.376Z",
+  "submissions": {
+    "space:hard": {
+      "e828bf41-398c-4381-8a63-8c38b6859dc0": "CannonRunn"
+    }
+  }
+}
