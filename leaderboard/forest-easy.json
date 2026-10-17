@@ -6,16 +6,16 @@
         "map": "forest",
         "difficulty": "easy",
         "name": "RequirePants",
-        "totalMs": 142350,
-        "bestLapMs": 45775,
+        "totalMs": 141150,
+        "bestLapMs": 46467,
         "lapsMs": [
-          49250,
-          47325,
-          45775
+          48100,
+          46467,
+          46583
         ],
-        "points": 56,
-        "recordedAt": "2026-10-17T15:26:48.237Z",
-        "runId": "955d3f26-df3b-48a1-af18-e8fd4b5b0d95"
+        "points": 58,
+        "recordedAt": "2026-10-17T17:12:25.630Z",
+        "runId": "87de200d-6db8-4751-9e5c-98adf7eff2f1"
       },
       {
         "map": "forest",
@@ -49,12 +49,13 @@
       }
     ]
   },
-  "updatedAt": "2026-10-17T15:26:48.237Z",
+  "updatedAt": "2026-10-17T17:12:25.630Z",
   "submissions": {
     "forest:easy": {
       "9890f660-e75b-4006-98dc-72aaeb9a3e95": "Mangooo",
       "93ef555c-0899-4595-b0dc-9bb99a0ea54b": "rox",
-      "955d3f26-df3b-48a1-af18-e8fd4b5b0d95": "RequirePants"
+      "955d3f26-df3b-48a1-af18-e8fd4b5b0d95": "RequirePants",
+      "87de200d-6db8-4751-9e5c-98adf7eff2f1": "RequirePants"
     }
   }
 }
