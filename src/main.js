@@ -36,6 +36,7 @@ import { Q, setLite, integratedGPU, liteFiltering, memoryTier } from './quality.
 import { preloadBakedTextures } from './bakedtextures.js';
 import { beginLoadJobs, finishLoadJobs, stopLoadJobs } from './load-jobs.js';
 import { Showroom } from './showroom.js';
+import { XRControls } from './xr.js';
 
 // the map: the circuit chosen in the menu (saved), or ?map=space / forest / ice / desert / ocean / meadow (the meadow: the old test range)
 const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
@@ -507,7 +508,7 @@ async function boot() {
   };
   // before each frame's draw (the world's matrices up to date): every ship's deck light and the engines' heat sources
   // (under water the shimmer is stronger: the sea bends the light more than the air)
-  const shipLook = () => { deckLight(); if (heat.enabled) { heat.amount = 8 * (1 + 2.4 * (world.underK || 0)); heat.gather(camera, fleet()); } };
+  const shipLook = () => { deckLight(); if (heat.enabled && !renderer.xr.isPresenting) { heat.amount = 8 * (1 + 2.4 * (world.underK || 0)); heat.gather(camera, fleet()); } };
   let pixelRatio = Math.min(devicePixelRatio, 2), renderScale = 1, blurOn = true, aoRes = 'auto';
   let slamCamOn = true;                                  // settings: "Slam camera" (slow motion and the side view)
   // half-size AO: asked for, or 'auto' with more than ~1440p of pixels to fill
@@ -523,6 +524,7 @@ async function boot() {
   // for ~20 more programs over the next lap, on a fast desktop).
   let warmed = false, programSig = '', warming = null, warmAgain = false;
   const rewarm = () => {
+    if (renderer.xr.isPresenting) { warmAgain = true; return; } // offscreen mono warm-up waits until VR ends
     if (warming) { warmAgain = true; return warming; }
     warming = (async () => {
       do {
@@ -554,6 +556,7 @@ async function boot() {
   };
   const resize = () => {
     redraw = 2;
+    if (renderer.xr.isPresenting) return;               // the headset owns its framebuffer dimensions
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(pixelRatio);                      // the canvas: the screen's own pixels
@@ -764,7 +767,9 @@ async function boot() {
   // made ready in the background a few seconds into the title: the first open no longer stalls on it all at once.
   // Only while no race is being flown (the title, paused, the results): a race started at once on a slow load had it
   // made in the first lap - its environment map, three ships' maps and 14 shaders mid-race; held between ships too
-  const quiet = () => !race || mode !== 'race' || race.state === 'grid' || menu.paused || (menu.open && menu.ctx === 'results');
+  // Reflection bakes, texture uploads and showroom shader compilation wait until
+  // the headset session ends, even when the race is paused or on the title.
+  const quiet = () => !renderer.xr.isPresenting && (!race || mode !== 'race' || race.state === 'grid' || menu.paused || (menu.open && menu.ctx === 'results'));
   const prepShowroom = () => {
     if (settings.v.showroom === false || showroom) return;
     if (!quiet()) { setTimeout(prepShowroom, 1000); return; }
@@ -773,6 +778,7 @@ async function boot() {
   };
   setTimeout(prepShowroom, 3500);
   const render = () => {
+    if (xr.active) { if (!xr.preparing) shipLook(); xr.render(); return; }
     if (showroom && showroom.active) { drawShowroom(); return; }
     scene.updateMatrixWorld(); shipLook(); world.preRender?.(renderer);
     shock.set(fx.shocks, camera);
@@ -823,20 +829,20 @@ async function boot() {
     get w() { return this.on ? smoothstep(0, 0.12, this.t) * (1 - smoothstep(this.hold, this.hold + this.ramp, this.t)) : 0; },
   };
   window.__feather.slow = slow;
-  function frame(now) {
+  function frame(now, xrFrame) {
     // (a frame's time held to 0.1 s at most: with 0.05 a slow GPU's long frames each lost time - a hitch in the motion)
     const raw = (now - last) / 1000, dt = Math.min(0.1, raw);
     last = now;
     if (menu.paused !== wasPaused) { wasPaused = menu.paused; redraw = 2; }
-    const k = slow.step(menu.paused ? 0 : dt);           // (a slam's slow motion: the game's time, not the frame's)
-    tick(menu.paused ? 0 : dt * k);                      // paused: a frame with no time in it (no physics, nothing moves)
+    const k = slow.step(menu.paused || xr.preparing ? 0 : dt); // (a slam's slow motion: the game's time, not the frame's)
+    tick(menu.paused || xr.preparing || (xr.active && renderer.xr.getSession()?.visibilityState !== 'visible') ? 0 : dt * k, xrFrame);
     // (while the programs are rebuilt the picture holds still: a draw would wait for each one still compiling)
-    if (warming) redraw = 0;
+    if (xr.active) render();                           // even paused: the head still tracks at headset refresh rate
+    else if (warming) redraw = 0;
     else if (!menu.paused) render();
     else if (redraw > 0) { redraw--; render(); }
     fpsN++; fpsT += raw;
     if (fpsT > 0.5) { fpsEl.textContent = `${Math.round(fpsN / fpsT)} fps  ${(1000 * fpsT / fpsN).toFixed(1)} ms`; fpsN = fpsT = 0; }
-    requestAnimationFrame(frame);
   }
   window.__feather.shot = async (name, w = 1920, h = 1080) => {
     const ow = innerWidth, oh = innerHeight, pr = renderer.getPixelRatio();
@@ -891,11 +897,17 @@ async function boot() {
   window.__feather.showroom = () => showroom;
   Object.defineProperty(window.__feather, 'paused', { get: () => menu.paused, enumerable: true });
   menu.showTitle();
+  const xr = new XRControls({ renderer, scene, camera, world, input, menu, hud, audio, settings,
+    canEnter: () => !warming && !menu.busy,
+    onEnd: () => { last = performance.now(); rig.snap(ctl); resize(); if (warmAgain) rewarm(); } });
+  window.__feather.xr = xr;
 
-  function tick(dt) {
-    t += dt;
+  function tick(dt, xrFrame) {
     const inp = input.read(dt);
+    if (xr.preparing) { menu.filter(inp, false); xr.update(ctl, xrFrame); return; } // track the viewer; hold simulation and menu actions until ready
+    t += dt;
     menu.filter(inp);                                    // a menu up: the keys and buttons are its, not the game's
+    if (xr.active && inp.hudToggle) xr.toggleHUD();       // available while paused too; menus stay visible
     if (race && mode === 'race' && race.player.finished) {
       if (!pilot) { pilot = new Driver(race.player, race, () => 0.5, race.player.slot); pilot.odo = 1e4; }
       Object.assign(inp, pilot.coast(dt));               // past the flag: the AI flies the cool-down lap
@@ -914,13 +926,14 @@ async function boot() {
       } else hud.message(mode === 'race' ? 'Slow down to shut the engines down' : 'Slow down and descend to shut the engines down');
     }
     if (inp.canopy && !ship.toggleCanopy()) hud.message('The canopy is locked while the engines run');
-    if (inp.camera) {
+    if (xr.active && (inp.recenter || inp.camera)) xr.recenter();
+    if (inp.camera && !xr.active) {
       rig.next();
       autoChase = false;
       if (rig.mode === 'orbit') input.unlock();
       hud.message(rig.name, 1.2);
     }
-    if (inp.click && rig.mode !== 'orbit' && !settings.open) input.lock();
+    if (inp.click && !xr.active && rig.mode !== 'orbit' && !settings.open) input.lock();
     if (inp.help) hud.toggleHelp();
     if (inp.settings) menu.openSettings();             // O: the settings over the paused game
     if (inp.mute) hud.message(audio.toggleMute() ? 'Sound off' : 'Sound on', 1.2);
@@ -1156,8 +1169,11 @@ async function boot() {
     }
     rig.slamW = slow.w;                                  // (the slam camera: where the other hull is - camera.js)
     if (rig.slamW > 0 && slow.other) { rig.slamAt = slow.other.ship.root.position; rig.slamSide = Math.sign(slow.other.racer.x - racer.x) || 1; rig.slamMine = slow.mine; }
-    rig.update(dt, view, inp, ctl.boosting);
-    menu.camera(dt);                                     // the title's shots, or a blend between two camera views
+    if (xr.active) { xr.update(view, xrFrame); world.renderScale = 1; }
+    else {
+      rig.update(dt, view, inp, ctl.boosting);
+      menu.camera(dt);                                   // the title's shots, or a blend between two camera views
+    }
     world.follow(ctl.rPos, camera);
     world.update?.(t, camera, ship.root.position, racer ? racer.s : 0, renderer);
     if (world.exposureK) { agx.uniforms.exposure.value = expBase * world.exposureK; renderer.toneMappingExposure = 0.95 * expBase * world.exposureK; }
@@ -1237,12 +1253,12 @@ async function boot() {
       health: mode === 'race' && racer ? racer.health / racer.maxHealth : null, ghost: mode === 'race' && racer ? racer.ghost : 0,
       drifting: mode === 'race' && !!ctl.drift, driftCharge: ctl.driftCharge, driftTier: ctl.driftTier || 0, driftChain: ctl.chain || 0,
       invert: input.invert, lapTime: lap.started ? lap.time : NaN, lastLap: lap.last, bestLap: lap.best, lap: lap.lap,
-      x: ctl.pos.x, z: ctl.pos.z, fx: f.x, fz: f.z, race: race ? race.hud() : null, mode });
+      x: ctl.pos.x, z: ctl.pos.z, fx: f.x, fz: f.z, race: race ? race.hud() : null, mode }, xr.active);
     audio.update(dt, { camera, ship, ctl, race, track, mode, inp, world });
     if (world.thunder) { world.thunder = false; audio.thunder?.(world.underK ? 0.4 : 1); }
     touch.setMode(mode);
   }
-  requestAnimationFrame(frame);
+  renderer.setAnimationLoop(frame);                     // one loop, driven by the desktop or the XR runtime
 }
 
 boot().catch((e) => {

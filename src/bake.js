@@ -28,11 +28,14 @@ export async function compileAll(renderer, jobs, progress) {
 // the GPU done with everything sent so far (a fence, polled between tasks - the page paints meanwhile)
 export async function gpuIdle(renderer) {
   const gl = renderer.getContext(), sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+  if (!sync) return false;
   gl.flush();
-  for (let k = 0; k < 2000 && gl.getSyncParameter(sync, gl.SYNC_STATUS) !== gl.SIGNALED && !gl.isContextLost(); k++) {
+  for (let k = 0; k < 2000 && !gl.isContextLost() && gl.getSyncParameter(sync, gl.SYNC_STATUS) !== gl.SIGNALED; k++) {
     await new Promise((r) => setTimeout(r, 4));
   }
+  const complete = !gl.isContextLost() && gl.getSyncParameter(sync, gl.SYNC_STATUS) === gl.SIGNALED;
   gl.deleteSync(sync);
+  return complete;
 }
 
 const queue = [];

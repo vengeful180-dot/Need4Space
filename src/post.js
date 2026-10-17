@@ -25,6 +25,40 @@ export function sanitizePass() {
   return new ShaderPass(SANITIZE);                       // (ShaderPass clones the uniforms)
 }
 
+// XR's compositor needs one depth range for the entire submitted image. The
+// private near/far buffers keep precision; this resolve restores the session's
+// native depth encoding, including distant geometry behind the near slice.
+export function xrResolve() {
+  return new FullScreenQuad(new THREE.ShaderMaterial({
+    uniforms: { nearColor: { value: null }, farColor: { value: null }, nearDepth: { value: null }, farDepth: { value: null },
+      near: { value: 0.2 }, split: { value: 500 }, far: { value: 30000 },
+      nativeNear: { value: 0.2 }, nativeFar: { value: 30000 },
+      sourceScale: { value: new THREE.Vector2(1, 1) }, sourceTexel: { value: new THREE.Vector2() } },
+    depthTest: true, depthWrite: true, depthFunc: THREE.AlwaysDepth, blending: THREE.NoBlending,
+    vertexShader: VERT,
+    fragmentShader: /* glsl */`
+      #include <packing>
+      uniform sampler2D nearColor, farColor, nearDepth, farDepth;
+      uniform float near, split, far, nativeNear, nativeFar;
+      uniform vec2 sourceScale, sourceTexel;
+      varying vec2 vUv;
+      void main() {
+        // Race resolution uses a smaller viewport in the existing buffers.
+        // Clamp to texel centres so unused pixels never bleed into the edges.
+        vec2 uv = clamp(vUv * sourceScale, sourceTexel * 0.5, sourceScale - sourceTexel * 0.5);
+        vec4 n = texture2D(nearColor, uv), f = texture2D(farColor, uv);
+        // Transparent near geometry is premultiplied by the framebuffer blend.
+        vec3 color = n.rgb + f.rgb * (1.0 - clamp(n.a, 0.0, 1.0));
+        gl_FragColor = vec4(min(max(color, vec3(0.0)), vec3(512.0)), 1.0);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+        float nd = texture2D(nearDepth, uv).r, fd = texture2D(farDepth, uv).r;
+        float z = nd < 1.0 ? perspectiveDepthToViewZ(nd, near, split) : perspectiveDepthToViewZ(fd, split, far);
+        gl_FragDepth = nd < 1.0 || fd < 1.0 ? viewZToPerspectiveDepth(z, nativeNear, nativeFar) : 1.0;
+      }`,
+  }));
+}
+
 // The look renders' view transform (AgX, "Medium High Contrast", sRGB), baked by blender/make_agx_lut_web.py into a
 // 3D LUT over log2(x / 0.18). three's own AgX is the bare base curve: grey and flat next to the Cycles renders.
 export async function agxPass(urls) {

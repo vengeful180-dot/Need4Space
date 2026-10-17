@@ -554,6 +554,7 @@ body.touch .s-chips i { width: 2.1rem; height: 2.1rem; }
 .srow { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.4rem 0.5rem 0.4rem 0.95rem; cursor: default;
   border-left: 2px solid transparent; font: 600 1.05rem var(--ui); letter-spacing: 0.04em; color: var(--soft); transition: background 0.2s; }
 .srow.focus { color: #fff; border-left-color: var(--accent); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 92%); }
+.s-help { display: block; max-width: 26rem; margin-top: 0.25rem; color: var(--dim); font-size: 0.78rem; font-weight: 400; line-height: 1.4; }
 .seg { display: flex; flex-wrap: wrap; justify-content: flex-end; }
 .seg button { all: unset; cursor: pointer; margin-left: -1px; padding: 0.42rem 0.7rem 0.38rem; font: 700 0.78rem/1 var(--ui); letter-spacing: 0.14em;
   text-transform: uppercase; color: var(--dim); background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.13); transition: 0.15s; }
@@ -890,3 +891,10 @@ body.touch #fps { top: auto; bottom: 0.2rem; left: calc(0.6rem + env(safe-area-i
   animation: turn 2.2s ease-in-out infinite; }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
 @media (orientation: portrait) { body.touch #rotate { display: grid; } }
+/* Session entry stays available over the title, pause and race screens. */
+#xr-controls { position: fixed; right: 18px; bottom: 18px; z-index: 1200; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 36px); padding: 10px 14px; border: 1px solid #426276; background: #07121eed; color: #d8e9f5; font: 13px system-ui; border-radius: 8px; }
+#xr-controls button { padding: 10px 18px; border: 1px solid #5cd7ff; border-radius: 4px; background: #153b50; color: #eef8ff; cursor: pointer; font: bold 14px system-ui; white-space: nowrap; }
+#xr-controls button:disabled { opacity: .55; cursor: default; }
+#xr-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.in-xr #touch, .in-xr #hud { display: none !important; }
+@media (max-width: 600px) { #xr-controls span { display: none; } #xr-controls { right: 8px; bottom: 8px; } }

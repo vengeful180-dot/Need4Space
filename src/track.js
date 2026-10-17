@@ -587,6 +587,7 @@ export class Track {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.setIndex(idx);
+    g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * section.slice(0, -1).filter(p => p[5] !== 'cut').length;
     return g;
   }
 
@@ -624,6 +625,7 @@ export class Track {
     g.setAttribute('hullF', new THREE.Float32BufferAttribute(hf, 2));
     g.setAttribute('hullT', new THREE.Float32BufferAttribute(ht, 3));
     g.setIndex(idx);
+    g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * F;
     return g;
   }
 

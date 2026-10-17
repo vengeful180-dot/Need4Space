@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   sandstorm: true, caveFx: true, canyonAO: true, engineHeat: true, engineTrails: 'puffs', colossus: true, nozzleMotion: true, featherLivery: 'classic', cometLivery: 'titanium', heavyLivery: 'hazard', pulseRings: true, sharpEdges: true, showroom: true,
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
-  seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true };
+  seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8 };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -32,6 +32,7 @@ export const presetOf = (v) => Object.keys(PRESETS).find((p) => PRESET_KEYS.ever
 // (AI difficulty: the rivals, race.js AI_LEVELS - Normal a fair fight, Hard close to a flawless lap, Brutal at it)
 const ROWS = [
   ['quality', 'Graphics quality', [['low', 'Low (laptop)'], ['balanced', 'Balanced'], ['high', 'High'], ['custom', 'Custom']]],
+  ['xrScale', 'VR race resolution', [[0.65, 'Performance (65%)'], [0.8, 'Balanced (80%)'], [1, 'Full (100%)']]],
   ['ai', 'AI difficulty', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']]],
   ['damage', 'Ship damage (hulls wear down, a wreck resets)', [[true, 'On'], [false, 'Off']]],
   ['shipBlast', 'Ship explosions (a hull destroyed blows up)', [[true, 'On'], [false, 'Off']]],
@@ -175,7 +176,7 @@ export class Settings {
   draw() {
     this.el.innerHTML = ROWS.map(([k, label, all], r) => [k, label, all.filter(([val]) => val !== 'custom' || this.v.quality === 'custom'), r])
       .map(([k, label, opts, r]) => (GROUPS[k] ? `<div class="s-group">${GROUPS[k]}</div>` : '') +
-      `<div class="srow${r === this.focus ? ' focus' : ''}" data-r="${r}"><span>${label}</span><div class="seg">${opts.map(([val, t]) =>
+      `<div class="srow${r === this.focus ? ' focus' : ''}" data-r="${r}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower for smoother racing; higher for sharper scenery. Saved in this browser.</small>' : ''}</span><div class="seg">${opts.map(([val, t]) =>
         `<button tabindex="-1" data-k="${k}" data-v='${JSON.stringify(val)}'${k === 'ai' ? ` data-lv="${val}"` : ''} class="${this.v[k] === val ? 'on' : ''}">${t}</button>`)
         .join('')}</div></div>`).join('') +
       // which version is running (tools/stamp.py; a phone can keep an old one a while after an update)

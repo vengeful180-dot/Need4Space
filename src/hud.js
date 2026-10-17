@@ -39,7 +39,10 @@ export const CONTROLS = [
   ]],
 ];
 export const GAMEPAD = 'Left stick steer (in the air: nose up / down), RT / LT throttle, A boost, B camera, LB / RB airbrakes, X slam. ' +
-  'In the menus: d-pad, A select, B back; View pauses.';
+  'Y engines, left-stick click recover. In the menus: d-pad, A select, B back; Menu / View pauses. ' +
+  'In WebXR: left stick forward / back thrust / brake, left / right steer; right stick pitches. RT / LT also work. ' +
+  'Y (controller or keyboard) toggles the race HUD; menus stay visible. E controls engines in VR. ' +
+  'B or right-stick click recentres; U on the keyboard also recentres. Use the pause panel to exit VR.';
 
 export const controlsHTML = () => CONTROLS.map(([group, rows]) => `<div class="c-group"><div class="c-title">${group}</div>${rows.map(([keys, what]) =>
   `<div class="c-row"><span class="c-keys">${keys.map((k) => `<kbd>${k}</kbd>`).join('')}</span><span>${what}</span></div>`).join('')}</div>`).join('');
@@ -217,9 +220,21 @@ export class HUD {
     this.lapRowText = [];
   }
 
-  update(dt, s) {
-    // what kind of HUD: a race on the track, free flight in space, or laps of the meadow's road (no race there)
+  update(dt, s, immersive = false) {
+    this.state = s;                          // the same race state feeds the headset's cockpit display
     const r = s.race && s.mode !== 'free' ? s.race : null;
+    this.laps = r ? r.laps : null;
+    if (r) {
+      if (r.state === 'grid' || r.state === 'countdown' || !Number.isFinite(r.time)) this.splits.length = 0;
+      else if (Number.isFinite(r.last) && r.last !== this.splits[this.splits.length - 1]) this.splits.push(r.last);
+    }
+    if (this.goT > 0) { this.goT -= dt; if (this.goT <= 0) this.hideCount(); }
+    if (this.msgT > 0) {
+      this.msgT -= dt;
+      if (this.msgT <= 0) $('msg').style.opacity = 0;
+    }
+    if (immersive) return;                   // headset instruments consume state; the desktop DOM and minimap stay idle
+    // what kind of HUD: a race on the track, free flight in space, or laps of the meadow's road (no race there)
     const kind = r ? 'race' : s.race ? 'free' : 'laps';
     if (kind !== this.kind) { this.kind = kind; $('hud').dataset.kind = kind; }
 
@@ -314,7 +329,6 @@ export class HUD {
     if ($('assist')) { this.set('assist', s.assist ? 'on' : 'off'); this.set('pitchmode', s.invert ? 'flight-sim' : 'arcade'); }
 
     if (r) {
-      this.laps = r.laps;
       if (this.lapRowsN !== r.laps) this.buildLaps(r.laps);
       this.set('rpos', r.pos);
       this.set('rtot', r.total);
@@ -322,8 +336,6 @@ export class HUD {
       this.set('lapt', r.laps);
       // the laps so far: a new "last lap" is the next split; back on the grid they start over
       const st = r.state;
-      if (st === 'grid' || st === 'countdown' || !Number.isFinite(r.time)) this.splits.length = 0;
-      else if (Number.isFinite(r.last) && r.last !== this.splits[this.splits.length - 1]) this.splits.push(r.last);
       const done = this.splits.reduce((a, b) => a + b, 0), n = this.splits.length;
       const over = st === 'finished' && n >= r.laps;
       const cur = !Number.isFinite(r.time) ? NaN : over ? this.splits[n - 1] : r.time - done;
@@ -351,7 +363,6 @@ export class HUD {
       this.prevPos = r.pos;
       this.prevState = st;
     } else {
-      this.laps = null;
       this.prevState = null;
       if (this.countN >= 0 && !(this.goT > 0)) this.hideCount();
       this.set('lap', fmt(s.lapTime));
@@ -359,12 +370,6 @@ export class HUD {
       this.set('best', fmt(s.bestLap));
       this.set('lapn', s.lap);
     }
-    if (this.goT > 0) { this.goT -= dt; if (this.goT <= 0) this.hideCount(); }
-    if (this.msgT > 0) {
-      this.msgT -= dt;
-      if (this.msgT <= 0) $('msg').style.opacity = 0;
-    }
-
     // minimap: circuit + the rivals as dots + the ship as an arrow along its heading
     const g = this.mctx, W = this.map.width;
     g.clearRect(0, 0, W, W);

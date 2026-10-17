@@ -9,6 +9,7 @@ import { controlsHTML, GAMEPAD, fmt } from './hud.js';
 import { UPDATES, VERSION } from './changelog.js';
 import { Scoreboard } from './scoreboard.js';
 import { SHIPS, HANDLING, LIVERIES, shipName } from './ships.js';
+import { standardGamepad } from './input.js';
 
 const ui = (name) => window.__feather?.audio?.ui?.(name);
 const wake = () => window.__feather?.audio?.start?.();          // audio needs a user gesture: any menu key or click
@@ -87,7 +88,7 @@ const HINTS = {
 const UP = new Set(['ArrowUp', 'KeyW']), DOWN = new Set(['ArrowDown', 'KeyS']);
 const LEFT = new Set(['ArrowLeft', 'KeyA']), RIGHT = new Set(['ArrowRight', 'KeyD']);
 // the game's one-shot actions, held back while a menu is up (the analog inputs stay: profile.js drives through them)
-const EDGES = ['engine', 'canopy', 'camera', 'reset', 'respawn', 'help', 'mute', 'assist', 'invert', 'click', 'settings', 'mode'];
+const EDGES = ['engine', 'canopy', 'camera', 'reset', 'respawn', 'help', 'mute', 'assist', 'invert', 'click', 'settings', 'mode', 'slam'];
 
 export class Menu {
   // h: { settings, hud, input, rig, camera, race, track, ship, world, startRace(), restart(), quit(),
@@ -476,17 +477,20 @@ export class Menu {
     if (used) e.preventDefault();
   }
 
-  // gamepad in the menus (d-pad or left stick, A, B; View pauses); the game's one-shot actions are held back
-  filter(inp) {
-    const p = [...(navigator.getGamepads?.() || [])].find((g) => g && g.connected);
+  // gamepad in the menus (d-pad or left stick, A, B; Menu / View pause)
+  filter(inp, interactive = true) {
+    const p = standardGamepad();
+    const id = p ? `${p.index}:${p.id}` : null;
+    if (id !== this.padId) { this.pad = {}; this.padId = id; }
     let ev = null;
     if (p) {
       const b = (i) => (p.buttons[i]?.value || 0) > 0.5, ax = p.axes[0] || 0, ay = p.axes[1] || 0;
-      const now = { up: b(12) || ay < -0.6, down: b(13) || ay > 0.6, left: b(14) || ax < -0.6, right: b(15) || ax > 0.6, a: b(0), b: b(1), view: b(8) };
+      const now = { up: b(12) || ay < -0.6, down: b(13) || ay > 0.6, left: b(14) || ax < -0.6, right: b(15) || ax > 0.6, a: b(0), b: b(1), view: b(8) || b(9) };
       ev = {};
       for (const k in now) ev[k] = now[k] && !this.pad[k];
       this.pad = now;
     }
+    if (!interactive) return inp; // retain button edges while XR prepares, without starting a race behind its loading panel
     if (this.open || this.busy) {
       for (const k of EDGES) inp[k] = false;
       if (ev && this.open && !this.busy && Object.values(ev).some(Boolean)) {
@@ -494,7 +498,10 @@ export class Menu {
         if (ev.up) this.nav(-1); else if (ev.down) this.nav(1); else if (ev.left) this.nav(-2); else if (ev.right) this.nav(2);
         else if (ev.a) this.ok(); else if (ev.b || ev.view) this.back();
       }
-    } else if (ev?.view) this.pause();
+    } else if (ev?.view) {
+      this.pause();
+      for (const k of EDGES) inp[k] = false;
+    }
     return inp;
   }
 
