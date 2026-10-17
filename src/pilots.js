@@ -277,7 +277,10 @@ export class Comms {
     const r = RANK[what] ?? 1;
     if (!reply && r <= 1 && (this.t < this.quiet || this.t - (this.said.get(p) ?? -99) < 9)) return false;   // small talk spaced out
     if (!reply && r === 0 && this.t - (this.rivalT ?? -99) < 10) return false;                             // (rivals passing rarer)
-    if (this.cards.some((c) => c.p === p && c.what === what)) return false;                                // (not twice at once)
+    // one card a person: the same line again is skipped; a new one replaces their card, on top of the stack
+    const mine = this.cards.find((c) => c.p === p);
+    if (mine && mine.what === what) return false;
+    if (mine) this.drop(mine, true);
     const el = document.createElement('div');
     el.className = 'cm';
     el.style.setProperty('--c', team.css);
