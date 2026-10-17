@@ -139,6 +139,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "boen",
+        "totalMs": 282792,
+        "bestLapMs": 88767,
+        "lapsMs": [
+          101200,
+          92825,
+          88767
+        ],
+        "points": 58,
+        "recordedAt": "2026-10-17T19:43:52.130Z",
+        "runId": "8ac45b3d-be9c-4499-b770-c95e9de259a3"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "MMongul",
         "totalMs": 285958,
         "bestLapMs": 90600,
@@ -168,7 +183,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-17T16:22:43.030Z",
+  "updatedAt": "2026-10-17T19:43:52.130Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -184,7 +199,8 @@
       "86e22e1e-15be-4933-8e44-4a06ed13b421": "big jim",
       "8f948347-b254-4e09-b466-47fd2ae5e9fb": "MMongul",
       "bc0b81c4-06d7-471c-94c3-b3906bdc6d43": "RequirePants",
-      "2d7abb4c-c19a-4a27-9e83-4eb19ffcf7f1": "bo"
+      "2d7abb4c-c19a-4a27-9e83-4eb19ffcf7f1": "bo",
+      "8ac45b3d-be9c-4499-b770-c95e9de259a3": "boen"
     }
   }
 }
