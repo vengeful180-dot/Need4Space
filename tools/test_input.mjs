@@ -98,10 +98,19 @@ test('X slams once per press; Y starts engines; A boosts; B changes view', () =>
   assert.equal(input.read(1 / 60).slam, true);
 });
 
-test('stick clicks recover and recenter without slamming', () => {
+test('stick clicks: left recovers; right slams on the desktop and recentres in VR', () => {
   const p = pad(); pads = [p]; press(p, 10); press(p, 11);
-  const state = makeInput().read(1 / 60);
+  const desk = makeInput().read(1 / 60);
+  assert.equal(desk.respawn, true); assert.equal(desk.slam, true); assert.equal(desk.recenter, false);
+  const vr = makeInput(); vr.xr = true;
+  const state = vr.read(1 / 60);
   assert.equal(state.respawn, true); assert.equal(state.recenter, true); assert.equal(state.slam, false);
+});
+
+test('a connected pad without the standard mapping still drives the ship (XR hand controllers never do)', () => {
+  const generic = pad(0, 'Generic USB Joystick', ''), xr = pad(1, 'Quest', 'xr-standard');
+  assert.equal(standardGamepad([xr, generic]), generic);
+  assert.equal(standardGamepad([generic, pad(2)]).mapping, 'standard');
 });
 
 test('disconnect releases controls and reconnect restores button edges', () => {

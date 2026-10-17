@@ -42,7 +42,7 @@ Click or press a key once to start the sound and music (browsers block audio unt
 | M | Mute |
 | H | Controls card |
 
-A standard-mapped Xbox controller works on desktop and in WebXR. Press a button after pairing it so the browser can detect it.
+An Xbox controller (or any gamepad) works on desktop and in WebXR. Press a button after pairing it so the browser can detect it.
 
 | Xbox control | Action |
 | --- | --- |
@@ -55,7 +55,7 @@ A standard-mapped Xbox controller works on desktop and in WebXR. Press a button 
 | Y | VR: show / hide the race HUD; desktop: start / stop engines |
 | B | Change desktop camera; recenter in VR |
 | Left-stick click | Recover to the track |
-| Right-stick click / U key | Recenter in VR |
+| Right-stick click | Desktop: slam; VR: recenter (U on the keyboard too) |
 | Menu / View | Pause / resume |
 | D-pad or left stick, A, B | Navigate menus, select, back |
 

@@ -2,6 +2,14 @@
 // the title shows the first entry.
 export const UPDATES = [
   {
+    version: '1.12.0', date: '18 Oct 2026', name: 'VR',
+    notes: [
+      'Experimental VR: race from a seated cockpit in a WebXR headset, with a headset HUD and menus and a VR resolution setting. Enter VR appears only where a headset can be used - contributed by Michael Sitarzewski',
+      'Xbox controller: the Menu button pauses, a left-stick click recovers to the track, and the controller works in the menus everywhere',
+      'Nothing changes for desktop or phone players without a headset: same look, same controls',
+    ],
+  },
+  {
     version: '1.11.5', date: '17 Oct 2026', name: 'Graphics card check',
     notes: [
       'A browser that cannot use the graphics card (hardware acceleration off, or a blocked driver) now says so and how to fix it, instead of a misleading out-of-memory error',

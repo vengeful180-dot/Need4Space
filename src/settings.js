@@ -121,6 +121,7 @@ export class Settings {
     if (!this.v.musicPicked) this.v.music = DEFAULTS.music;
     delete this.v.drift; delete this.v.driftPicked;    // (drifting is no longer a setting: off)
     this.focus = 0;                                  // the row the keyboard / gamepad is on
+    this.xrOK = false;                               // a headset session possible (xr.js): the VR rows show
     this.onSet = null;                               // (k, value) after every change (menu.js: the difficulty accent)
     this.el = document.getElementById('settings');
     this.el.addEventListener('click', (e) => {
@@ -155,9 +156,18 @@ export class Settings {
 
   get focusKey() { return ROWS[this.focus][0]; }
 
-  // keyboard / gamepad: the next row up or down, the focused row's option one step left or right
+  hidden(k) { return k === 'xrScale' && !this.xrOK; }
+
+  setXR(ok) {
+    if (this.xrOK === ok) return;
+    this.xrOK = ok;
+    if (this.hidden(ROWS[this.focus][0])) this.focus = 0;
+    this.draw();
+  }
+
+  // keyboard / gamepad: the next row up or down (past rows not shown), the focused row's option one step left or right
   move(d) {
-    this.focus = (this.focus + d + ROWS.length) % ROWS.length;
+    do this.focus = (this.focus + d + ROWS.length) % ROWS.length; while (this.hidden(ROWS[this.focus][0]));
     this.mark();
     this.el.querySelector('.srow.focus')?.scrollIntoView({ block: 'nearest' });
   }
@@ -175,12 +185,14 @@ export class Settings {
 
   draw() {
     this.el.innerHTML = ROWS.map(([k, label, all], r) => [k, label, all.filter(([val]) => val !== 'custom' || this.v.quality === 'custom'), r])
+      .filter(([k]) => !this.hidden(k))
       .map(([k, label, opts, r]) => (GROUPS[k] ? `<div class="s-group">${GROUPS[k]}</div>` : '') +
       `<div class="srow${r === this.focus ? ' focus' : ''}" data-r="${r}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower for smoother racing; higher for sharper scenery. Saved in this browser.</small>' : ''}</span><div class="seg">${opts.map(([val, t]) =>
         `<button tabindex="-1" data-k="${k}" data-v='${JSON.stringify(val)}'${k === 'ai' ? ` data-lv="${val}"` : ''} class="${this.v[k] === val ? 'on' : ''}">${t}</button>`)
         .join('')}</div></div>`).join('') +
       // which version is running (tools/stamp.py; a phone can keep an old one a while after an update)
       `<div class="s-ver">Version ${VERSION} &middot; build ${document.querySelector('meta[name="build"]')?.content || 'dev'}</div>` +
+      `<div class="s-ver">Credits: VR (WebXR) and Xbox controller support by Michael Sitarzewski</div>` +
       `<div class="s-ver">© 2026 vengeful180. All rights reserved.</div>`;
   }
 }

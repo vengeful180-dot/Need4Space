@@ -85,6 +85,7 @@ export class XRControls {
     this.toolbar = document.createElement('div');
     this.toolbar.id = 'xr-controls';
     this.toolbar.innerHTML = '<button type="button" disabled>Checking VR…</button><span role="status" aria-live="polite"></span>';
+    this.toolbar.hidden = true;            // shown only once a headset session is known to be possible
     document.body.append(this.toolbar);
     this.button = this.toolbar.querySelector('button');
     this.status = this.toolbar.querySelector('span');
@@ -104,6 +105,9 @@ export class XRControls {
     try { supported = !!(isSecureContext && await navigator.xr?.isSessionSupported('immersive-vr')); }
     catch { /* a denied permissions policy is also unavailable */ }
     if (this.active || this.pending) return;
+    // no headset: nothing of VR shows - the desktop and phone game look exactly as before
+    this.toolbar.hidden = !supported;
+    this.settings?.setXR?.(supported);
     this.button.disabled = !supported;
     this.button.textContent = supported ? 'Enter VR' : 'VR unavailable';
     this.status.textContent = supported ? 'Seated cockpit · Xbox controller' :

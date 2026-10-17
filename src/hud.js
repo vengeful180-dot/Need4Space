@@ -38,7 +38,7 @@ export const CONTROLS = [
     [['Esc'], 'Pause menu'],
   ]],
 ];
-export const GAMEPAD = 'Left stick steer (in the air: nose up / down), RT / LT throttle, A boost, B camera, LB / RB airbrakes, X slam. ' +
+export const GAMEPAD = 'Left stick steer (in the air: nose up / down), RT / LT throttle, A boost, B camera, LB / RB airbrakes, X or right-stick click slam. ' +
   'Y engines, left-stick click recover. In the menus: d-pad, A select, B back; Menu / View pauses. ' +
   'In WebXR: left stick forward / back thrust / brake, left / right steer; right stick pitches. RT / LT also work. ' +
   'Y (controller or keyboard) toggles the race HUD; menus stay visible. E controls engines in VR. ' +

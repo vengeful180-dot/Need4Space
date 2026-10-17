@@ -893,6 +893,7 @@ body.touch #fps { top: auto; bottom: 0.2rem; left: calc(0.6rem + env(safe-area-i
 @media (orientation: portrait) { body.touch #rotate { display: grid; } }
 /* Session entry stays available over the title, pause and race screens. */
 #xr-controls { position: fixed; right: 18px; bottom: 18px; z-index: 1200; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 36px); padding: 10px 14px; border: 1px solid #426276; background: #07121eed; color: #d8e9f5; font: 13px system-ui; border-radius: 8px; }
+#xr-controls[hidden] { display: none; }
 #xr-controls button { padding: 10px 18px; border: 1px solid #5cd7ff; border-radius: 4px; background: #153b50; color: #eef8ff; cursor: pointer; font: bold 14px system-ui; white-space: nowrap; }
 #xr-controls button:disabled { opacity: .55; cursor: default; }
 #xr-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }

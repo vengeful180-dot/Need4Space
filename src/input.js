@@ -4,10 +4,12 @@ import { clamp } from './noise.js';
 
 export const AIRBRAKE_HOLD = 1, AIRBRAKE_WAIT = 3;       // an airbrake: on for a second at most, ready again 3 s after it fired
 
-// XR motion controllers use a different mapping. Only a standard gamepad (Xbox,
-// DualSense, etc.) belongs on this path; share the selection with the menus.
-export const standardGamepad = (pads = navigator.getGamepads?.() || []) =>
-  Array.from(pads).find((p) => p?.connected && p.mapping === 'standard') || null;
+// XR motion controllers use a different mapping ('xr-standard') and never drive this path. A standard gamepad (Xbox,
+// DualSense, etc.) is preferred; any other connected pad still works as before. Shared with the menus.
+export const standardGamepad = (pads = navigator.getGamepads?.() || []) => {
+  const all = Array.from(pads).filter((p) => p?.connected && p.mapping !== 'xr-standard');
+  return all.find((p) => p.mapping === 'standard') || all[0] || null;
+};
 export const deadzone = (v) => Math.abs(v) <= 0.12 ? 0 : (v - Math.sign(v) * 0.12) / 0.88;
 
 export class Input {
@@ -107,13 +109,13 @@ export class Input {
       s.climb = Math.max(s.climb, b(5));
       s.descend = Math.max(s.descend, b(4));
       s.airL = Math.max(s.airL, b(4)); s.airR = Math.max(s.airR, b(5));     // race: the bumpers are airbrakes
-      s.slam = s.slam || edge(2);             // X: slam (or canopy with engines off)
+      s.slam = s.slam || edge(2) || (!this.xr && edge(11));   // X (or the right stick pressed, off VR): slam / canopy
       if (this.xr) s.hudToggle = s.hudToggle || edge(3); // Y: headset instruments; E still controls engines
       else s.engine = s.engine || edge(3);
       s.canopy = s.canopy || edge(2);
       s.camera = s.camera || edge(1);
       s.respawn = s.respawn || edge(10);       // left stick: recover to the track
-      s.recenter = s.recenter || edge(11);     // right stick: also centre the seated XR view
+      s.recenter = s.recenter || (!!this.xr && edge(11));     // right stick, in VR: centre the seated view
       this.padPrev = p.buttons.map((x) => x.value);
       if (p.buttons.some((x) => x.value > 0.5) || [0, 1, 2, 3].some((i) => Math.abs(p.axes[i] || 0) > 0.5)) this.pad = true;
     } else this.padPrev = [];
