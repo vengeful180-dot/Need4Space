@@ -105,10 +105,25 @@
         "points": 60,
         "recordedAt": "2026-10-14T12:36:13.069Z",
         "runId": "ddfc5754-08f5-4921-8f5c-8a0792a896b0"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
+        "name": "big jim",
+        "totalMs": 299342,
+        "bestLapMs": 94358,
+        "lapsMs": [
+          103717,
+          101267,
+          94358
+        ],
+        "points": 51,
+        "recordedAt": "2026-10-17T14:51:17.829Z",
+        "runId": "86e22e1e-15be-4933-8e44-4a06ed13b421"
       }
     ]
   },
-  "updatedAt": "2026-10-14T21:12:57.561Z",
+  "updatedAt": "2026-10-17T14:51:17.829Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -120,7 +135,8 @@
       "60da33ca-e121-4258-836c-2bf67faa3727": "Spermy",
       "625b2945-fce2-4961-b1c0-8a130cc79a45": "V3ngeful",
       "913af0c7-8deb-4f19-a15f-7e8b607f9db9": "rox",
-      "adb68a90-fdb5-4e64-8c36-2ee310a1a557": "rox"
+      "adb68a90-fdb5-4e64-8c36-2ee310a1a557": "rox",
+      "86e22e1e-15be-4933-8e44-4a06ed13b421": "big jim"
     }
   }
 }
