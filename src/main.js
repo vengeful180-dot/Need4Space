@@ -651,6 +651,7 @@ async function boot() {
     if (warmed && sig !== programSig) rewarm();
     programSig = sig;
   }, integratedGPU(gpuName) || isTouch());             // (a phone or tablet: Laptop mode on a first visit too)
+  settings.circuit = MAP; settings.draw();             // (its bar marked: the circuit loaded)
 
   const lap = { started: false, time: 0, last: Infinity, best: Infinity, lap: 1, idx: START, progress: 0, s: 0 };
   let autoChase = false, wasCrashed = false, t = 0;

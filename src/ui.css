@@ -87,6 +87,7 @@ kbd { display: inline-block; min-width: 0.9em; text-align: center; font: 700 0.7
 #hud { position: fixed; inset: 0; pointer-events: none; z-index: 2; transition: opacity 0.6s ease; }
 body[data-ui="loading"] #hud, body[data-ui="title"] #hud, body[data-ui="results"] #hud { opacity: 0; }
 body[data-ui="pause"] #hud { opacity: 0.4; }
+body.touch[data-ui="pause"] #hud { opacity: 0; }                          /* (a phone: the pause list needs the whole screen) */
 body[data-ui="pause"] #hud * { animation-play-state: paused !important; }   /* the countdown and banners wait with the game */
 
 .hp { position: absolute; box-sizing: border-box; padding: 0.7rem 0.95rem;
@@ -255,10 +256,6 @@ body.lite .hp { background: linear-gradient(115deg, rgba(9, 13, 19, 0.86), rgba(
 #atkhint.in[data-side="r"] i.r { transform: rotate(135deg) scale(1.25); }
 /* (the slam's bar lives in #hullbar's top row; free flight has no slam) */
 #hud:not([data-kind="race"]) #hullbar .slam-l, #hud:not([data-kind="race"]) #hullbar .bar.slam { visibility: hidden; }
-.t-slam { display: none; right: calc(27vmin + env(safe-area-inset-right)); bottom: 50vmin; width: 15vmin; height: 15vmin; font-size: 0.62rem;
-  letter-spacing: 0.06em; border-color: rgba(255, 138, 58, 0.7); }
-.t-slam.on { background: rgba(255, 138, 58, 0.55); border-color: #ff8a3a; box-shadow: 0 0 1.2rem #ff6a20; }
-#touch[data-mode="race"] .t-slam { display: grid; }
 @keyframes hull-num { 0% { color: #ff6a50; transform: scale(1.25); } 100% { color: #fff; transform: none; } }
 /* the drift's charge: there while drifting, its colour the step reached */
 .meter.drift { opacity: 0; transition: opacity 0.25s; }
@@ -414,7 +411,7 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .m-item.sel { color: #fff; transform: translateX(0.7rem); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 88%); }
 .m-item.sel::before { transform: scaleY(1); }
 .m-item.sel .m-num { color: var(--accent); }
-.m-desc { min-height: 1.4em; margin-top: 1.3rem; padding-left: 1.3rem; font: 500 1.1rem var(--ui); letter-spacing: 0.05em; color: var(--dim); }
+.m-desc { min-height: 1.4em; max-width: 36rem; margin-top: 1.3rem; padding-left: 1.3rem; font: 500 1.1rem var(--ui); letter-spacing: 0.05em; color: var(--dim); }
 .m-desc.swap { animation: fade-in 0.3s ease both; }
 @keyframes fade-in { from { opacity: 0; transform: translateX(-0.4rem); } to { opacity: 1; transform: none; } }
 
@@ -519,6 +516,8 @@ body.touch .s-fly kbd { display: none; }
 .s-chips em { display: none; margin-right: 0.2rem; font: 700 0.86rem/1 var(--ui); font-style: normal; letter-spacing: 0.2em; color: var(--accent); }
 .m-item.sel .s-chips em { display: inline; }
 body.touch .s-chips i { width: 2.1rem; height: 2.1rem; }
+/* a phone: the paint chips on the chosen ship's row only (on every row they covered the ship in the showroom) */
+body.touch .m-screen[data-s="ship"] .m-item:not(.sel) .s-chips { display: none; }
 .d-slot.sel .d-bar i.on { background: var(--c); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--c) 70%, transparent);
   transition-delay: calc(var(--k) * 35ms + 120ms); }
 .d-sweep { position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
@@ -547,8 +546,22 @@ body.touch .s-chips i { width: 2.1rem; height: 2.1rem; }
 
 /* settings */
 .m-slot-settings { width: min(42rem, 100%); margin-top: 1.6rem; }
-#settings { max-height: calc(100vh - 17.5rem); overflow: auto; padding-right: 0.5rem; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent; }
-.s-group { margin: 1.15rem 0 0.35rem; padding-left: 0.95rem; font: 700 0.74rem var(--ui); letter-spacing: 0.34em; text-transform: uppercase; color: var(--accent); }
+#settings { max-height: calc(100vh - 17.5rem); overflow: auto; padding: 0.35rem 0.5rem 0.5rem 0; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  background: rgba(4, 7, 11, 0.8); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 6px; }
+/* a section's bar: opens and closes its rows */
+.srow.s-bar { margin-top: 0.3rem; padding-top: 0.6rem; padding-bottom: 0.6rem; cursor: pointer; font: 700 0.84rem var(--ui); letter-spacing: 0.24em;
+  text-transform: uppercase; color: #fff; background: rgba(255, 255, 255, 0.035); }
+.srow.s-bar:first-child { margin-top: 0; }
+.srow.s-bar:hover { background: rgba(255, 255, 255, 0.07); }
+.srow.s-bar.focus { background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 22%, transparent), rgba(255, 255, 255, 0.035) 92%); }
+.s-bar span { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 0.8rem; }
+.s-bar .s-n { margin-left: auto; font: 600 0.72rem var(--ui); letter-spacing: 0.1em; color: var(--faint); }
+.s-bar::after { content: ''; flex: none; width: 0.45rem; height: 0.45rem; margin: 0 0.5rem 0.2rem 0; border: solid currentColor; border-width: 0 2px 2px 0;
+  transform: rotate(45deg); transition: transform 0.2s; }
+.s-bar.open::after { margin-bottom: -0.2rem; transform: rotate(-135deg); }
+.s-cur { font: 600 0.62rem var(--ui); font-style: normal; letter-spacing: 0.18em; color: var(--accent); }
+.srow:not(.s-bar) { padding-left: 1.5rem; }
+.s-group { margin: 1.15rem 0 0.15rem; padding-left: 0.95rem; font: 700 0.74rem var(--ui); letter-spacing: 0.34em; text-transform: uppercase; color: var(--accent); }
 .s-group:first-child { margin-top: 0; }
 .s-ver { margin: 1.2rem 0 0.4rem; padding-left: 0.95rem; font: 600 0.7rem var(--ui); letter-spacing: 0.24em; text-transform: uppercase; color: var(--faint); }
 .srow { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.4rem 0.5rem 0.4rem 0.95rem; cursor: default;
@@ -705,6 +718,8 @@ body.touch .s-chips i { width: 2.1rem; height: 2.1rem; }
   .m-slot-settings { margin-top: 0.8rem; }
   #settings { max-height: calc(100vh - 7.5rem); }
   .srow { padding: 0.25rem 0.4rem 0.25rem 0.8rem; font-size: 0.95rem; }
+  .srow:not(.s-bar) { padding-left: 1.2rem; }
+  .srow.s-bar { padding-top: 0.5rem; padding-bottom: 0.5rem; font-size: 0.78rem; }
   .seg button { padding: 0.55rem 0.6rem 0.5rem; }
   .c-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem 1.6rem; margin-top: 0.8rem; }
   .c-row { padding: 0.22rem 0; font-size: 0.9rem; }
@@ -846,7 +861,7 @@ body.touch[data-ui="game"] #touch { display: block; }
   border: 2px solid rgba(255, 255, 255, 0.2); background: radial-gradient(circle, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 70%);
   opacity: 0.5; transition: opacity 0.25s; }
 .t-zone[data-side="l"] .t-stick { left: 30%; top: 64%; }
-.t-zone[data-side="r"] .t-stick { left: 66%; top: 64%; }
+.t-zone[data-side="r"] .t-stick { left: 44%; top: 66%; }
 .t-zone.on .t-stick { opacity: 1; transition: none; }
 .t-stick i { position: absolute; left: 50%; top: 50%; width: 12vmin; height: 12vmin; margin: -6vmin 0 0 -6vmin; border-radius: 50%;
   background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.45); box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35); }
@@ -856,20 +871,31 @@ body.touch[data-ui="game"] #touch { display: block; }
   font: 700 0.78rem/1 var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: #fff;
   background: rgba(8, 12, 18, 0.45); border: 2px solid rgba(255, 255, 255, 0.28); }
 .t-btn.on { background: color-mix(in srgb, var(--accent) 55%, transparent); border-color: var(--accent); }
-.t-boost { right: calc(5vmin + env(safe-area-inset-right)); bottom: 52vmin; width: 19vmin; height: 19vmin; border-color: color-mix(in srgb, var(--boost) 70%, transparent); }
-.t-boost.on { background: color-mix(in srgb, var(--boost) 60%, transparent); border-color: var(--boost); box-shadow: 0 0 1.4rem var(--boost); }
-.t-engine { display: none; right: calc(27vmin + env(safe-area-inset-right)); bottom: 58vmin; width: 15vmin; height: 15vmin; font-size: 0.62rem; letter-spacing: 0.06em; }
-#touch[data-mode="free"] .t-engine { display: grid; }
-.t-small { top: calc(2.5vmin + env(safe-area-inset-top)); width: 11vmin; height: 11vmin; font-size: 0.6rem; letter-spacing: 0.08em; }
-.t-pause { left: calc(50% - 12.5vmin); }
-.t-cam { left: calc(50% + 1.5vmin); }
+/* the right thumb's arc round the phone's corner: Boost big in the corner (its ring the energy left), Slam above it
+   (lit when charged; free flight's Engines in the same place), the throttle stick's resting ring left of them */
+.t-boost { right: calc(4vmin + env(safe-area-inset-right)); bottom: calc(5vmin + env(safe-area-inset-bottom)); width: 23vmin; height: 23vmin;
+  border-color: transparent; }
+.t-boost::before { content: ''; position: absolute; inset: -2px; border-radius: 50%; padding: 0.22rem; pointer-events: none;
+  background: conic-gradient(var(--boost) calc(var(--e, 1) * 1turn), rgba(255, 255, 255, 0.16) 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
+.t-boost.on { background: color-mix(in srgb, var(--boost) 60%, transparent); box-shadow: 0 0 1.4rem var(--boost); }
+.t-slam, .t-engine { display: none; right: calc(7vmin + env(safe-area-inset-right)); bottom: calc(32vmin + env(safe-area-inset-bottom));
+  width: 16vmin; height: 16vmin; font-size: 0.62rem; letter-spacing: 0.06em; }
+.t-slam { border-color: rgba(255, 138, 58, 0.35); color: rgba(255, 255, 255, 0.6); }
+.t-slam.ready { border-color: #ff8a3a; color: #fff; box-shadow: 0 0 0.9rem rgba(255, 106, 32, 0.7); }
+.t-slam.on { background: rgba(255, 138, 58, 0.55); border-color: #ff8a3a; box-shadow: 0 0 1.2rem #ff6a20; }
+#touch[data-mode="race"] .t-slam, #touch[data-mode="free"] .t-engine { display: grid; }
+.t-small { top: calc(2.5vmin + env(safe-area-inset-top)); width: 12.5vmin; height: 12.5vmin; font-size: 0.6rem; letter-spacing: 0.08em; }
+.t-pause { left: calc(50% - 14.5vmin); }
+.t-cam { left: calc(50% + 2vmin); }
 .t-bars { display: flex; gap: 0.28rem; }
 .t-bars i { width: 0.3rem; height: 1rem; background: #fff; }
 
 /* the HUD out from under the thumbs: speed in the bottom middle, the time compact, the map off on a phone */
 body.touch #hud-speed { left: 50%; bottom: 0.4rem; width: 14rem; padding: 0.45rem 0.75rem 0.5rem; transform: translateX(-50%); }
 body.touch #hud-speed .minor, body.touch #hud-speed .meter { display: none; }
-body.touch #hullbar { bottom: 6.2rem; width: 66vw; }
+body.touch #hullbar { bottom: 6.2rem; width: min(40vw, 19rem); }
 body.touch #hud-time .trow:not(.score), body.touch #splits { display: none; }
 body.touch #hud-time { width: auto; min-width: 9rem; }
 body.touch #hud-tl { top: calc(var(--g) + env(safe-area-inset-top)); left: calc(var(--g) + env(safe-area-inset-left)); }
@@ -891,9 +917,9 @@ body.touch #fps { top: auto; bottom: 0.2rem; left: calc(0.6rem + env(safe-area-i
   animation: turn 2.2s ease-in-out infinite; }
 @keyframes turn { 0%, 25% { transform: rotate(0); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
 @media (orientation: portrait) { body.touch #rotate { display: grid; } }
-/* Session entry stays available over the title, pause and race screens. */
+/* VR entry over the title and pause screens (where a headset can be used); out of the way while racing */
 #xr-controls { position: fixed; right: 18px; bottom: 18px; z-index: 1200; display: flex; align-items: center; gap: 12px; max-width: calc(100vw - 36px); padding: 10px 14px; border: 1px solid #426276; background: #07121eed; color: #d8e9f5; font: 13px system-ui; border-radius: 8px; }
-#xr-controls[hidden] { display: none; }
+#xr-controls[hidden], body[data-ui="game"] #xr-controls:not(.presenting) { display: none; }
 #xr-controls button { padding: 10px 18px; border: 1px solid #5cd7ff; border-radius: 4px; background: #153b50; color: #eef8ff; cursor: pointer; font: bold 14px system-ui; white-space: nowrap; }
 #xr-controls button:disabled { opacity: .55; cursor: default; }
 #xr-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }

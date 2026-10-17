@@ -93,21 +93,26 @@ export class XRControls {
     addEventListener('keydown', (event) => {
       if (this.active && event.code === 'Escape' && !event.repeat) this.menu.pause();
     });
-    navigator.xr?.addEventListener('devicechange', () => this.checkSupport());
+    // (a phone never asks: on Android the question wakes the VR service, and the answer would hide anyway)
+    if (!XRControls.phone()) navigator.xr?.addEventListener('devicechange', () => this.checkSupport());
     this.checkSupport();
   }
 
   get active() { return this.renderer.xr.isPresenting; }
 
+  // a phone or tablet (Android answers yes for a cardboard viewer); the headset browsers say who they are
+  static phone(ua = navigator.userAgent || '') {
+    return /Android|iPhone|iPad/i.test(ua) && !/OculusBrowser|Quest|Pico|Wolvic|\bVR\b/i.test(ua);
+  }
+
   async checkSupport() {
     if (this.active || this.pending) return;
     let supported = false;
-    try { supported = !!(isSecureContext && await navigator.xr?.isSessionSupported('immersive-vr')); }
+    try { supported = !!(isSecureContext && !XRControls.phone() && await navigator.xr?.isSessionSupported('immersive-vr')); }
     catch { /* a denied permissions policy is also unavailable */ }
     if (this.active || this.pending) return;
     // no headset: nothing of VR shows - the desktop and phone game look exactly as before
     this.toolbar.hidden = !supported;
-    this.settings?.setXR?.(supported);
     this.button.disabled = !supported;
     this.button.textContent = supported ? 'Enter VR' : 'VR unavailable';
     this.status.textContent = supported ? 'Seated cockpit · Xbox controller' :
@@ -142,6 +147,7 @@ export class XRControls {
       this.toolbar.classList.add('presenting');
       this.button.textContent = 'Exit VR'; this.status.textContent = this.prepareMessage;
       document.body.classList.add('in-xr');
+      this.settings?.setXR?.(true);        // the VR resolution row, only while a headset is in use (read every frame)
     } catch (error) {
       this.preparing = false;
       if (session) await session.end().catch(() => {});
@@ -166,6 +172,7 @@ export class XRControls {
     this.menu.pause();
     this.input.keys.clear(); this.input.pressed.clear(); this.input.stick.x = this.input.stick.y = 0;
     this.toolbar.classList.remove('presenting'); document.body.classList.remove('in-xr');
+    this.settings?.setXR?.(false);
     this.button.textContent = 'Enter VR'; this.button.disabled = false;
     this.onEnd();
   }

@@ -243,6 +243,9 @@ export class HUD {
     const lit = Math.round(Math.min(1, s.speed / 360) * SEGS);
     if (lit !== this.lit) { this.segs.forEach((e, i) => e.classList.toggle('on', i < lit)); this.lit = lit; }
     $('bst').style.transform = `scaleX(${Math.max(0, Math.min(1, s.boostEnergy))})`;
+    // the touch Boost button's ring: the energy left (in steps, so its style changes only when the ring moves)
+    const be = Math.round(Math.max(0, Math.min(1, s.boostEnergy)) * 60) / 60;
+    if (be !== this.be) { (this.tBoost ||= document.querySelector('.t-boost'))?.style.setProperty('--e', be); this.be = be; }
     const over = Math.max(0, Math.min(1, (s.boostEnergy - 1) / 0.5));
     if (over !== this.over) { $('bstx').style.transform = `scaleX(${over})`; this.over = over; }
     $('thr').style.transform = `scaleX(${Math.max(0, Math.min(1, s.throttle))})`;
@@ -279,7 +282,11 @@ export class HUD {
       if (sc !== this.sc) {
         $('slm').style.transform = `scaleX(${sc})`;
         const ready = sc >= 0.999;
-        if (ready !== this.slamReady) { $('slm').parentElement.classList.toggle('ready', ready); this.slamReady = ready; }
+        if (ready !== this.slamReady) {
+          $('slm').parentElement.classList.toggle('ready', ready);
+          (this.tSlam ||= document.querySelector('.t-slam'))?.classList.toggle('ready', ready);   // (the touch button lit)
+          this.slamReady = ready;
+        }
         this.sc = sc;
       }
     }

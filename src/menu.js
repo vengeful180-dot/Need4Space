@@ -196,6 +196,7 @@ export class Menu {
           <div class="c-row"><span class="c-keys"><kbd>Left stick</kbd></span><span>Steer (in the air: nose up / down)</span></div>
           <div class="c-row"><span class="c-keys"><kbd>Right stick</kbd></span><span>Up: throttle - down: brake - sideways: airbrakes</span></div>
           <div class="c-row"><span class="c-keys"><kbd>Boost</kbd></span><span>Boost (orange pads on the track kick too)</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Slam</kbd></span><span>Slam a rival beside you (lit when charged); a slam coming: tap it to block</span></div>
           <div class="c-row"><span class="c-keys"><kbd>Cam</kbd></span><span>Camera: chase, far, canopy, fly-by, orbit</span></div>
           <div class="c-row"><span class="c-keys"><kbd>II</kbd></span><span>Pause menu</span></div>
         </div>
@@ -416,7 +417,7 @@ export class Menu {
       settings: 'Picture, effects, audio and performance',
       controls: 'Keyboard, mouse and gamepad',
       support: 'Donate to keep Need4Space flying',
-      circuit: 'Space, the forest moon, the ice planet or the desert planet',
+      circuit: 'Space, the forest moon, or the ice, desert or ocean planet',
       ship: 'The Feather S1, the Comet R1 or the Anvil H1 - look them over in the showroom',
       scoreboard: 'The global top 10 for each circuit and difficulty',
       ...Object.fromEntries(CIRCUITS.map(([id, , d]) => ['map:' + id, d])),

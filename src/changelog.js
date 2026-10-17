@@ -2,6 +2,15 @@
 // the title shows the first entry.
 export const UPDATES = [
   {
+    version: '1.12.1', date: '18 Oct 2026', name: 'Phones and Settings',
+    notes: [
+      'Phones: the Slam button is back above Boost (it had slipped into the top corner), Boost sits low in the right corner under the thumb with a ring showing the boost left, and Slam lights up when it is charged',
+      'Phones: no more Enter VR box over the game, the meters sit between the sticks, the pause menu gets the whole screen, and the Ship screen shows the paint chips of the chosen ship only',
+      'Settings in sections that open and close - General, Race, Picture, Ships, Performance and one for each circuit, the current one marked - on a darker panel that is easier to read',
+      'The VR settings show only while a headset is in use',
+    ],
+  },
+  {
     version: '1.12.0', date: '18 Oct 2026', name: 'VR',
     notes: [
       'Experimental VR: race from a seated cockpit in a WebXR headset, with a headset HUD and menus and a VR resolution setting. Enter VR appears only where a headset can be used - contributed by Michael Sitarzewski',
