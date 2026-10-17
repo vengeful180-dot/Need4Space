@@ -6,23 +6,24 @@
         "map": "desert",
         "difficulty": "normal",
         "name": "V3ngeful",
-        "totalMs": 143458,
-        "bestLapMs": 46150,
+        "totalMs": 138267,
+        "bestLapMs": 45342,
         "lapsMs": [
-          49875,
-          47433,
-          46150
+          45833,
+          45342,
+          47092
         ],
-        "points": 66,
-        "recordedAt": "2026-10-14T19:19:37.825Z",
-        "runId": "15afd0dc-73c4-42ca-a71b-09cbb4601508"
+        "points": 74,
+        "recordedAt": "2026-10-17T00:44:36.401Z",
+        "runId": "1af913b1-a757-4f88-937a-4f9d22408930"
       }
     ]
   },
-  "updatedAt": "2026-10-14T19:19:37.825Z",
+  "updatedAt": "2026-10-17T00:44:36.401Z",
   "submissions": {
     "desert:normal": {
-      "15afd0dc-73c4-42ca-a71b-09cbb4601508": "V3ngeful"
+      "15afd0dc-73c4-42ca-a71b-09cbb4601508": "V3ngeful",
+      "1af913b1-a757-4f88-937a-4f9d22408930": "V3ngeful"
     }
   }
 }
