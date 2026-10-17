@@ -76,7 +76,7 @@ The headset panel shows speed, thrust, position, lap, hull, boost, airbrake char
 
 VR renders the sky and both depth slices into single-sample per-eye HDR buffers, then combines their color and restores the headset's continuous depth range. Forced 4× MSAA has been removed to reduce framebuffer storage and resolve bandwidth. The buffers are reused between eyes and released on exit. Background showroom preparation waits until VR ends. Screen-space desktop effects (AO, reflections, bloom and blur) are bypassed; desktop graphics settings are retained for returning to the browser view. Rendering and session transitions have been checked with the IWER emulator; native headset testing is ongoing.
 
-**Settings → Graphics → VR race resolution** controls the world during play: **Balanced (80%)** is the default, shading 36% fewer world pixels; **Performance (65%)** shades about 58% fewer; **Full (100%)** keeps native world resolution. Title / pause menus and the headset HUD render at native resolution. Switching between a race and its menus reuses the eye buffers. The desktop HUD and minimap stop updating while VR is active; headset state, message timers and lap history continue updating.
+**Settings → General → VR race resolution** (shown while a headset is in use) controls the world during play: **Balanced (80%)** is the default, shading 36% fewer world pixels; **Performance (65%)** shades about 58% fewer; **Full (100%)** keeps native world resolution. Title / pause menus and the headset HUD render at native resolution. Switching between a race and its menus reuses the eye buffers. The desktop HUD and minimap stop updating while VR is active; headset state, message timers and lap history continue updating.
 
 During VR preparation, the track's long swept meshes get bounds for short sections. Each eye and depth slice submits only the sections intersecting its view, merging adjacent visible ranges into a draw call. This reuses the original geometry and materials; desktop rendering retains its original draw ranges.
 
@@ -90,7 +90,7 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
 
 - **WebXR (experimental):** a tracked seated cockpit, Xbox controls, in-headset menus, a toggleable HUD, and saved 65% / 80% / 100% VR race resolution choices. See [WebXR](#webxr) for setup and limitations.
 - **Rivals:** AI on three difficulty levels, Normal, Hard and Brutal. They follow a racing line, plan their boost, use the boost pads, slipstream, overtake and defend.
-- **Physics:** track-space hover physics with jumps, loops, gravity flips, wall knocks and ship-to-ship contact. Drifting can be switched on in Settings.
+- **Physics:** track-space hover physics with jumps, loops, gravity flips, wall knocks and ship-to-ship contact.
 - **Picture:**
   - PCSS sun shadows in three cascades;
   - screen-space deck reflections;
@@ -101,7 +101,7 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
   - a two-slice depth range for precise far scenery.
 - **Procedural art:** the deck, the structure's steel, the rocks (hex-tiled triplanar, with craters), the gas giant, its rings, the moon and the plasma sun are all generated on the GPU at load.
 - **3D sound:** HRTF-panned positional audio with distance filtering and Doppler; echo inside the tunnel and the meteorite.
-- **Settings:** every look feature has its own switch.
+- **Settings:** graphics presets, picture and performance options, and each circuit's effects in a section of its own.
 
 ## Support
 

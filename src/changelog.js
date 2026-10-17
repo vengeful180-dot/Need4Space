@@ -6,7 +6,8 @@ export const UPDATES = [
     notes: [
       'Phones: the Slam button is back above Boost (it had slipped into the top corner), Boost sits low in the right corner under the thumb with a ring showing the boost left, and Slam lights up when it is charged',
       'Phones: no more Enter VR box over the game, the meters sit between the sticks, the pause menu gets the whole screen, and the Ship screen shows the paint chips of the chosen ship only',
-      'Settings in sections that open and close - General, Race, Picture, Ships, Performance and one for each circuit, the current one marked - on a darker panel that is easier to read',
+      'Settings in sections that open and close - General, Picture, Performance and one for each circuit, the current one marked - on a darker panel that is easier to read',
+      'Ship damage, explosions, the rival mix and the ship look switches are part of the game now and leave Settings (paint is chosen on the Ship screen); Low graphics also turns off shockwaves and the Ship screen showroom',
       'The VR settings show only while a headset is in use',
     ],
   },

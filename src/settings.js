@@ -1,6 +1,5 @@
 // Settings (O): every look feature has a switch that changes the picture and costs what it costs; saved per browser.
 import { VERSION } from './changelog.js';
-import { LIVERIES, shipName } from './ships.js';
 
 const KEY = 'feather.settings.v4';
 export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: true, shadows: 'high', scale: 1, exposure: 0, fps: true,
@@ -17,16 +16,22 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
 // the defaults. Balanced keeps every material and light and most of the look, and halves the costly parts: MSAA 2x,
 // AO at half resolution, medium shadows, no deck reflections, the heaviest weather left out.
 const PRESET_KEYS = ['laptop', 'scale', 'aa', 'ao', 'aoRes', 'reflections', 'shadows', 'streaks', 'blur', 'shafts', 'iceSnow', 'iceDust',
-  'iceGeysers', 'wreckFx', 'wreckMist', 'sandFx', 'dustDevils', 'heatHaze', 'caveFx', 'engineHeat', 'engineTrails', 'seaReflect'];
+  'iceGeysers', 'wreckFx', 'wreckMist', 'sandFx', 'dustDevils', 'heatHaze', 'caveFx', 'engineHeat', 'engineTrails', 'seaReflect',
+  'shockwaves', 'showroom'];
 export const PRESETS = {
   low: { laptop: true, scale: 1, aa: 'smaa1', ao: false, aoRes: 'auto', reflections: false, shadows: 'off', streaks: false, blur: false,
     shafts: false, iceSnow: false, iceDust: false, iceGeysers: false, wreckFx: false, wreckMist: false, sandFx: false, dustDevils: false,
-    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false },
+    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false },
   balanced: { laptop: false, scale: 1, aa: 'fast', ao: true, aoRes: 'half', reflections: false, shadows: 'medium', streaks: true, blur: true,
     shafts: true, iceSnow: true, iceDust: false, iceGeysers: true, wreckFx: true, wreckMist: false, sandFx: true, dustDevils: false,
-    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true },
+    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true },
   high: Object.fromEntries(PRESET_KEYS.map((k) => [k, DEFAULTS[k]])),
 };
+// no row of their own any more: the race's mechanics and the ships' look as the game has them, for everyone, whatever
+// was saved before; the costly ship effects (heat shimmer, trails, shockwaves, showroom) as the saved preset has them
+const FIXED = ['damage', 'shipBlast', 'rivalMix', 'deckLight', 'hullShadows', 'engineFaces', 'shipPaint', 'shipTrim', 'shipAccents',
+  'nozzleMotion', 'pulseRings', 'sharpEdges', 'brakeLights'];
+const BY_PRESET = ['engineHeat', 'engineTrails', 'shockwaves', 'showroom'];
 // which preset the rows match now (or 'custom')
 export const presetOf = (v) => Object.keys(PRESETS).find((p) => PRESET_KEYS.every((k) => v[k] === PRESETS[p][k])) || 'custom';
 // (AI difficulty: the rivals, race.js AI_LEVELS - Normal a fair fight, Hard close to a flawless lap, Brutal at it)
@@ -34,11 +39,7 @@ const ROWS = [
   ['quality', 'Graphics quality', [['low', 'Low (laptop)'], ['balanced', 'Balanced'], ['high', 'High'], ['custom', 'Custom']]],
   ['xrScale', 'VR race resolution', [[0.65, 'Performance (65%)'], [0.8, 'Balanced (80%)'], [1, 'Full (100%)']]],
   ['ai', 'AI difficulty', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']]],
-  ['damage', 'Ship damage (hulls wear down, a wreck resets)', [[true, 'On'], [false, 'Off']]],
-  ['shipBlast', 'Ship explosions (a hull destroyed blows up)', [[true, 'On'], [false, 'Off']]],
   ['slamCam', 'Slam camera (your slams in slow motion, seen from the side)', [[true, 'On'], [false, 'Off']]],
-  ['shockwaves', 'Shockwaves (slams and blasts bend the air)', [[true, 'On'], [false, 'Off']]],
-  ['rivalMix', 'Rival ships (from the next load)', [['mixed', 'Feathers, Comets, Anvils'], ['feather', 'Feathers only']]],
   ['airPitch', 'Nose control in the air', [[true, 'On'], [false, 'Off']]],
   ['music', 'Music', [['off', 'Off'], ['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
   ['sfx', 'Sound effects', [['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
@@ -51,19 +52,6 @@ const ROWS = [
   ['canyonAO', 'Canyon shading (ice, desert; needs AO)', [[true, 'On'], [false, 'Off']]],
   ['bloom', 'Bloom', [[true, 'On'], [false, 'Off']]],
   ['reflections', 'Deck reflections (needs AO)', [[true, 'On'], [false, 'Off']]],
-  ['deckLight', 'Road light on the ships', [[true, 'On'], [false, 'Off']]],
-  ['hullShadows', 'Ship seam shadows', [[true, 'On'], [false, 'Off']]],
-  ['engineFaces', 'Engine faces', [['dark', 'Dark, ring glow only'], ['glow', 'Glowing']]],
-  ['shipPaint', 'Ship paint', [['gloss', 'Deep gloss, metal flake'], ['classic', 'Classic']]],
-  ['shipTrim', 'Ship metal trim', [['dark', 'Dark satin'], ['classic', 'Classic']]],
-  ['shipAccents', 'Ship accent lights', [[true, 'On'], [false, 'Off']]],
-  ['engineHeat', 'Engine heat shimmer', [[true, 'On'], [false, 'Off']]],
-  ['engineTrails', 'Engine trails', [['puffs', 'Glowing gas'], ['ribbon', 'Light ribbons']]],
-  ['nozzleMotion', 'Rocket nozzle: spinning, folding teeth (Comet)', [[true, 'On'], [false, 'Off']]],
-  ...Object.entries(LIVERIES).map(([id, L]) => [L.key, `${shipName(id)} livery`, L.names.map((n, k) => [n, L.labels[k]])]),
-  ['pulseRings', 'Pulse engine rings and shock diamonds (Anvil)', [[true, 'On'], [false, 'Off']]],
-  ['sharpEdges', 'Sharp paint edges up close', [[true, 'On'], [false, 'Off']]],
-  ['showroom', 'Ship screen: the ships in a showroom', [[true, 'On'], [false, 'Off']]],
   ['streaks', 'Light streaks', [[true, 'On'], [false, 'Off']]],
   ['blur', 'Speed blur', [[true, 'On'], [false, 'Off']]],
   ['shafts', 'Light shafts (forest moon, ice planet, desert)', [[true, 'On'], [false, 'Off']]],
@@ -88,7 +76,6 @@ const ROWS = [
   ['kraken', 'The giant squid on its rock off the start', [[true, 'On'], [false, 'Off']]],
   ['oceanRain', 'Rain: streaks, splashes on the deck, rings on the sea', [[true, 'On'], [false, 'Off']]],
   ['oceanPillars', 'The alien pillars round the circuit', [[true, 'On'], [false, 'Off']]],
-  ['brakeLights', 'Brake lights', [[true, 'On'], [false, 'Off']]],
   ['shadows', 'Shadows', [['high', 'High'], ['medium', 'Medium'], ['off', 'Off']]],
   ['scale', 'Render scale', [[0.5, '50%'], [0.75, '75%'], [1, '100%'], [1.25, '125%'], [1.5, '150%']]],
   ['fps', 'FPS readout', [[true, 'On'], [false, 'Off']]],
@@ -97,11 +84,8 @@ const ROWS = [
 // the Settings screen's sections: each a bar that opens and closes (General open on arrival), each circuit's own
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
-  ['general', 'General', ['quality', 'xrScale', 'ai', 'music', 'sfx', 'touch']],
-  ['race', 'Race', ['damage', 'shipBlast', 'slamCam', 'shockwaves', 'rivalMix', 'airPitch']],
-  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'brakeLights']],
-  ['ships', 'Ships', ['deckLight', 'hullShadows', 'engineFaces', 'shipPaint', 'shipTrim', 'shipAccents', 'engineHeat', 'engineTrails',
-    'nozzleMotion', ...Object.values(LIVERIES).map((L) => L.key), 'pulseRings', 'sharpEdges', 'showroom']],
+  ['general', 'General', ['quality', 'xrScale', 'ai', 'slamCam', 'airPitch', 'music', 'sfx', 'touch']],
+  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],
   ['forest', 'Forest moon', ['caveFx']],
@@ -111,7 +95,7 @@ const SECTIONS = [
 ];
 {
   const placed = new Set(SECTIONS.flatMap(([, , keys]) => keys));
-  SECTIONS[2][2].push(...ROWS.map(([k]) => k).filter((k) => !placed.has(k)));
+  SECTIONS[1][2].push(...ROWS.map(([k]) => k).filter((k) => !placed.has(k)));
 }
 const FIRST_CIRCUIT = 'space';                       // (the circuits' bars from here on, under a "Circuits" heading)
 const ROW = Object.fromEntries(ROWS.map((r) => [r[0], r]));
@@ -134,6 +118,8 @@ export class Settings {
     // a preset saved before a row joined it: that row as the preset has it (a Low player stays on Low, not Custom
     // with a new effect on)
     try { const sv = JSON.parse(saved || '{}'); if (PRESETS[sv.quality]) for (const k of PRESET_KEYS) if (!(k in sv)) this.v[k] = PRESETS[sv.quality][k]; } catch { /* as it is */ }
+    for (const k of FIXED) this.v[k] = DEFAULTS[k];
+    try { const q = PRESETS[JSON.parse(saved || '{}').quality]; if (q) for (const k of BY_PRESET) this.v[k] = q[k]; } catch { /* as it is */ }
     delete this.v.beforeLaptop;                      // (what the old Laptop switch kept to restore: the presets do that now)
     this.v.quality = presetOf(this.v);
     // Normal is the default difficulty: a Hard saved before the player ever chose one goes back to it
