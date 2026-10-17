@@ -5,6 +5,21 @@
       {
         "map": "forest",
         "difficulty": "easy",
+        "name": "RequirePants",
+        "totalMs": 142350,
+        "bestLapMs": 45775,
+        "lapsMs": [
+          49250,
+          47325,
+          45775
+        ],
+        "points": 56,
+        "recordedAt": "2026-10-17T15:26:48.237Z",
+        "runId": "955d3f26-df3b-48a1-af18-e8fd4b5b0d95"
+      },
+      {
+        "map": "forest",
+        "difficulty": "easy",
         "name": "rox",
         "totalMs": 151492,
         "bestLapMs": 48792,
@@ -34,11 +49,12 @@
       }
     ]
   },
-  "updatedAt": "2026-10-14T21:19:12.919Z",
+  "updatedAt": "2026-10-17T15:26:48.237Z",
   "submissions": {
     "forest:easy": {
       "9890f660-e75b-4006-98dc-72aaeb9a3e95": "Mangooo",
-      "93ef555c-0899-4595-b0dc-9bb99a0ea54b": "rox"
+      "93ef555c-0899-4595-b0dc-9bb99a0ea54b": "rox",
+      "955d3f26-df3b-48a1-af18-e8fd4b5b0d95": "RequirePants"
     }
   }
 }
