@@ -37,6 +37,7 @@ import { preloadBakedTextures } from './bakedtextures.js';
 import { beginLoadJobs, finishLoadJobs, stopLoadJobs } from './load-jobs.js';
 import { Showroom } from './showroom.js';
 import { XRControls } from './xr.js';
+import { Comms } from './pilots.js';
 
 // the map: the circuit chosen in the menu (saved), or ?map=space / forest / ice / desert / ocean / meadow (the meadow: the old test range)
 const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
@@ -276,6 +277,7 @@ async function boot() {
   const fx = new FX(scene, camera);
   fx.track = track;
   const hud = new HUD(mm, START);
+  const comms = new Comms(document.getElementById('hud'));      // the rival pilots' faces and lines (the setting)
   const audio = new GameAudio();
 
   // post: sky + scene (HDR, 4x MSAA in the first pass only) + NaN guard -> AO -> deck reflections -> bloom -> streaks
@@ -641,6 +643,7 @@ async function boot() {
     race?.setDifficulty(v.ai);                       // the rivals' AI difficulty (race.js AI_LEVELS)
     if (racer) racer.perks = PERKS[v.ai] || PERKS.brutal;  // and the player's help by it
     touch.setPref(v.touch);                           // the on-screen sticks: Auto (a phone or tablet) / On / Off
+    comms.on = hud.pilots = v.pilots !== false;       // the rival pilots: their lines in the race, their faces in the results
     audio.lite = !!v.laptop;                          // (fewer rival voices; its buffer is set when the sound starts)
     audio.setLevels(v.music, v.sfx);                 // music and effects volume
     redraw = 2;                                      // (a paused picture shows the change behind the settings)
@@ -830,6 +833,7 @@ async function boot() {
     get w() { return this.on ? smoothstep(0, 0.12, this.t) * (1 - smoothstep(this.hold, this.hold + this.ramp, this.t)) : 0; },
   };
   window.__feather.slow = slow;
+  window.__feather.comms = comms;
   function frame(now, xrFrame) {
     // (a frame's time held to 0.1 s at most: with 0.05 a slow GPU's long frames each lost time - a hitch in the motion)
     const raw = (now - last) / 1000, dt = Math.min(0.1, raw);
@@ -971,6 +975,7 @@ async function boot() {
     }
     if (race) {
       for (const e of race.events) {
+        if (mode === 'race') comms.event(e, race);
         if (e.type === 'padfx') {
           const pad = track.pads[e.i];
           track.padFlash(e.i);
@@ -1102,6 +1107,7 @@ async function boot() {
         }
       }
       race.events.length = 0;
+      comms.update(dt, mode === 'race' ? race : null, camera);
       if (race.state === 'finished' && !race.shown && race.time - race.finishedAt > 2) {
         race.shown = true;
         hud.showResults(race.results(), race.score, race.total);

@@ -98,6 +98,25 @@ body[data-ui="pause"] #hud * { animation-play-state: paused !important; }   /* t
 /* top left: position and lap (free flight: a mode tag; the controls card under it) */
 #hud-tl { position: absolute; top: var(--g); left: var(--g); display: flex; flex-direction: column; align-items: flex-start; gap: 0.7rem; }
 #hud-tl .hp { position: relative; }
+/* a rival pilot speaking: a bubble over their ship (pilots.js places it) - their face, their name in the team's colour,
+   what they say; its pointer down to the ship (none while the ship is off the screen and the bubble waits at the edge) */
+#comms { position: absolute; left: 0; top: 0; z-index: 3; display: flex; align-items: center; gap: 0.85rem; max-width: 26rem;
+  box-sizing: border-box; padding: 0.5rem 1.2rem 0.5rem 0.5rem; pointer-events: none; will-change: transform;
+  background: rgba(5, 8, 13, 0.84); border: 1px solid color-mix(in srgb, var(--c, #fff) 60%, transparent); border-radius: 0.7rem;
+  box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.45), 0 0 1.2rem color-mix(in srgb, var(--c, #fff) 18%, transparent);
+  opacity: 0; scale: 0.85; transform-origin: 50% 100%; transition: opacity 0.2s ease, scale 0.28s cubic-bezier(0.2, 1.5, 0.4, 1); }
+#comms.on { opacity: 1; scale: 1; }
+#comms::after { content: ''; position: absolute; left: 50%; bottom: -0.5rem; width: 0.9rem; height: 0.9rem; margin-left: -0.45rem;
+  background: rgb(5, 8, 13); border: inherit; border-width: 0 1px 1px 0; border-radius: 0 0 0.15rem 0; transform: rotate(45deg); }
+#comms.edge::after { display: none; }
+#comms img { flex: none; width: 6.4rem; height: 6.4rem; border-radius: 0.45rem; object-fit: cover; background: #0b0f16;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, #fff) 55%, transparent); }
+#comms b { display: block; font: 700 0.76rem var(--ui); letter-spacing: 0.22em; text-transform: uppercase; color: var(--c, #fff); }
+#comms span { display: block; margin-top: 0.3rem; font: 600 1.08rem/1.3 var(--ui); letter-spacing: 0.02em; color: #fff; }
+#hud:not([data-kind="race"]) #comms { display: none; }
+body.touch #comms { max-width: 17rem; gap: 0.6rem; padding: 0.35rem 0.8rem 0.35rem 0.35rem; }
+body.touch #comms img { width: 4.6rem; height: 4.6rem; }
+body.touch #comms span { font-size: 0.9rem; }
 /* Laptop mode: no backdrop blur - the browser re-blurred the moving frame under every panel, every frame */
 body.lite .hp, body.lite #msg { backdrop-filter: none; }
 body.lite .hp { background: linear-gradient(115deg, rgba(9, 13, 19, 0.86), rgba(9, 13, 19, 0.62)); }
@@ -613,6 +632,10 @@ body.touch .m-screen[data-s="ship"] .m-item:not(.sel) .s-chips { display: none; 
   color: #061018; background: var(--accent); vertical-align: 0.1em; }
 .r-gap { color: var(--dim) !important; }
 .sw { display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.7rem; transform: skewX(-15deg); vertical-align: -0.05em; }
+/* a rival pilot's face in the table (the setting), ringed in the team's colour; the team name beside the pilot's, quiet */
+.r-face { width: 2rem; height: 2rem; margin: -0.35rem 0.65rem -0.35rem 0; border-radius: 50%; object-fit: cover; vertical-align: middle;
+  box-shadow: 0 0 0 2px var(--c); }
+.r-table small.r-team { color: var(--dim); background: none; padding: 0; margin-left: 0.5rem; letter-spacing: 0.16em; }
 .r-score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-top: 1.3rem; }
 .r-score div { display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem; padding: 0.65rem 0.8rem;
   background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07);

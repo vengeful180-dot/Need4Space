@@ -1,6 +1,7 @@
 // HUD: position and lap, lap times, speed, boost energy, thrust, engine state, the countdown and the race banners
 // (lap, final lap, finish), messages, edge flashes, the minimap, the controls card (H) and the results table.
 import { shipName } from './ships.js';
+import { PILOTS, face } from './pilots.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -185,8 +186,16 @@ export class HUD {
   showResults(rows, score, total) {
     const winner = rows[0].time, me = rows.findIndex((r) => r.player) + 1;
     const level = document.documentElement.dataset.level || 'normal';
+    // the rival pilots (the setting): their faces as the race left them - the winner laughing, the ones ahead of the
+    // player smug, the one just behind angry, the rest rolling their eyes
+    const look = (i) => (i === 0 ? 'laugh' : i < me - 1 ? 'smirk' : i === me ? 'angry' : 'roll');
+    const who = (r, i) => {
+      const p = this.pilots && !r.player && PILOTS[r.name];
+      return p ? `<img class="r-face" src="${face(p, look(i))}" alt="" style="--c:${r.css}">${p.short || p.name}<small class="r-team">${r.name}</small>`
+        : `<span class="sw" style="background:${r.css}"></span>${r.name}`;
+    };
     const tr = rows.map((r, i) => `<tr class="${r.player ? 'me' : ''}" style="--i:${i}"><td>${i + 1}</td>
-      <td><span class="sw" style="background:${r.css}"></span>${r.name}${r.player ? '<small>You</small>' : r.kind ? `<small class="r-ship">${shipName(r.kind)}</small>` : ''}</td>
+      <td>${who(r, i)}${r.player ? '<small>You</small>' : r.kind ? `<small class="r-ship">${shipName(r.kind)}</small>` : ''}</td>
       <td>${r.est ? '~' : ''}${fmt(r.time)}</td><td class="r-gap">${i ? '+' + (r.time - winner).toFixed(2) : ''}</td>
       <td>${Number.isFinite(r.best) ? fmt(r.best) : '-'}</td></tr>`).join('');
     $('results').innerHTML = `
