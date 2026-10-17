@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "space:normal": [
+      {
+        "map": "space",
+        "difficulty": "normal",
+        "name": "RequirePants",
+        "totalMs": 266967,
+        "bestLapMs": 85083,
+        "lapsMs": [
+          91500,
+          90383,
+          85083
+        ],
+        "points": 70,
+        "recordedAt": "2026-10-17T15:11:32.900Z",
+        "runId": "b684652c-f0fe-49fe-85c7-06bbc9d48f97"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-17T15:11:32.900Z",
+  "submissions": {
+    "space:normal": {
+      "b684652c-f0fe-49fe-85c7-06bbc9d48f97": "RequirePants"
+    }
+  }
+}
