@@ -1,7 +1,6 @@
 // The rivals' pilots: a face for each team (six expressions, assets/racers/rNN/e1..e6.webp), a name, and what they say
-// when something happens between them and the player - a speech bubble over the speaker's ship (Comms), and their
-// faces in the results (hud.js). Setting: "Rival pilots".
-import { Vector3 } from 'three';
+// when something happens between them and the player - a card on the right of the screen (Comms), and their faces in
+// the results (hud.js). Setting: "Rival pilots".
 export const EMOTES = { smirk: 1, laugh: 2, angry: 3, shock: 4, roll: 5, wink: 6 };
 export const face = (p, emote) => `./assets/racers/${p.id}/e${EMOTES[emote] || 1}.webp`;
 
@@ -130,10 +129,9 @@ const RANK = { start: 1, passed: 1, overtaken: 1, passRival: 0, slamRival: 1, hi
   wrecked: 4, youWrecked: 4, win: 5, lose: 5 };
 const NEAR = 90;                      // (rivals' own fights: this close to the player, along the track, or nobody hears)
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
-const P = new Vector3();
 
 export class Comms {
-  // parent: the HUD (the bubble is placed over the speaker's ship every frame)
+  // parent: the HUD
   constructor(parent) {
     const el = (this.el = document.createElement('div'));
     el.id = 'comms';
@@ -181,9 +179,7 @@ export class Comms {
     this.nameEl.textContent = p.short || p.name;
     this.textEl.textContent = pick(p.lines[what]).replace('{name}', o ? o.short || o.name.split(' ')[0] : 'pal');
     this.el.style.setProperty('--c', team.css);
-    this.who = who;
-    this.el.classList.remove('on'); void this.el.offsetWidth; this.el.classList.add('on');   // (pops in again)
-    this.w = this.el.offsetWidth; this.h = this.el.offsetHeight; this.x = null;
+    this.el.classList.remove('on'); void this.el.offsetWidth; this.el.classList.add('on');   // (slides in again)
     this.showT = r >= 4 ? 3.2 : 2.6; this.cur = r;
     this.said.set(p, this.t);
     if (other) this.rivalT = this.t;
@@ -191,12 +187,10 @@ export class Comms {
     return true;
   }
 
-  // each frame of a race: the bubble over its ship, the card's time, and who got past whom (close passes only, not a
-  // wreck's or a respawn's)
-  update(dt, race, camera) {
+  // each frame of a race: the card's time, and who got past whom (close passes only, not a wreck's or a respawn's)
+  update(dt, race) {
     this.t += dt;
     if (this.showT > 0 && (this.showT -= dt) <= 0) this.hide();
-    if (this.showT > 0 && camera) this.place(camera);
     if (!this.enabled || !race?.racing || race.player.finished) { this.ahead = null; return; }
     if ((this.lookT -= dt) > 0) return;
     this.lookT = 0.25;
@@ -225,27 +219,6 @@ export class Comms {
       }
     }
     this.ranks = ranks;
-  }
-
-  // the bubble's point over the speaker's ship (above its hull tag), kept on the screen: a ship out of view keeps it at
-  // the edge nearest to it, the pointer then hidden
-  place(camera) {
-    const root = this.who?.ship?.root;
-    if (!root) return;
-    P.set(0, 5.2, 0).applyQuaternion(root.quaternion).add(root.position).project(camera);
-    const behind = P.z > 1, W = innerWidth, H = innerHeight;
-    let x = behind ? -P.x : P.x, y = behind ? -P.y : P.y;
-    const off = behind || Math.abs(x) > 1 || Math.abs(y) > 1;
-    // out of view: at the side it is towards, half way up (clear of the HUD's corners)
-    if (off) { y = Math.min(0.5, Math.max(-0.1, y / Math.max(Math.abs(x), 1e-3))); x = Math.sign(x) || 1; }
-    x = (x + 1) / 2 * W; y = (1 - y) / 2 * H;
-    const m = 12, w = this.w || 300, h = this.h || 90, top = H * 0.12, bottom = H * 0.18;
-    const lx = Math.min(W - w - m, Math.max(m, x - w / 2)), ly = Math.min(H - h - bottom, Math.max(top, y - h - 14));
-    const edge = off || lx !== x - w / 2 || ly !== y - h - 14;
-    // (eased: the chase camera's shake does not shake the bubble)
-    if (this.x == null) { this.x = lx; this.y = ly; } else { this.x += (lx - this.x) * 0.35; this.y += (ly - this.y) * 0.35; }
-    this.el.style.transform = `translate(${this.x.toFixed(1)}px, ${this.y.toFixed(1)}px)`;
-    if (edge !== this.edge) { this.el.classList.toggle('edge', edge); this.edge = edge; }
   }
 
   // the race's events (main.js, as they come)

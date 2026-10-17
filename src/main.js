@@ -1107,7 +1107,7 @@ async function boot() {
         }
       }
       race.events.length = 0;
-      comms.update(dt, mode === 'race' ? race : null, camera);
+      comms.update(dt, mode === 'race' ? race : null);
       if (race.state === 'finished' && !race.shown && race.time - race.finishedAt > 2) {
         race.shown = true;
         hud.showResults(race.results(), race.score, race.total);

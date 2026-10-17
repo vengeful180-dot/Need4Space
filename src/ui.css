@@ -98,17 +98,15 @@ body[data-ui="pause"] #hud * { animation-play-state: paused !important; }   /* t
 /* top left: position and lap (free flight: a mode tag; the controls card under it) */
 #hud-tl { position: absolute; top: var(--g); left: var(--g); display: flex; flex-direction: column; align-items: flex-start; gap: 0.7rem; }
 #hud-tl .hp { position: relative; }
-/* a rival pilot speaking: a bubble over their ship (pilots.js places it) - their face, their name in the team's colour,
-   what they say; its pointer down to the ship (none while the ship is off the screen and the bubble waits at the edge) */
-#comms { position: absolute; left: 0; top: 0; z-index: 3; display: flex; align-items: center; gap: 0.85rem; max-width: 26rem;
-  box-sizing: border-box; padding: 0.5rem 1.2rem 0.5rem 0.5rem; pointer-events: none; will-change: transform;
-  background: rgba(5, 8, 13, 0.84); border: 1px solid color-mix(in srgb, var(--c, #fff) 60%, transparent); border-radius: 0.7rem;
+/* a rival pilot speaking: a card on the right, under the lap times (pilots.js) - their face, their name in the team's
+   colour, what they say */
+#comms { position: absolute; right: calc(var(--g) + env(safe-area-inset-right)); top: 30%; z-index: 3; display: flex; align-items: center;
+  gap: 0.85rem; max-width: 26rem; box-sizing: border-box; padding: 0.5rem 1.2rem 0.5rem 0.5rem; pointer-events: none;
+  background: rgba(5, 8, 13, 0.84); border: 1px solid color-mix(in srgb, var(--c, #fff) 60%, transparent); border-right-width: 3px;
+  border-radius: 0.7rem 0.25rem 0.25rem 0.7rem;
   box-shadow: 0 0.4rem 1.6rem rgba(0, 0, 0, 0.45), 0 0 1.2rem color-mix(in srgb, var(--c, #fff) 18%, transparent);
-  opacity: 0; scale: 0.85; transform-origin: 50% 100%; transition: opacity 0.2s ease, scale 0.28s cubic-bezier(0.2, 1.5, 0.4, 1); }
-#comms.on { opacity: 1; scale: 1; }
-#comms::after { content: ''; position: absolute; left: 50%; bottom: -0.5rem; width: 0.9rem; height: 0.9rem; margin-left: -0.45rem;
-  background: rgb(5, 8, 13); border: inherit; border-width: 0 1px 1px 0; border-radius: 0 0 0.15rem 0; transform: rotate(45deg); }
-#comms.edge::after { display: none; }
+  opacity: 0; transform: translateX(1.6rem); transition: opacity 0.22s ease, transform 0.3s cubic-bezier(0.2, 1.3, 0.4, 1); }
+#comms.on { opacity: 1; transform: none; }
 #comms img { flex: none; width: 6.4rem; height: 6.4rem; border-radius: 0.45rem; object-fit: cover; background: #0b0f16;
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--c, #fff) 55%, transparent); }
 #comms b { display: block; font: 700 0.76rem var(--ui); letter-spacing: 0.22em; text-transform: uppercase; color: var(--c, #fff); }
