@@ -411,8 +411,12 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .m-item.sel { color: #fff; transform: translateX(0.7rem); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 88%); }
 .m-item.sel::before { transform: scaleY(1); }
 .m-item.sel .m-num { color: var(--accent); }
-.m-desc { min-height: 1.4em; max-width: 36rem; margin-top: 1.3rem; padding-left: 1.3rem; font: 500 1.1rem var(--ui); letter-spacing: 0.05em; color: var(--dim); }
+.m-desc { min-height: 1.4em; margin-top: 1.3rem; padding-left: 1.3rem; font: 500 1.1rem var(--ui); letter-spacing: 0.05em; color: var(--dim); }
 .m-desc.swap { animation: fade-in 0.3s ease both; }
+/* the title and pause lists sit centred: a description taking a second line moved the whole menu - two lines are kept
+   for it there; the circuits' long descriptions kept off the ships on the right */
+.m-screen[data-s="main"] .m-desc, .m-screen[data-s="pause"] .m-desc { min-height: 2.7em; line-height: 1.35; }
+.m-screen[data-s="circuit"] .m-desc { max-width: 36rem; }
 @keyframes fade-in { from { opacity: 0; transform: translateX(-0.4rem); } to { opacity: 1; transform: none; } }
 
 .m-foot { position: absolute; left: 6rem; right: 6rem; bottom: 2.2rem; display: flex; justify-content: space-between; align-items: center; gap: 2rem;
