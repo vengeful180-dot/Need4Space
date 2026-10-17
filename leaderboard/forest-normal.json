@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "forest:normal": [
+      {
+        "map": "forest",
+        "difficulty": "normal",
+        "name": "V3ngeful",
+        "totalMs": 150525,
+        "bestLapMs": 49017,
+        "lapsMs": [
+          50242,
+          49017,
+          51267
+        ],
+        "points": 68,
+        "recordedAt": "2026-10-17T11:43:40.570Z",
+        "runId": "d4d0bb58-6ba1-43af-92f4-645b55a847bd"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-17T11:43:40.570Z",
+  "submissions": {
+    "forest:normal": {
+      "d4d0bb58-6ba1-43af-92f4-645b55a847bd": "V3ngeful"
+    }
+  }
+}
