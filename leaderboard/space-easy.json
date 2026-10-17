@@ -199,6 +199,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "ww",
+        "totalMs": 292100,
+        "bestLapMs": 95775,
+        "lapsMs": [
+          99400,
+          96925,
+          95775
+        ],
+        "points": 50,
+        "recordedAt": "2026-10-17T20:27:48.129Z",
+        "runId": "73d41443-ccdb-42fa-a866-f739e13bba62"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "big jim",
         "totalMs": 299342,
         "bestLapMs": 94358,
@@ -213,7 +228,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-17T20:08:30.951Z",
+  "updatedAt": "2026-10-17T20:27:48.129Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -232,7 +247,8 @@
       "2d7abb4c-c19a-4a27-9e83-4eb19ffcf7f1": "bo",
       "8ac45b3d-be9c-4499-b770-c95e9de259a3": "boen",
       "ab8eb266-c695-4dd2-9760-5841528e95e4": "bindi",
-      "92328700-0ddd-485e-857f-70236b119764": "jra"
+      "92328700-0ddd-485e-857f-70236b119764": "jra",
+      "73d41443-ccdb-42fa-a866-f739e13bba62": "ww"
     }
   }
 }
