@@ -359,11 +359,31 @@ export class Comms {
   set on(v) {
     this.enabled = v;
     if (!v) this.clear();
-    else if (!this.loaded) {
-      // every face fetched once (676 KB), so a line never waits for its picture
-      this.loaded = true;
-      for (const p of Object.values(PILOTS)) for (const k in EMOTES) new Image().src = face(p, k);
+    else if (!this.pics) {
+      // every face fetched once (676 KB) and KEPT: an image let go could be dropped before it loaded, and each card then
+      // fetched its face again (a card up with no face while it came)
+      this.pics = new Map();
+      for (const p of Object.values(PILOTS)) for (const k in EMOTES) {
+        const url = face(p, k), im = new Image();
+        im.decoding = 'async'; im.src = url; this.pics.set(url, im);
+      }
     }
+  }
+
+  // a face for a card: the kept one's copy, shown at once if it is in; else the card waits for it (or, failing to
+  // load, for the pilot's first face) - never a card without its face
+  portrait(p, emote, show) {
+    const url = face(p, emote), kept = this.pics?.get(url);
+    const im = kept ? kept.cloneNode() : new Image();
+    im.alt = ''; if (!kept) im.src = url;
+    const ready = () => im.complete && im.naturalWidth > 0;
+    if (ready()) { requestAnimationFrame(show); return im; }
+    let done = false;
+    const go = () => { if (!done) { done = true; show(); } };
+    im.addEventListener('load', go, { once: true });
+    im.addEventListener('error', () => { if (!im.src.endsWith('/e1.webp')) im.src = face(p, 'smirk'); else go(); }, { once: false });
+    setTimeout(go, 1500);                                          // (slow to come: the card anyway, its face as it arrives)
+    return im;
   }
 
   reset() {
@@ -409,11 +429,11 @@ export class Comms {
     const el = document.createElement('div');
     el.className = 'cm';
     el.style.setProperty('--c', team.css);
-    el.innerHTML = `<img alt="" decoding="async" src="${face(p, pick(LOOK[what]))}"><div><b></b><span></span></div>`;
+    el.innerHTML = '<div><b></b><span></span></div>';
+    el.prepend(this.portrait(p, pick(LOOK[what]), () => el.classList.add('on')));
     el.querySelector('b').textContent = p.short || p.name;
     el.querySelector('span').textContent = this.fresh(p, lines).replace('{name}', o ? o.short || o.name.split(' ')[0] : 'pal');
     this.el.appendChild(el);                                    // (the stack grows upwards: the newest on top)
-    requestAnimationFrame(() => el.classList.add('on'));
     this.cards.push({ el, p, what, life: r >= 4 ? 4 : 3.2 });
     while (this.cards.length > this.max) this.drop(this.cards[0], true);   // the oldest makes room (at once: no gap left)
     this.said.set(p, this.t);
