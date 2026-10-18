@@ -372,7 +372,11 @@ export class Comms {
       this.pics = new Map();
       for (const p of Object.values(PILOTS)) for (const k in EMOTES) {
         const url = face(p, k), im = new Image();
-        im.decoding = 'async'; im.src = url; this.pics.set(url, im);
+        im.decoding = 'async';
+        // (a host's passing error - a 503 while a site updates - fetched again a little later, twice at most)
+        let tries = 0;
+        im.addEventListener('error', () => { if (tries++ < 2) setTimeout(() => { im.src = `${url}?retry=${tries}`; }, 3000 * tries); });
+        im.src = url; this.pics.set(url, im);
       }
     }
   }
