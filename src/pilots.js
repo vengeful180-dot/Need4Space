@@ -13,7 +13,7 @@ const LOOK = {
   retort: ['laugh', 'wink'], spectate: ['laugh', 'shock'], lastLap: ['smirk', 'angry'], fallen: ['laugh'], wallHit: ['laugh', 'roll'],
   lostLead: ['angry'], tookLead: ['wink', 'laugh'], hurt: ['shock', 'angry'], playerLow: ['smirk', 'laugh'], tailing: ['smirk', 'wink'],
   map: ['smirk', 'laugh', 'roll', 'wink'], agree: ['laugh', 'smirk'], plot: ['angry', 'smirk'], plotJoin: ['smirk', 'wink', 'angry'],
-  cheater: ['angry', 'roll'],
+  cheater: ['angry', 'roll'], leaderHurt: ['laugh', 'smirk'], leaderDown: ['laugh', 'wink'],
 };
 
 // by team (race.js TEAMS). The situations:
@@ -28,7 +28,7 @@ const LOOK = {
 //   by it; slamRival / hitByRival - slamming another, or slammed by it; retort - the last word after the other's reply;
 //   map - now and then, about the circuit (one list per circuit), agree - another chiming in; and while the player
 //   leads: plot - a rival asking another ({name}) to gang up on the leader, plotJoin - in on it, cheater - calling the
-//   leader a cheater
+//   leader a cheater, leaderHurt - the leading player's hull taking hits, leaderDown - nearly gone
 export const PILOTS = {
   Ember: { id: 'r01', name: 'Roxy Vale', lines: {
     start: ["Try to keep up, rookie.", "Don't blink.", "Hope you said your goodbyes.", "Let's dance."],
@@ -50,6 +50,8 @@ export const PILOTS = {
     plot: ["{name}, that leader's way too fast. Cheating?", "Hey {name}, let's box the leader in.", "{name}, you seeing this? Nobody's that clean.", "Somebody take the leader out. {name}?"],
     plotJoin: ["I'm in, {name}.", "On it, {name}. Squeeze 'em.", "Way ahead of you, {name}.", "Deal, {name}. Wall them."],
     cheater: ["Cheater! Check that ship!", "Nobody's that fast. Hacks!", "Somebody check their boosters!", "Leader's cheating. Calling it."],
+    leaderHurt: ["Ooh, the leader's bleeding!", "Cracks in the crown, hotshot.", "Not so shiny now, are you?", "Leader's smoking! Keep hitting!", "Oh, that dented the ego."],
+    leaderDown: ["One more hit and that crown's mine!", "Leader's on fumes! Finish it!", "Bye-bye, first place.", "Who's laughing now, champ?", "Smell that? That's your hull giving up."],
     win: ["Never a doubt.", "That's how it's done.", "Bow down."], lose: ["Rematch. Now.", "Beginner's luck.", "Enjoy it. Once."],
     passRival: ["See ya, {name}!", "Move over, {name}.", "Bye, {name}. Mwah.", "Out of my lane, {name}.", "Later, {name}!", "Enjoy the view, {name}.", "Lane's mine now, {name}."],
     passedByRival: ["Hey! {name}, really?", "I'm coming back for you, {name}.", "Watch your mirrors, {name}.", "Not cool, {name}.", "Enjoy it, {name}. It won't last.", "{name}, I see you."],
@@ -85,6 +87,8 @@ export const PILOTS = {
     plot: ["{name}, that leader's ship isn't stock. I know engines.", "{name}, let's lean on the leader.", "Something's fishy up front, {name}.", "{name}, help me slow that leader down."],
     plotJoin: ["Count me in, {name}.", "I'll bring the wrench, {name}.", "Right behind you, {name}.", "Heavy duty, {name}. Let's go."],
     cheater: ["That's not a legal engine!", "Turbo kit! I can hear it!", "Cheater! I know what stock sounds like!", "Somebody check the leader's tuning!"],
+    leaderHurt: ["Leader's leaking oil, folks!", "Hear that rattle? That's first place.", "Panels coming loose up front!", "Told you it wasn't built right.", "That's a costly dent, leader."],
+    leaderDown: ["Leader's held together with tape now!", "One more tap and she falls apart!", "I'd scrap that ship, buddy.", "Engine's dying up front!", "Somebody call the leader a tow truck!"],
     win: ["Torque wins again!", "Built to win.", "Good engine, good driver."], lose: ["Back to the garage...", "Needs a tune-up.", "You earned that one."],
     passRival: ["Pardon me, {name}.", "Coming through, {name}!", "Check your engine, {name}.", "Sorry, {name}. More horsepower.", "Big engine, {name}. Sorry.", "Make way, {name}.", "Smooth pass, if I say so, {name}."],
     passedByRival: ["{name}! I tuned that ship!", "Lucky gearing, {name}.", "Hey, {name}, no fair!", "{name}, who tuned that?", "Easy, {name}.", "Alright, {name}. Round two."],
@@ -120,6 +124,8 @@ export const PILOTS = {
     plot: ["{name}, the leader's lap times are statistically impossible.", "{name}, I propose a tactical blockade.", "{name}, probability of cheating: 94 percent.", "{name}, if we both slam them, physics wins."],
     plotJoin: ["Calculating the ambush, {name}.", "Optimal plan, {name}. I'm in.", "Joining the blockade, {name}.", "Affirmative, {name}. Squeeze protocol."],
     cheater: ["Those lap times are impossible!", "Statistical anomaly! Cheater!", "I demand an inspection!", "That speed violates physics!"],
+    leaderHurt: ["Leader hull integrity dropping!", "Damage confirmed on the leader.", "The math is turning in our favor!", "Hypothesis: the leader is fragile. Confirmed.", "Leader efficiency down 30 percent!"],
+    leaderDown: ["Leader integrity critical! Engage!", "Probability of the leader surviving: low.", "One more impact. Calculated.", "The leader is a statistical goner!", "Structural failure imminent up front!"],
     win: ["Q.E.D.!", "The numbers never lie.", "Peer review this!"], lose: ["There was a rounding error.", "I demand a recount.", "Outlier result."],
     passRival: ["Out-calculated, {name}.", "Overtake complete, {name}.", "Your line was suboptimal, {name}.", "Math says bye, {name}.", "Superior aerodynamics, {name}.", "Bye, {name}. Science wins.", "Overtake logged, {name}."],
     passedByRival: ["{name}, that defies logic!", "Anomaly detected: {name}.", "Recalculating {name}...", "{name}, that wasn't in my data!", "Statistically, {name}, that's rude.", "Recalibrating for {name}."],
@@ -155,6 +161,8 @@ export const PILOTS = {
     plot: ["{name}, is the leader cheating? Like, totally?", "{name}, let's gang up on them. Teehee.", "{name}, that leader needs a little bump.", "Psst, {name}. Wanna knock the leader down?"],
     plotJoin: ["Ooh, I'm in, {name}!", "Yes! Let's get 'em, {name}!", "Count me in, {name}!", "On it, {name}! So fun!"],
     cheater: ["Ew, cheater!", "Nobody's that good. Cheating!", "That's so unfair! Cheater!", "Somebody report them!"],
+    leaderHurt: ["Aww, the leader's all scratched!", "Not so perfect now, sweetie!", "Ooh, that left a mark!", "Leader's looking rough!", "Hehe, the leader's sparkling. Not the good way."],
+    leaderDown: ["Bye-bye, little leader!", "One more bump, sweetie!", "Leader's falling apart! Yay!", "Aww, almost done!", "First place looks so tired!"],
     win: ["Was there ever a doubt?", "Gold looks good on me.", "Thank you, thank you!"], lose: ["Whatever. I let you win.", "Hmph. Lucky.", "I wasn't even trying."],
     passRival: ["Bye, {name}!", "Excuse me, {name}!", "Toodles, {name}!", "Sorry, {name}! Not really!", "Hehe, bye {name}!", "Catch up, {name}!", "Smooches, {name}!"],
     passedByRival: ["{name}! So rude!", "Ugh, {name}.", "Hey, {name}, ladies first!", "{name}, that's mean!", "Rude, {name}!", "Ugh! {name}!"],
@@ -190,6 +198,8 @@ export const PILOTS = {
     plot: ["{name}, that kid up front's too lucky.", "{name}, let's teach the leader some manners.", "{name}, old trick: squeeze 'em into the wall.", "{name}, nobody leads my race. Let's go."],
     plotJoin: ["Heh. I'm in, {name}.", "Like the old days, {name}.", "Let's squeeze 'em, {name}.", "You got it, {name}."],
     cheater: ["Kid's cheating. I've seen it all.", "Nobody's that fast without tricks!", "Cheater! In my day we'd fix that.", "Something stinks up front. And it ain't my cigar."],
+    leaderHurt: ["Heh. Leader's getting tenderized.", "Wobbly up front, kid?", "That's what leading gets you.", "Leader's taking a beating. Heh.", "Kid's learning the hard way."],
+    leaderDown: ["Leader's done, kid. Done.", "One more and they're scrap.", "Hang up the gloves, champ.", "Light me a cigar. Leader's toast.", "Time to retire, kid."],
     win: ["Still got it.", "Age before beauty.", "Light me a victory cigar."], lose: ["Beginner's luck.", "I'm getting too old for this.", "Kid's got talent."],
     passRival: ["Step aside, {name}.", "Smoke trail, {name}.", "Respect your elders, {name}.", "Move it, {name}.", "Out of my way, {name}.", "Experience, {name}.", "Bye, {name}."],
     passedByRival: ["{name}! Show respect!", "Punk {name}...", "You'll keep, {name}.", "Kid {name}...", "Show respect, {name}!", "Hmph. {name}."],
@@ -225,6 +235,8 @@ export const PILOTS = {
     plot: ["{name}, hostile in the lead. Flank them.", "{name}, coordinated assault on the leader. Now.", "{name}, the leader's out of line. Take them down.", "All units: target the leader. {name}, you're with me."],
     plotJoin: ["Copy, {name}. Moving to flank.", "Roger that, {name}. Engaging.", "On your six, {name}.", "Affirmative, {name}. Squeeze 'em."],
     cheater: ["Suspected sabotage up front!", "That leader's running illegal hardware!", "Cheater! Court martial!", "Inspect that vessel!"],
+    leaderHurt: ["Target damaged! Keep the pressure on!", "Leader's taking fire! Push!", "Hits confirmed on the leader!", "Enemy lead weakening!", "Leader's armor is cracking!"],
+    leaderDown: ["Leader critical! Finish the mission!", "One more strike! Go go go!", "Leader's going down!", "Target almost neutralized!", "All units: final strike on the leader!"],
     win: ["Mission accomplished.", "Victory, soldiers.", "Hooah!"], lose: ["Regroup. We go again.", "Retreat. For now.", "Well fought, soldier."],
     passRival: ["Flanking {name}!", "Passing {name}. Hold the line.", "Outflanked, {name}.", "Advancing past {name}.", "Moving up past {name}.", "Advance past {name}!", "Outflanked you, {name}."],
     passedByRival: ["{name}, insubordination!", "{name} broke formation!", "Watch it, {name}!", "{name}, fall back!", "Insubordinate, {name}!", "{name}, you broke rank!"],
@@ -260,6 +272,8 @@ export const PILOTS = {
     plot: ["{name}, darling, that leader needs humbling.", "{name}, shall we ruin someone's day?", "{name}, the leader is cheating. Obviously.", "{name}, together? Thorns for the leader."],
     plotJoin: ["With pleasure, {name}.", "Delicious idea, {name}.", "I'm in, darling {name}.", "Let's make it elegant, {name}."],
     cheater: ["Cheater. How tacky.", "Nobody leads like that without cheating.", "Disgraceful. Disqualify them.", "That's not talent, darling. That's cheating."],
+    leaderHurt: ["The leader is wilting, darling.", "A few scratches on the crown.", "Not so elegant now, leader.", "Ooh, the leader bleeds.", "That's what happens at the top, darling."],
+    leaderDown: ["The crown is slipping, darling.", "One more kiss and it's over.", "Goodbye, first place.", "Such a fragile leader.", "Fall, darling. Gracefully."],
     win: ["Naturally.", "Of course.", "Elegance wins."], lose: ["Enjoy it. It won't happen again.", "Hm. Well played.", "Next time, darling."],
     passRival: ["After you? No. Ciao, {name}.", "Too slow, {name}.", "Adios, {name}.", "Excuse me, {name}.", "Ciao, {name}.", "Grazie, {name}.", "Too slow, {name}, darling."],
     passedByRival: ["{name}, how rude.", "Enjoy it, {name}.", "Careful, {name}. Thorns.", "How rude, {name}.", "{name}, darling, no."],
@@ -295,6 +309,8 @@ export const PILOTS = {
     plot: ["{name}! That leader's cheating! Let's wreck 'em!", "{name}, sabotage time?", "Psst, {name}! Squeeze the leader!", "{name}, I've got a plan. It involves crashing."],
     plotJoin: ["Ooh! I'm in, {name}!", "Sabotage! Yes, {name}!", "Let's wreck 'em, {name}!", "Count me in, {name}! Hehe!"],
     cheater: ["Cheater cheater!", "Hacks! I know hacks!", "Nobody's that fast! Rigged!", "Leader's cheating! Boo!"],
+    leaderHurt: ["Leader's sparking! Hehe!", "Loose bolts up front!", "Dent the leader! Dent 'em!", "Leader's wobbling! Yes!", "Punk attack working!"],
+    leaderDown: ["Leader's almost scrap! Dibs!", "One more! Smash 'em!", "Leader's falling apart! Hehe!", "Bye-bye, big shot!", "Leader's toast! Toast!"],
     win: ["Punk's not dead!", "Tiny but mighty!", "Bow to the gnome!"], lose: ["Grr. Rigged!", "My ship's too small!", "Next time, big feet."],
     passRival: ["Squeezing past, {name}!", "Hehe, bye {name}!", "Small and fast, {name}!", "Look down, {name}!", "Zoom, {name}!", "Hehe, {name}!", "Tiny but fast, {name}!"],
     passedByRival: ["{name}! I was using that air!", "Hey, {name}, cheater!", "{name}, you big bully!", "{name}! Bully!", "Not fair, {name}!", "Grr, {name}!"],
@@ -316,14 +332,15 @@ export const pilotOf = (team) => (team && PILOTS[team.name]) || null;
 // how much each situation matters: small talk (1 and under) is spaced out, the rest always gets a card
 const RANK = { passRival: 0, passedByRival: 0, retort: 1, start: 1, passed: 1, overtaken: 1, slamRival: 1, hitByRival: 1, spectate: 1,
   wallHit: 1, tailing: 1, lastLap: 1, playerLow: 2, blocked: 2, fallen: 2, hurt: 2, slammed: 3, hit: 3, lostLead: 3, tookLead: 3,
-  wrecked: 4, youWrecked: 4, win: 5, lose: 5, map: 1, agree: 1, plot: 1, plotJoin: 1, cheater: 1 };
+  wrecked: 4, youWrecked: 4, win: 5, lose: 5, map: 1, agree: 1, plot: 1, plotJoin: 1, cheater: 1, leaderHurt: 2, leaderDown: 3 };
 // not every time: how often a moment gets a line at all (replies in an exchange have their own odds)
 const CHANCE = { start: 0.75, passed: 0.6, overtaken: 0.6, passRival: 0.45, slamRival: 0.8, slammed: 0.85, hit: 0.85, blocked: 0.7,
-  spectate: 1, lastLap: 0.7, fallen: 0.8, wallHit: 0.5, lostLead: 0.85, tookLead: 0.85, hurt: 0.9, playerLow: 0.7, tailing: 0.6 };
+  spectate: 1, lastLap: 0.7, fallen: 0.8, wallHit: 0.5, lostLead: 0.85, tookLead: 0.85, hurt: 0.9, playerLow: 0.7, tailing: 0.6,
+  leaderHurt: 0.75 };
 const NEAR = 90;                      // (rivals' own fights: this close to the player, along the track, or nobody hears)
 const REPLY = 1.3;                    // (seconds before the other one answers)
 const COOL = { wallHit: 25, fallen: 20, tailing: 30, playerLow: 20, spectate: 10, passed: 6, overtaken: 6, passRival: 12, map: 30, cheater: 25,
-  lostLead: 15, tookLead: 15, blocked: 8, lastLap: 60 };
+  lostLead: 15, tookLead: 15, blocked: 8, lastLap: 60, leaderHurt: 15 };
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
 const between = (a, b) => a + Math.random() * (b - a);
 const hp = (e) => e.racer.health / (e.racer.maxHealth || 1);
@@ -362,6 +379,7 @@ export class Comms {
     this.hitBy = null; this.hitT = -9;     // the last rival the player slammed, and when
     this.lowT = -99; this.tail = null; this.tailT = 0; this.tailSaid = -99;
     this.lastLapSaid = false;
+    this.downSaid = false;             // (the leader nearly gone: said once until the hull is back over 60 %)
     this.mapT = between(14, 30);       // the first talk about the circuit, then every 35 - 70 s
     this.leadT = 0; this.plotT = 0;    // how long the player has led; the next plot against them
     this.used = this.used || new Map();     // line -> when it was last said (kept across races: no repeats soon)
@@ -437,6 +455,19 @@ export class Comms {
     return near.length ? pick(near) : null;
   }
 
+  // the leading player's hull going down: by (or a chaser) gloats, another may join in; true if said
+  leaderHit(race, by) {
+    const h = hp(race.player);
+    if (h > 0.8) return false;
+    const chasers = race.standings().filter((o) => !o.player && !o.finished && !(o.racer.ghost > 0)).slice(0, 5);
+    const a = by || pick(chasers), b = pick(chasers.filter((o) => o !== a));
+    if (!a) return false;
+    const what = h < 0.35 && !this.downSaid ? 'leaderDown' : 'leaderHurt';
+    const said = this.talk([{ who: a, what }, ...(b ? [{ who: b, what: 'agree', other: a, p: what === 'leaderDown' ? 0.7 : 0.45 }] : [])]);
+    if (said && what === 'leaderDown') this.downSaid = true;
+    return said;
+  }
+
   nearest(race, range = 100) {
     const me = race.player;
     let best = null, bd = range;
@@ -450,6 +481,7 @@ export class Comms {
     this.t += dt;
     for (const c of [...this.cards]) if ((c.life -= dt) <= 0) this.drop(c);
     if (!this.enabled || !race?.racing || race.player.finished) { this.ahead = null; this.ranks = null; return; }
+    if (this.downSaid && hp(race.player) > 0.6) this.downSaid = false;
     for (const q of [...this.queue]) if (q.at <= this.t) { this.queue.splice(this.queue.indexOf(q), 1); this.say(q.who, q.what, q.other, true); }
     if ((this.lookT -= dt) > 0) return;
     const step = 0.25 - this.lookT;
@@ -526,7 +558,8 @@ export class Comms {
     } else if (e.type === 'attack' && e.slam) {
       const A = e.attacker, B = e.victim;
       if (!A || !B) return;
-      if (B.player) this.talk([{ who: A, what: 'slammed' }, { who: this.bystander(race, A), what: 'spectate', p: 0.35 }]);
+      if (B.player && me.rank === 1 && this.leaderHit(race, A)) { /* (the leader's hull: leaderHit) */ }
+      else if (B.player) this.talk([{ who: A, what: 'slammed' }, { who: this.bystander(race, A), what: 'spectate', p: 0.35 }]);
       else if (A.player) {
         this.hitBy = B; this.hitT = this.t;
         this.talk([{ who: B, what: hp(B) < 0.3 ? 'hurt' : 'hit' }, { who: this.bystander(race, B), what: 'spectate', p: 0.35 }]);
@@ -544,6 +577,8 @@ export class Comms {
       } else if ((e.entry === this.hitBy && this.t - this.hitT < 4) || e.entry.racer.pos.distanceTo(me.racer.pos) < 120) {
         this.talk([{ who: e.entry, what: 'wrecked' }, { who: this.bystander(race, e.entry), what: 'spectate', p: 0.5 }]);
       }
+    } else if (e.type === 'damage' && e.player && e.why === 'wall' && me.rank === 1 && hp(me) < 0.8) {
+      this.leaderHit(race, null);                // (the leader losing hull on the walls: the chasers notice)
     } else if (e.type === 'damage' && e.player && hp(me) < 0.25 && this.t - this.lowT > 20) {
       const r = this.nearest(race, 100);
       if (r && this.say(r, 'playerLow')) this.lowT = this.t;
