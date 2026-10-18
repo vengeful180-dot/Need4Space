@@ -334,6 +334,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Adrian_Prime",
+        "totalMs": 295217,
+        "bestLapMs": 93167,
+        "lapsMs": [
+          102458,
+          93167,
+          99592
+        ],
+        "points": 43,
+        "recordedAt": "2026-10-18T18:39:32.371Z",
+        "runId": "4bc8dc8d-ce82-476e-8078-f799f7de167f"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "big jim",
         "totalMs": 299342,
         "bestLapMs": 94358,
@@ -348,7 +363,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T17:12:09.406Z",
+  "updatedAt": "2026-10-18T18:39:32.371Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -377,7 +392,8 @@
       "ff40a224-5477-4154-9bf5-ad5a32daca88": "death",
       "5f71049b-a9a0-465c-8dd4-452417167ee8": "neb",
       "08da4ac0-5254-4eef-adef-228d3ef69a16": "Booger",
-      "1cbafa8b-f91b-4e2d-a66f-92664373431c": "human"
+      "1cbafa8b-f91b-4e2d-a66f-92664373431c": "human",
+      "4bc8dc8d-ce82-476e-8078-f799f7de167f": "Adrian_Prime"
     }
   }
 }
