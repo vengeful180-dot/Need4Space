@@ -169,6 +169,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "RootBear",
+        "totalMs": 279783,
+        "bestLapMs": 88200,
+        "lapsMs": [
+          101767,
+          89817,
+          88200
+        ],
+        "points": 52,
+        "recordedAt": "2026-10-18T01:16:29.104Z",
+        "runId": "eb120bb3-9996-4054-bed7-948930987242"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "boen",
         "totalMs": 282792,
         "bestLapMs": 88767,
@@ -243,7 +258,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-17T22:11:35.836Z",
+  "updatedAt": "2026-10-18T01:16:29.104Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -264,7 +279,8 @@
       "ab8eb266-c695-4dd2-9760-5841528e95e4": "bindi",
       "92328700-0ddd-485e-857f-70236b119764": "jra",
       "73d41443-ccdb-42fa-a866-f739e13bba62": "ww",
-      "999b9aeb-e6f4-4f28-8fc0-97ffadfdad3b": "Need4Speed"
+      "999b9aeb-e6f4-4f28-8fc0-97ffadfdad3b": "Need4Speed",
+      "eb120bb3-9996-4054-bed7-948930987242": "RootBear"
     }
   }
 }
