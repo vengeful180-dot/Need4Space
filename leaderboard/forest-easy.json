@@ -50,6 +50,21 @@
       {
         "map": "forest",
         "difficulty": "easy",
+        "name": "ag",
+        "totalMs": 155233,
+        "bestLapMs": 50617,
+        "lapsMs": [
+          53850,
+          50617,
+          50767
+        ],
+        "points": 48,
+        "recordedAt": "2026-10-18T20:28:05.386Z",
+        "runId": "4656a11d-e9eb-4742-b426-bee0cf24ab9d"
+      },
+      {
+        "map": "forest",
+        "difficulty": "easy",
         "name": "Mangooo",
         "totalMs": 155792,
         "bestLapMs": 48817,
@@ -64,7 +79,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T17:23:45.295Z",
+  "updatedAt": "2026-10-18T20:28:05.386Z",
   "submissions": {
     "forest:easy": {
       "9890f660-e75b-4006-98dc-72aaeb9a3e95": "Mangooo",
@@ -72,7 +87,8 @@
       "955d3f26-df3b-48a1-af18-e8fd4b5b0d95": "RequirePants",
       "87de200d-6db8-4751-9e5c-98adf7eff2f1": "RequirePants",
       "0ad9c4b8-a02b-40ac-8e5f-dadaa1bab956": "RequirePants",
-      "8fcdd0f3-e747-49c2-aca4-d29680ee701d": "human"
+      "8fcdd0f3-e747-49c2-aca4-d29680ee701d": "human",
+      "4656a11d-e9eb-4742-b426-bee0cf24ab9d": "ag"
     }
   }
 }
