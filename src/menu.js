@@ -274,10 +274,12 @@ export class Menu {
     this.nudge('title');
   }
 
-  // A quiet note about supporting the game: a few seconds into the title screen and after a race - once each per
-  // session, never over a race; it closes itself (or with its x)
+  // A note about supporting the game: a few seconds into the title screen on every visit to the site (each load, once:
+  // not again on coming back to the title), and after a race once a session; never over a race; it closes itself (or
+  // with its x)
   nudge(where) {
-    try { if (sessionStorage.getItem('n4s-nudge-' + where)) return; sessionStorage.setItem('n4s-nudge-' + where, '1'); } catch { /* storage blocked */ }
+    if (where === 'title') { if (this.nudgedTitle) return; this.nudgedTitle = true; }
+    else try { if (sessionStorage.getItem('n4s-nudge-' + where)) return; sessionStorage.setItem('n4s-nudge-' + where, '1'); } catch { /* storage blocked */ }
     clearTimeout(this.nudgeT);
     this.nudgeT = setTimeout(() => {
       if (this.ctx !== 'title' && this.ctx !== 'results') return;
