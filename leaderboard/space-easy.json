@@ -274,6 +274,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "death",
+        "totalMs": 294867,
+        "bestLapMs": 95700,
+        "lapsMs": [
+          101308,
+          97858,
+          95700
+        ],
+        "points": 42,
+        "recordedAt": "2026-10-18T12:01:26.801Z",
+        "runId": "ff40a224-5477-4154-9bf5-ad5a32daca88"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "big jim",
         "totalMs": 299342,
         "bestLapMs": 94358,
@@ -288,7 +303,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T07:40:31.047Z",
+  "updatedAt": "2026-10-18T12:01:26.801Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -313,7 +328,8 @@
       "eb120bb3-9996-4054-bed7-948930987242": "RootBear",
       "762c23ab-042e-4ec4-ade4-49a9bff16efa": "JC",
       "e198e6cd-5d94-4c40-94ef-b0e5de12d688": "bumba",
-      "663430dc-0839-41ef-ab71-336fc04186fd": "bumba"
+      "663430dc-0839-41ef-ab71-336fc04186fd": "bumba",
+      "ff40a224-5477-4154-9bf5-ad5a32daca88": "death"
     }
   }
 }
