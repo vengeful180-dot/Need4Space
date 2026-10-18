@@ -278,6 +278,7 @@ async function boot() {
   fx.track = track;
   const hud = new HUD(mm, START);
   const comms = new Comms(document.getElementById('hud'));      // the rival pilots' faces and lines (the setting)
+  comms.map = MAP;                                     // (their talk about the circuit)
   const audio = new GameAudio();
 
   // post: sky + scene (HDR, 4x MSAA in the first pass only) + NaN guard -> AO -> deck reflections -> bloom -> streaks
