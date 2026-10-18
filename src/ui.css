@@ -637,8 +637,11 @@ body.touch .m-screen[data-s="ship"] .m-item:not(.sel) .s-chips { display: none; 
 .r-gap { color: var(--dim) !important; }
 .sw { display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.7rem; transform: skewX(-15deg); vertical-align: -0.05em; }
 /* a rival pilot's face in the table (the setting), ringed in the team's colour; the team name beside the pilot's, quiet */
-.r-face { width: 2rem; height: 2rem; margin: -0.35rem 0.65rem -0.35rem 0; border-radius: 50%; object-fit: cover; vertical-align: middle;
+.r-face { width: 2.2rem; height: 2.2rem; margin-right: 0.75rem; border-radius: 50%; object-fit: cover; vertical-align: middle;
   box-shadow: 0 0 0 2px var(--c); }
+/* with the faces: taller rows (the faces inside them, not over the lines), the player's swatch as wide as a face */
+.r-table.faces td { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.r-table.faces .sw { margin: 0 1.5rem 0 0.75rem; }
 .r-table small.r-team { color: var(--dim); background: none; padding: 0; margin-left: 0.5rem; letter-spacing: 0.16em; }
 .r-score { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-top: 1.3rem; }
 .r-score div { display: flex; flex-direction: column; justify-content: space-between; gap: 0.4rem; padding: 0.65rem 0.8rem;

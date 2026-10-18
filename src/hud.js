@@ -204,7 +204,7 @@ export class HUD {
           <div class="r-place">${me ? ordinal(me) : '-'}<small>of ${rows.length}</small></div></div>
         <div class="r-total"><span class="lbl">Score</span><b>${total}</b></div>
       </div>
-      <table class="r-table"><thead><tr><th>Pos</th><th>Ship</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody>${tr}</tbody></table>
+      <table class="r-table${this.pilots ? ' faces' : ''}"><thead><tr><th>Pos</th><th>Ship</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody>${tr}</tbody></table>
       <div class="r-score">
         <div><span>Finishing position</span><b>${score.position}</b></div>
         <div><span>Boost pads (2 each)</span><b>${score.pads}</b></div>
