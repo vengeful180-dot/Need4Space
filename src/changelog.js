@@ -9,6 +9,7 @@ export const UPDATES = [
       'Their faces in the results table, as the race left them',
       'A notice over the bars when your slam is charged, with the key to press',
       'Both can be switched off in Settings: Rival pilots, Slam ready notice',
+      'Damaged ships pour smoke out of their breaches, lit by the sun, sooty where it leaves the hull; burning ones throw embers',
     ],
   },
   {

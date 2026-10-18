@@ -276,6 +276,11 @@ async function boot() {
   const touch = new TouchControls(input);              // phones and tablets: sticks and buttons on screen (the setting)
   const fx = new FX(scene, camera);
   fx.track = track;
+  // the damage smoke's light: the circuit's sun, and the sky on the side away from it (night on the ocean: moonlight)
+  { const L = { space: [[1.0, 0.95, 0.88], [0.16, 0.19, 0.26]], forest: [[1.0, 0.92, 0.78], [0.36, 0.44, 0.46]],
+      ice: [[1.0, 0.74, 0.56], [0.34, 0.42, 0.56]], desert: [[1.0, 0.7, 0.46], [0.42, 0.37, 0.42]],
+      ocean: [[0.52, 0.6, 0.74], [0.1, 0.13, 0.2]], meadow: [[1.0, 0.93, 0.8], [0.4, 0.46, 0.55]] }[MAP] || [[1, 0.95, 0.88], [0.32, 0.36, 0.42]];
+    fx.setLight(sunDir, new THREE.Color(...L[0]), new THREE.Color(...L[1])); }
   const hud = new HUD(mm, START);
   const comms = new Comms(document.getElementById('hud'));      // the rival pilots' faces and lines (the setting)
   comms.map = MAP;                                     // (their talk about the circuit)

@@ -43,18 +43,49 @@ const puffTex = () => canvas(128, (g, n) => {
   }
 });
 
+// a damaged hull's smoke: four different billows (a 2 x 2 atlas, one per particle by its instance): lumps at three
+// scales over a soft body, the rim torn into wisps - detailed enough for the lit pool to shade (its relief: the density's
+// slope). Every lump stays inside its own quarter (no square outlines).
+const billowTex = () => canvas(512, (g, n) => {
+  const h = n / 2, rnd = mulberry32(7);
+  for (let q = 0; q < 4; q++) {
+    const ox = (q % 2) * h, oy = Math.floor(q / 2) * h, cx = ox + h / 2, cy = oy + h / 2;
+    g.save();
+    g.beginPath(); g.rect(ox, oy, h, h); g.clip();
+    const blob = (x, y, r, a) => {
+      const gr = g.createRadialGradient(x, y, 0, x, y, r);
+      gr.addColorStop(0, `rgba(255,255,255,${a})`); gr.addColorStop(0.55, `rgba(255,255,255,${a * 0.55})`); gr.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+    };
+    blob(cx, cy, h * 0.3, 0.35);                                          // the body
+    for (const [count, rMin, rMax, spread, a] of [[9, 0.10, 0.16, 0.17, 0.30], [22, 0.05, 0.09, 0.22, 0.26], [46, 0.02, 0.045, 0.26, 0.22]]) {
+      for (let i = 0; i < count; i++) {
+        const t = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * h * spread, r = h * (rMin + rnd() * (rMax - rMin));
+        if (d + r > h * 0.42) continue;
+        blob(cx + Math.cos(t) * d, cy + Math.sin(t) * d * (0.8 + rnd() * 0.3), r, a * (0.6 + rnd() * 0.6));
+      }
+    }
+    g.restore();
+  }
+});
+
 // Instanced camera-facing particles. Options per pool:
 //  additive: HDR light (added, not blended: a spark's core can sit far above white for the bloom);
 //  stretch: velocity-stretched streaks (motion blur: a capsule from where the particle was `stretch` seconds ago to
 //    where it is - round dots read as a cheap effect at these speeds);
 //  ramp: 1 = heat (a spark cools white-hot -> yellow -> orange -> a red ember over its life), 2 = ion (hot, then the
-//    engine's own colour, dimming).
+//    engine's own colour, dimming);
+//  lit: smoke shaded by the sun (LIGHT: its direction and colour, the sky's colour for the side away from it): the
+//    billow's relief from its density, the thin rims glowing when the sun is behind them, sooty dark young and greying
+//    as it spreads; the map a 2 x 2 atlas (a billow per particle).
 // Per particle: a plane (the deck there) to fall toward and bounce off, with a restitution.
 const CAM_VEL = new THREE.Vector3();      // the camera's velocity (FX.update): the streaks are motion blur
+const LIGHT = { dir: { value: new THREE.Vector3(0.3, 0.8, 0.5).normalize() }, sun: { value: new THREE.Color(1, 0.95, 0.88) },
+  sky: { value: new THREE.Color(0.32, 0.36, 0.42) } };
 
 const POOL_ATTRS = [['iPos', 3], ['iVel', 3], ['iAlpha', 1], ['iSize', 1], ['iCol', 3], ['iRot', 1], ['iStr', 1], ['iF', 1]];
 class Pool {
-  constructor(scene, n, { additive = false, map, order = 3, stretch = false, ramp = 0 }) {
+  constructor(scene, n, { additive = false, map, order = 3, stretch = false, ramp = 0, lit = false }) {
     this.n = n;
     const f = (k) => new Float32Array(n * k);
     Object.assign(this, { p: f(3), v: f(3), c: f(3), a: f(1), s: f(1), rot: f(1), spin: f(1), life: f(1), grow: f(1),
@@ -76,15 +107,22 @@ class Pool {
       transparent: true, depthWrite: false,
       blending: additive ? THREE.CustomBlending : THREE.NormalBlending,
       blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
-      defines: { STRETCH: stretch ? 1 : 0, RAMP: ramp, ADDITIVE: additive ? 1 : 0 },
-      uniforms: { map: { value: map }, camVel: { value: CAM_VEL } },
+      defines: { STRETCH: stretch ? 1 : 0, RAMP: ramp, ADDITIVE: additive ? 1 : 0, LIT: lit ? 1 : 0 },
+      uniforms: { map: { value: map }, camVel: { value: CAM_VEL }, sunDir: LIGHT.dir, sunCol: LIGHT.sun, skyCol: LIGHT.sky },
       vertexShader: /* glsl */`
-        uniform vec3 camVel;
+        uniform vec3 camVel, sunDir;
         attribute vec3 iPos; attribute vec3 iVel; attribute vec3 iCol; attribute float iAlpha; attribute float iSize;
         attribute float iRot; attribute float iStr; attribute float iF;
-        varying vec2 vUv; varying float vA; varying vec3 vC; varying float vF; varying float vK;
+        varying vec2 vUv, vQ, vRot; varying float vA; varying vec3 vC, vL; varying float vF; varying float vK;
         void main() {
-          vUv = uv; vA = iAlpha; vC = iCol; vF = iF; vK = 0.0;
+          vUv = uv; vQ = uv; vA = iAlpha; vC = iCol; vF = iF; vK = 0.0;
+          #if LIT
+            // a billow of the atlas per particle; the sun in view space; the particle's turn (its relief turns with it)
+            float b = float(gl_InstanceID % 4);
+            vUv = uv * 0.5 + vec2(mod(b, 2.0), floor(b / 2.0)) * 0.5;
+            vL = normalize((viewMatrix * vec4(sunDir, 0.0)).xyz);
+            vRot = vec2(cos(iRot), sin(iRot));
+          #endif
           vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
           float sz = max(iSize, 0.0);
           #if STRETCH
@@ -106,7 +144,8 @@ class Pool {
           gl_Position = iAlpha > 0.0 ? projectionMatrix * mv : vec4(0.0, 0.0, -2.0, 1.0);
         }`,
       fragmentShader: /* glsl */`
-        uniform sampler2D map; varying vec2 vUv; varying float vA; varying vec3 vC; varying float vF; varying float vK;
+        uniform sampler2D map; uniform vec3 sunCol, skyCol;
+        varying vec2 vUv, vQ, vRot; varying float vA; varying vec3 vC, vL; varying float vF; varying float vK;
         vec3 heat(float f) {
           vec3 c = mix(vec3(1.0, 0.96, 0.9) * 2.2, vec3(1.0, 0.78, 0.32) * 1.6, smoothstep(0.0, 0.22, f));
           c = mix(c, vec3(1.0, 0.36, 0.06), smoothstep(0.18, 0.55, f));
@@ -119,10 +158,27 @@ class Pool {
             float r = length(q);
             float m = max(1.0 - r, 0.0);
             m = m * m * (0.6 + 2.4 * exp(-r * r * 9.0));           // a white-hot core in a soft sheath
+          #elif LIT
+            float m = texture2D(map, vUv).a * smoothstep(0.5, 0.4, length(vQ - 0.5));
           #else
             float m = texture2D(map, vUv).a * smoothstep(0.5, 0.36, length(vUv - 0.5));
           #endif
           vec3 col = vC;
+          #if LIT
+            // the billow's relief (its density's slope, turned as the particle turns) lit by the sun, wrapped round to the
+            // sky's colour on the far side; the dense middle self-shadowed, the thin rims lit through with the sun behind
+            const float e = 2.0 / 512.0;
+            float gx = texture2D(map, vUv + vec2(e, 0.0)).a - texture2D(map, vUv - vec2(e, 0.0)).a;
+            float gy = texture2D(map, vUv + vec2(0.0, e)).a - texture2D(map, vUv - vec2(0.0, e)).a;
+            vec3 n = normalize(vec3(-gx * 9.0, gy * 9.0, 0.6));
+            n.xy = vec2(vRot.x * n.x - vRot.y * n.y, vRot.y * n.x + vRot.x * n.y);
+            float w = clamp(dot(n, vL) * 0.55 + 0.45, 0.0, 1.0);
+            float thin = 1.0 - smoothstep(0.04, 0.32, m);
+            float back = clamp(-vL.z, 0.0, 1.0);
+            vec3 light = mix(skyCol, sunCol, w * w) * (0.75 + 0.35 * (1.0 - thin)) + sunCol * back * back * thin * 1.6;
+            // sooty young, greying as it spreads
+            col = vC * light * mix(0.42, 1.05, smoothstep(0.0, 0.65, vF));
+          #endif
           #if RAMP == 1
             col *= heat(vF);
           #elif RAMP == 2
@@ -398,6 +454,7 @@ export class FX {
     this.scene = scene;
     this.dust = new Pool(scene, 900, { map: puff });
     this.smoke = new Pool(scene, 500, { map: puff });
+    this.hurt = new Pool(scene, 900, { map: billowTex(), lit: true });     // a damaged hull's smoke (damaged)
     this.fire = new Pool(scene, 400, { additive: true, map: puff, order: 4 });
     this.sparks = new Pool(scene, 2200, { additive: true, map: glow, order: 5, stretch: true, ramp: 1 });
     this.ions = new Pool(scene, 1600, { additive: true, map: glow, order: 5, stretch: true, ramp: 2 });
@@ -540,26 +597,41 @@ export class FX {
     }
   }
 
-  // A damaged hull (race.js visuals: under half its hull): wisps of smoke torn off it, more the worse it is; under a
-  // quarter flames lick out of it and sparks crackle off - the others can see who is hurt. Kept thin and short ("the
-  // smoke when ship is damaged is too powerful, it blocks the visibility"): small, faint puffs that fall behind and are
-  // gone in half a second; the player's own (mine) thinner still - it streams back past the chase camera. Rate per
-  // second, kept per ship.
+  // A damaged hull (race.js visuals: under half its hull): smoke pouring out of breaches in it - one under half, two
+  // under a third, three under a fifth, each in its own place on that ship (seeded: it does not wander) - a thin
+  // plume streaming back from each, lit by the sun (the hurt pool), sooty where it leaves the hull, greying as it
+  // spreads; under a quarter flames lick out of the breaches, light the smoke from below and throw embers. Kept thin
+  // and short ("the smoke when ship is damaged is too powerful, it blocks the visibility"): it is gone in under a
+  // second, the player's own (mine) thinner still - it streams back past the chase camera. Rate per breach, per ship.
   damaged(ship, r, hp, dt, mine = false) {
-    const k = Math.min(1, (0.5 - hp) / 0.5), R = ship.root, hs = (ship.halfSpan || 5) * 0.55, L = (ship.length || 13) * 0.35;
-    const P = (this._dp ||= new THREE.Vector3()), V = (this._dv ||= new THREE.Vector3());
-    ship.dmgAcc = (ship.dmgAcc || 0) + dt * (6 + 14 * k) * (mine ? 0.5 : 1);
-    for (; ship.dmgAcc >= 1; ship.dmgAcc -= 1) {
-      P.set((Math.random() - 0.5) * 2 * hs, 0.3 + Math.random() * 0.9, (Math.random() - 0.2) * L).applyQuaternion(R.quaternion).add(R.position);
-      V.set(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).multiplyScalar(4).addScaledVector(r.vel, 0.9);
-      this.smoke.emit(P, V, SMOKE, { size: 0.9 + 0.7 * k, grow: 2.2 + 2.2 * k, life: 0.45 + Math.random() * 0.35,
-        alpha: (0.15 + 0.13 * k) * (mine ? 0.55 : 1), drag: 0.5, grav: -1.2, spin: (Math.random() - 0.5) * 1.5, fadeIn: 0.06 });
-      if (hp < 0.25) {
-        this.fire.emit(P, V, Math.random() < 0.5 ? FLAME_A : FLAME_B, { size: 1.5 + Math.random() * 1.2, grow: 3, life: 0.28 + Math.random() * 0.2,
-          alpha: 1.8, drag: 0.4, fadeIn: 0.02 });
-        if (Math.random() < 0.5) {
-          V.addScaledVector(UP, 4 + Math.random() * 8).add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10));
-          this.sparks.emit(P, V, FLAME_B, { size: 0.05, life: 0.3 + Math.random() * 0.3, alpha: 2, drag: 0.4, grav: 12, fadeIn: 0.01, stretch: 0.02 });
+    const k = Math.min(1, (0.5 - hp) / 0.5), R = ship.root, hs = (ship.halfSpan || 5) * 0.5, L = ship.length || 13;
+    const P = (this._dp ||= new THREE.Vector3()), V = (this._dv ||= new THREE.Vector3()), U = (this._du ||= new THREE.Vector3());
+    if (!ship.breaches) {
+      const rnd = mulberry32(((ship.root.id || 1) * 2654435761) >>> 0);
+      ship.breaches = [0, 1, 2].map((b) => ({ x: (rnd() - 0.5) * 2 * hs * (b ? 1 : 0.4), y: 0.45 + rnd() * 0.6,
+        z: L * (0.05 + rnd() * 0.32), acc: rnd() }));
+    }
+    const open = hp < 0.2 ? 3 : hp < 0.33 ? 2 : 1, burning = hp < 0.25;
+    U.set(0, 1, 0).applyQuaternion(R.quaternion);
+    for (let b = 0; b < open; b++) {
+      const br = ship.breaches[b];
+      br.acc += dt * (16 + 18 * k) * (mine ? 0.55 : 1);
+      for (; br.acc >= 1; br.acc -= 1) {
+        P.set(br.x + (Math.random() - 0.5) * 0.3, br.y, br.z + (Math.random() - 0.5) * 0.4).applyQuaternion(R.quaternion).add(R.position);
+        // out of the breach (up off the hull, a little to the side), carried on with the ship and falling back
+        V.copy(U).multiplyScalar(1.5 + Math.random() * 2.5).add(_v.set(Math.random() - 0.5, 0, Math.random() - 0.5).multiplyScalar(2.2))
+          .addScaledVector(r.vel, 0.86 + Math.random() * 0.06);
+        const soot = 0.34 + Math.random() * 0.12;
+        this.hurt.emit(P, V, _c.setRGB(soot, soot * 0.98, soot * 0.95), { size: (0.7 + 0.5 * k) * (mine ? 0.8 : 1),
+          grow: (2.6 + 2.4 * k) * (mine ? 0.75 : 1), life: 0.55 + Math.random() * 0.4,
+          alpha: (0.26 + 0.2 * k) * (mine ? 0.45 : 1), drag: 0.55, grav: -1.4, spin: (Math.random() - 0.5) * 1.2, fadeIn: 0.05 });
+        if (burning) {
+          if (Math.random() < 0.6) this.fire.emit(P, V, Math.random() < 0.5 ? FLAME_A : FLAME_B, { size: 0.8 + Math.random() * 0.9,
+            grow: 2.4, life: 0.18 + Math.random() * 0.16, alpha: 1.6 * (mine ? 0.6 : 1), drag: 0.4, fadeIn: 0.02 });
+          if (Math.random() < 0.25) {
+            V.addScaledVector(U, 3 + Math.random() * 7).add(_v.set((Math.random() - 0.5) * 9, 0, (Math.random() - 0.5) * 9));
+            this.sparks.emit(P, V, FLAME_B, { size: 0.045, life: 0.35 + Math.random() * 0.35, alpha: 2, drag: 0.35, grav: 11, fadeIn: 0.01, stretch: 0.02 });
+          }
         }
       }
     }
@@ -602,7 +674,10 @@ export class FX {
     }
   }
 
-  get pools() { return [this.dust, this.smoke, this.fire, this.sparks, this.ions, this.glints, this.spray]; }
+  get pools() { return [this.dust, this.smoke, this.hurt, this.fire, this.sparks, this.ions, this.glints, this.spray]; }
+
+  // the light the damage smoke is shaded by: the circuit's sun (direction to it, its colour) and its sky
+  setLight(dir, sun, sky) { LIGHT.dir.value.copy(dir).normalize(); LIGHT.sun.value.copy(sun); LIGHT.sky.value.copy(sky); }
 
   // a drift, every frame of it: the two skids under the hull burn ribbons into the deck (the outer one wider and
   // hotter), the outer throws a fan of sparks and a wisp of vapour, and the field crackles between hull and deck -
