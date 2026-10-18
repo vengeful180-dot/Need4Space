@@ -15,14 +15,30 @@
         ],
         "points": 72,
         "recordedAt": "2026-10-13T21:51:30.299Z"
+      },
+      {
+        "map": "ice",
+        "difficulty": "easy",
+        "name": "human",
+        "totalMs": 141300,
+        "bestLapMs": 45917,
+        "lapsMs": [
+          48958,
+          45917,
+          46425
+        ],
+        "points": 60,
+        "recordedAt": "2026-10-18T17:17:24.277Z",
+        "runId": "9abf69d9-6f3d-4f86-9c8b-8c6126aefd4c"
       }
     ]
   },
-  "updatedAt": "2026-10-14T22:14:21.465Z",
+  "updatedAt": "2026-10-18T17:17:24.277Z",
   "submissions": {
     "ice:easy": {
       "legacy:140400:48567:45875:45958:72": "V3ngeful",
-      "9ffc0da7-e3c7-4cf3-bae9-ed7fe7fd6888": "V3ngeful"
+      "9ffc0da7-e3c7-4cf3-bae9-ed7fe7fd6888": "V3ngeful",
+      "9abf69d9-6f3d-4f86-9c8b-8c6126aefd4c": "human"
     }
   }
 }
