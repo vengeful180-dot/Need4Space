@@ -106,7 +106,7 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
 
 ## Support
 
-Need4Space is free. If you enjoy it, you can support development on Revolut: [revolut.me/alexan_vic](https://revolut.me/alexan_vic).
+Need4Space is free. If you enjoy it, you can support development on PayPal: [paypal.me/DimianAlex](https://paypal.me/DimianAlex) or Revolut: [revolut.me/alexan_vic](https://revolut.me/alexan_vic).
 
 ## Credits
 

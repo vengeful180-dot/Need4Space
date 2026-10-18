@@ -60,9 +60,11 @@ export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed
   ['ice', 'Ice planet', 'Over a frozen sea at dusk, a storm in the east: a crevasse down an ice shelf, a glacier to fly through, two rifts to jump, upside down over the floes'],
   ['desert', 'Desert planet', 'Dunes at sunset: a half-buried city, a sandstorm, a sandstone gorge under natural bridges, a banked wall, a gravity flip'],
   ['ocean', 'Ocean planet', 'A world of sea at night under a great moon: sea stacks and spray, a dive into the deep through a drowned city, a surge back out of the water']];
-// donations (the author's Revolut)
-const DONATE_URL = 'https://revolut.me/alexan_vic', DONATE_HANDLE = '@alexan_vic';
-const donate = () => window.open(DONATE_URL, '_blank', 'noopener');
+// donations: the author's PayPal and Revolut (where: 'paypal' | 'revolut')
+const DONATE = { paypal: 'https://paypal.me/DimianAlex', revolut: 'https://revolut.me/alexan_vic' };
+const donate = (where = 'paypal') => window.open(DONATE[where] || DONATE.paypal, '_blank', 'noopener');
+// the supporters, thanked on the Support screen (a name added here as each one donates)
+const SUPPORTERS = ['Mangooo'];
 const PAUSE = [['resume', 'Resume'], ['restart', 'Restart race'], ['difficulty', 'Difficulty'], ['scoreboard', 'Global scoreboard'], ['settings', 'Settings'],
   ['controls', 'Controls'], ['quit', 'Quit to menu']];
 // a hint along the bottom: its keys and what they do, and clickable like the key ("can only go back pressing Esc"):
@@ -79,7 +81,7 @@ const HINTS = {
   diff: K(['←', '→'], 'Choose', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
   settings: K(['↑', '↓'], 'Option', UD) + K(['←', '→'], 'Change', LR) + K(['Esc'], 'Back', 'back'),
   controls: K(['Esc'], 'Back', 'back'),
-  support: K(['Enter'], 'Donate on Revolut', 'ok') + K(['Esc'], 'Back', 'back'),
+  support: K(['←', '→'], 'PayPal / Revolut', LR) + K(['Enter'], 'Donate', 'ok') + K(['Esc'], 'Back', 'back'),
   circuit: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Fly it', 'ok') + K(['Esc'], 'Back', 'back'),
   ship: K(['↑', '↓'], 'Select', UD) + K(['←', '→'], 'Paint', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
   scoreboard: K(['↑', '↓'], 'Circuit', UD) + K(['←', '→'], 'Difficulty', LR) + K(['R'], 'Refresh', 'refresh') + K(['Esc'], 'Back', 'back'),
@@ -207,8 +209,12 @@ export class Menu {
         <header><div class="m-kicker">Keep it flying</div><h2 class="m-h2">Support</h2></header>
         <div class="s-body">
           <p class="s-text">Need4Space is free to play. If you enjoy it, a donation helps keep new tracks, ships and music coming.</p>
-          <button class="m-cta s-go" data-act="donate" tabindex="-1"><span>Donate on Revolut</span><kbd>Enter</kbd></button>
-          <div class="s-handle">revolut.me/<b>alexan_vic</b></div>
+          <div class="s-pay">
+            <button class="m-cta s-go sel" data-act="donate:paypal" tabindex="-1"><span>Donate with PayPal</span></button>
+            <button class="m-cta s-go" data-act="donate:revolut" tabindex="-1"><span>Donate on Revolut</span></button>
+          </div>
+          <div class="s-handle">paypal.me/<b>DimianAlex</b><i>&middot;</i>revolut.me/<b>alexan_vic</b></div>
+          <div class="s-fans"><div class="s-fans-h">Supporters</div><div class="s-fans-l">${SUPPORTERS.map((n) => `<span>${n}</span>`).join('')}</div></div>
           <p class="s-thanks">Thank you for flying.</p>
         </div>
       </section>
@@ -280,15 +286,18 @@ export class Menu {
         t = document.createElement('div');
         t.id = 'support-toast';
         t.className = 'm-toast';
-        t.innerHTML = `<div class="t-text"><b>Enjoying Need4Space?</b><span>Support it on Revolut <em>${DONATE_HANDLE}</em></span></div>`
-          + '<button class="t-go" type="button">Donate</button><button class="t-x" type="button" aria-label="Close">&times;</button>';
+        t.innerHTML = `<svg class="t-heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg><div class="t-text"><b>Enjoying Need4Space?</b>`
+          + `<span>It is free to play. A small donation keeps new tracks, ships and music coming.</span>`
+          + `<div class="t-btns"><button class="t-go" type="button" data-w="paypal">PayPal</button>`
+          + `<button class="t-go t-alt" type="button" data-w="revolut">Revolut</button></div></div>`
+          + '<button class="t-x" type="button" aria-label="Close">&times;</button>';
         document.body.append(t);
         t.querySelector('.t-x').onclick = () => t.classList.remove('on');
-        t.querySelector('.t-go').onclick = () => { ui('select'); donate(); t.classList.remove('on'); };
+        for (const b of t.querySelectorAll('.t-go')) b.onclick = () => { ui('select'); donate(b.dataset.w); t.classList.remove('on'); };
       }
       t.classList.add('on');
       clearTimeout(this.nudgeHide);
-      this.nudgeHide = setTimeout(() => t.classList.remove('on'), 12000);
+      this.nudgeHide = setTimeout(() => t.classList.remove('on'), 20000);
     }, where === 'title' ? 6000 : 2500);
   }
 
@@ -553,6 +562,7 @@ export class Menu {
       return;
     }
     if (s === 'ship' && !vert) { this.paint(d); return; }
+    if (s === 'support') { this.payI = (this.payI || 0) ^ 1; this.markPay(); ui('move'); return; }
     if (s === 'controls' || (!vert && s !== 'results')) return;
     const n = this.items().length;
     if (!n) return;
@@ -582,7 +592,7 @@ export class Menu {
       return;
     }
     if (s === 'controls') { this.back(); return; }
-    if (s === 'support') { this.act('donate'); return; }
+    if (s === 'support') { this.act(this.payI ? 'donate:revolut' : 'donate:paypal'); return; }
     const it = this.items()[this.sel[s] || 0];
     if (it?.classList.contains('sb-save')) this.board.saveFromMenu();
     else if (it) this.act(it.dataset.act);
@@ -609,12 +619,15 @@ export class Menu {
     this.go(name);
   }
 
+  // the Support screen's chosen button (PayPal or Revolut)
+  markPay() { this.el.querySelectorAll('.s-pay .s-go').forEach((b, i) => b.classList.toggle('sel', i === (this.payI || 0))); }
+
   act(a) {
     const h = this.h;
     switch (a) {
       case 'race': ui('select'); this.go('diff', 'start'); break;
       case 'settings': case 'controls': case 'support': case 'circuit': case 'ship': case 'scoreboard': ui('select'); this.go(a); break;
-      case 'donate': ui('select'); donate(); break;
+      case 'donate': case 'donate:paypal': case 'donate:revolut': ui('select'); donate(a.split(':')[1]); break;
       case 'difficulty': ui('select'); this.go('diff', this.ctx === 'results' ? 'restart' : 'apply'); break;
       case 'confirm': this.confirmDiff(); break;
       case 'shipfly': { const it = this.items()[this.sel.ship || 0]; if (it) this.act(it.dataset.act); break; }
