@@ -274,6 +274,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Booger",
+        "totalMs": 287233,
+        "bestLapMs": 90683,
+        "lapsMs": [
+          98083,
+          90683,
+          98467
+        ],
+        "points": 52,
+        "recordedAt": "2026-10-18T14:07:25.990Z",
+        "runId": "08da4ac0-5254-4eef-adef-228d3ef69a16"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "ww",
         "totalMs": 292100,
         "bestLapMs": 95775,
@@ -318,7 +333,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T13:45:56.342Z",
+  "updatedAt": "2026-10-18T14:07:25.990Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -345,7 +360,8 @@
       "e198e6cd-5d94-4c40-94ef-b0e5de12d688": "bumba",
       "663430dc-0839-41ef-ab71-336fc04186fd": "bumba",
       "ff40a224-5477-4154-9bf5-ad5a32daca88": "death",
-      "5f71049b-a9a0-465c-8dd4-452417167ee8": "neb"
+      "5f71049b-a9a0-465c-8dd4-452417167ee8": "neb",
+      "08da4ac0-5254-4eef-adef-228d3ef69a16": "Booger"
     }
   }
 }
