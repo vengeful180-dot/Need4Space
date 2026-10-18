@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "ocean:easy": [
+      {
+        "map": "ocean",
+        "difficulty": "easy",
+        "name": "rewair",
+        "totalMs": 220750,
+        "bestLapMs": 72050,
+        "lapsMs": [
+          75933,
+          72050,
+          72767
+        ],
+        "points": 60,
+        "recordedAt": "2026-10-18T17:29:12.870Z",
+        "runId": "5e15abbc-3889-4b96-ad91-26fac80ab4eb"
+      }
+    ]
+  },
+  "updatedAt": "2026-10-18T17:29:12.870Z",
+  "submissions": {
+    "ocean:easy": {
+      "5e15abbc-3889-4b96-ad91-26fac80ab4eb": "rewair"
+    }
+  }
+}
