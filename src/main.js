@@ -740,6 +740,7 @@ async function boot() {
   warmed = true;
   document.getElementById('loading').classList.add('done');
   audio.prepareMusic();                              // (the songs load once the game has: not over the ship's download)
+  comms.ready();                                     // (the rival pilots' faces: likewise)
 
   const FIXED = 1 / 120;
   const _sprayV = new THREE.Vector3();

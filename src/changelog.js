@@ -2,9 +2,13 @@
 // the title shows the first entry.
 export const UPDATES = [
   {
-    version: '1.12.2', date: '18 Oct 2026', name: 'Slam ready',
+    version: '1.13.0', date: '18 Oct 2026', name: 'Rival pilots',
     notes: [
-      'A notice over the bars when your slam is charged, with the key to press (Settings: Slam ready notice)',
+      'Meet the rivals: eight pilots, each with a face, a personality and plenty to say - Roxy, Torque, Milo, Skye, Smokey, Sarge, Valentina and Sprocket',
+      'They talk during the race: when you pass them or they pass you, on slams, blocks and wrecks, about the circuit you are on, and to each other - and they gang up on you when you lead',
+      'Their faces in the results table, as the race left them',
+      'A notice over the bars when your slam is charged, with the key to press',
+      'Both can be switched off in Settings: Rival pilots, Slam ready notice',
     ],
   },
   {

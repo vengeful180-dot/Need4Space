@@ -359,9 +359,16 @@ export class Comms {
   set on(v) {
     this.enabled = v;
     if (!v) this.clear();
-    else if (!this.pics) {
-      // every face fetched once (676 KB) and KEPT: an image let go could be dropped before it loaded, and each card then
-      // fetched its face again (a card up with no face while it came)
+    else if (this.loaded) this.preload();
+  }
+
+  // the game loaded (main.js): the faces fetched now, not over the game's own files
+  ready() { this.loaded = true; if (this.enabled) this.preload(); }
+
+  preload() {
+    if (!this.pics) {
+      // every face fetched once (~550 KB) and KEPT: an image let go could be dropped before it loaded, and each card
+      // then fetched its face again (a card up with no face while it came)
       this.pics = new Map();
       for (const p of Object.values(PILOTS)) for (const k in EMOTES) {
         const url = face(p, k), im = new Image();

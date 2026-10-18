@@ -101,6 +101,7 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
   - a two-slice depth range for precise far scenery.
 - **Procedural art:** the deck, the structure's steel, the rocks (hex-tiled triplanar, with craters), the gas giant, its rings, the moon and the plasma sun are all generated on the GPU at load.
 - **3D sound:** HRTF-panned positional audio with distance filtering and Doppler; echo inside the tunnel and the meteorite.
+- **Rival pilots:** eight pilots with their own faces and personalities talk during the race - passes, slams, wrecks, the circuit, each other.
 - **Settings:** graphics presets, picture and performance options, and each circuit's effects in a section of its own.
 
 ## Support
