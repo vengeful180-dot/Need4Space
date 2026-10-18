@@ -645,6 +645,7 @@ async function boot() {
     if (racer) racer.perks = PERKS[v.ai] || PERKS.brutal;  // and the player's help by it
     touch.setPref(v.touch);                           // the on-screen sticks: Auto (a phone or tablet) / On / Off
     comms.on = hud.pilots = v.pilots !== false;       // the rival pilots: their lines in the race, their faces in the results
+    hud.slamNote = v.slamNote !== false;              // the slam charged: a notice over the bars
     audio.lite = !!v.laptop;                          // (fewer rival voices; its buffer is set when the sound starts)
     audio.setLevels(v.music, v.sfx);                 // music and effects volume
     redraw = 2;                                      // (a paused picture shows the change behind the settings)

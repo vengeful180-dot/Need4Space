@@ -55,6 +55,13 @@ const SEGS = 32;
 export class HUD {
   constructor(road, start = 0) {
     this.road = road;
+    // the slam charged: a short notice over the bars, the key to press with it (the setting: Slam ready notice)
+    this.slamNote = true;
+    this.noteEl = document.createElement('div');
+    this.noteEl.id = 'slamnote';
+    this.noteEl.innerHTML = '<kbd></kbd><span>Slam ready</span>';
+    this.noteT = 0;
+    $('hullbar').appendChild(this.noteEl);
     this.msgT = 0;
     this.goT = 0;
     this.countN = -1;
@@ -284,6 +291,7 @@ export class HUD {
       }
       for (const [id, el] of this.tagEls) if (!seen.has(id) && el.style.opacity !== '0') el.style.opacity = '0';
     }
+    if (this.noteT > 0 && (this.noteT -= dt) <= 0) this.noteEl.classList.remove('on');
     // the slam: a chevron on the side of a hull in reach (orange), or of a slam coming that can still be blocked (red)
     const hint = (s.atkHint > 0 ? 'r' : s.atkHint < 0 ? 'l' : '') + (Math.abs(s.atkHint || 0) === 2 ? ' in' : '');
     if (s.slamCharge != null) {
@@ -294,6 +302,11 @@ export class HUD {
         if (ready !== this.slamReady) {
           $('slm').parentElement.classList.toggle('ready', ready);
           (this.tSlam ||= document.querySelector('.t-slam'))?.classList.toggle('ready', ready);   // (the touch button lit)
+          if (ready && this.slamReady === false && this.slamNote && s.race?.state === 'racing') {
+            this.noteEl.firstChild.textContent = s.slamKey === 'Slam' ? '' : s.slamKey || 'Space';   // (a phone: its button is lit)
+            this.noteEl.classList.remove('on'); void this.noteEl.offsetWidth; this.noteEl.classList.add('on');
+            this.noteT = 1.8;
+          }
           this.slamReady = ready;
         }
         this.sc = sc;
