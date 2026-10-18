@@ -9,7 +9,8 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   sandstorm: true, caveFx: true, canyonAO: true, engineHeat: true, engineTrails: 'puffs', colossus: true, nozzleMotion: true, featherLivery: 'classic', cometLivery: 'titanium', heavyLivery: 'hazard', pulseRings: true, sharpEdges: true, showroom: true,
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
-  seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8 };
+  seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
+  slamNote: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -40,6 +41,7 @@ const ROWS = [
   ['xrScale', 'VR race resolution', [[0.65, 'Performance (65%)'], [0.8, 'Balanced (80%)'], [1, 'Full (100%)']]],
   ['ai', 'AI difficulty', [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']]],
   ['slamCam', 'Slam camera (your slams in slow motion, seen from the side)', [[true, 'On'], [false, 'Off']]],
+  ['slamNote', 'Slam ready notice', [[true, 'On'], [false, 'Off']]],
   ['airPitch', 'Nose control in the air', [[true, 'On'], [false, 'Off']]],
   ['music', 'Music', [['off', 'Off'], ['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
   ['sfx', 'Sound effects', [['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
@@ -84,7 +86,7 @@ const ROWS = [
 // the Settings screen's sections: each a bar that opens and closes (General open on arrival), each circuit's own
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
-  ['general', 'General', ['quality', 'xrScale', 'ai', 'slamCam', 'airPitch', 'music', 'sfx', 'touch']],
+  ['general', 'General', ['quality', 'xrScale', 'ai', 'slamCam', 'slamNote', 'airPitch', 'music', 'sfx', 'touch']],
   ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],

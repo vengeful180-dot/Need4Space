@@ -2,6 +2,12 @@
 // the title shows the first entry.
 export const UPDATES = [
   {
+    version: '1.12.2', date: '18 Oct 2026', name: 'Slam ready',
+    notes: [
+      'A notice over the bars when your slam is charged, with the key to press (Settings: Slam ready notice)',
+    ],
+  },
+  {
     version: '1.12.1', date: '18 Oct 2026', name: 'Phones and Settings',
     notes: [
       'Phones: the Slam button is back above Boost (it had slipped into the top corner), Boost sits low in the right corner under the thumb with a ring showing the boost left, and Slam lights up when it is charged',

@@ -186,6 +186,19 @@ body.lite .hp { background: linear-gradient(115deg, rgba(9, 13, 19, 0.86), rgba(
 #hullbar { position: absolute; left: 50%; bottom: var(--g); transform: translateX(-50%); width: min(38rem, 46vw);
   display: grid; gap: 0.55rem; font: 700 0.82rem var(--ui); letter-spacing: 0.24em; text-transform: uppercase; color: var(--dim); }
 #hullbar .hb-row { display: grid; grid-template-columns: 4.2rem 1fr 3.4rem; align-items: center; gap: 0.9rem; }
+/* the slam charged: a short notice over the bars, the key with it (hud.js; Settings: Slam ready notice) */
+#slamnote { position: absolute; left: 50%; bottom: calc(100% + 0.7rem); display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.38rem 1rem 0.38rem 0.45rem; white-space: nowrap; pointer-events: none;
+  background: rgba(22, 9, 4, 0.84); border: 1px solid rgba(255, 138, 58, 0.75); border-radius: 0.4rem;
+  box-shadow: 0 0 1.2rem rgba(255, 106, 32, 0.45); font: 700 0.86rem var(--ui); letter-spacing: 0.26em; color: #ffd8bc;
+  opacity: 0; transform: translate(-50%, 0.7rem) scale(0.92); transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.2, 1.4, 0.4, 1); }
+#slamnote.on { opacity: 1; transform: translate(-50%, 0); animation: slamnote 0.8s ease-in-out 2; }
+@keyframes slamnote { 50% { box-shadow: 0 0 2.2rem rgba(255, 106, 32, 0.85); border-color: #ffb27a; } }
+#slamnote kbd { font: inherit; letter-spacing: 0.1em; color: #fff; padding: 0.18rem 0.55rem 0.14rem; border: 1px solid #ff8a3a; border-bottom-width: 3px;
+  border-radius: 0.25rem; }
+#slamnote kbd:empty { display: none; }
+#slamnote:has(kbd:empty) { padding-left: 1rem; }
+#hud:not([data-kind="race"]) #slamnote { display: none; }
 /* boost and slam together over the hull, big enough to read at a glance */
 #hullbar .hb-top { display: grid; grid-template-columns: 4.2rem 1.7fr auto 1fr; align-items: center; gap: 0.9rem; margin-right: 4.3rem; }
 #hullbar .hb-top .bar { height: 1rem; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(9, 13, 19, 0.6); }
