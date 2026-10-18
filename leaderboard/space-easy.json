@@ -139,6 +139,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "bumba",
+        "totalMs": 274275,
+        "bestLapMs": 88108,
+        "lapsMs": [
+          97283,
+          88108,
+          88883
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-18T07:35:20.359Z",
+        "runId": "e198e6cd-5d94-4c40-94ef-b0e5de12d688"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Need4Speed",
         "totalMs": 274533,
         "bestLapMs": 89475,
@@ -273,7 +288,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T02:17:29.351Z",
+  "updatedAt": "2026-10-18T07:35:20.359Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -296,7 +311,8 @@
       "73d41443-ccdb-42fa-a866-f739e13bba62": "ww",
       "999b9aeb-e6f4-4f28-8fc0-97ffadfdad3b": "Need4Speed",
       "eb120bb3-9996-4054-bed7-948930987242": "RootBear",
-      "762c23ab-042e-4ec4-ade4-49a9bff16efa": "JC"
+      "762c23ab-042e-4ec4-ade4-49a9bff16efa": "JC",
+      "e198e6cd-5d94-4c40-94ef-b0e5de12d688": "bumba"
     }
   }
 }
