@@ -94,6 +94,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "bumba",
+        "totalMs": 270792,
+        "bestLapMs": 87467,
+        "lapsMs": [
+          94700,
+          88625,
+          87467
+        ],
+        "points": 68,
+        "recordedAt": "2026-10-18T07:40:31.047Z",
+        "runId": "663430dc-0839-41ef-ab71-336fc04186fd"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "jra",
         "totalMs": 271550,
         "bestLapMs": 86250,
@@ -135,21 +150,6 @@
         "points": 64,
         "recordedAt": "2026-10-18T02:17:29.351Z",
         "runId": "762c23ab-042e-4ec4-ade4-49a9bff16efa"
-      },
-      {
-        "map": "space",
-        "difficulty": "easy",
-        "name": "bumba",
-        "totalMs": 274275,
-        "bestLapMs": 88108,
-        "lapsMs": [
-          97283,
-          88108,
-          88883
-        ],
-        "points": 64,
-        "recordedAt": "2026-10-18T07:35:20.359Z",
-        "runId": "e198e6cd-5d94-4c40-94ef-b0e5de12d688"
       },
       {
         "map": "space",
@@ -288,7 +288,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T07:35:20.359Z",
+  "updatedAt": "2026-10-18T07:40:31.047Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -312,7 +312,8 @@
       "999b9aeb-e6f4-4f28-8fc0-97ffadfdad3b": "Need4Speed",
       "eb120bb3-9996-4054-bed7-948930987242": "RootBear",
       "762c23ab-042e-4ec4-ade4-49a9bff16efa": "JC",
-      "e198e6cd-5d94-4c40-94ef-b0e5de12d688": "bumba"
+      "e198e6cd-5d94-4c40-94ef-b0e5de12d688": "bumba",
+      "663430dc-0839-41ef-ab71-336fc04186fd": "bumba"
     }
   }
 }
