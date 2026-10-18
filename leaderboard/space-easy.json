@@ -124,6 +124,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "JC",
+        "totalMs": 273783,
+        "bestLapMs": 88767,
+        "lapsMs": [
+          93467,
+          91550,
+          88767
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-18T02:17:29.351Z",
+        "runId": "762c23ab-042e-4ec4-ade4-49a9bff16efa"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Need4Speed",
         "totalMs": 274533,
         "bestLapMs": 89475,
@@ -258,7 +273,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T01:16:29.104Z",
+  "updatedAt": "2026-10-18T02:17:29.351Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -280,7 +295,8 @@
       "92328700-0ddd-485e-857f-70236b119764": "jra",
       "73d41443-ccdb-42fa-a866-f739e13bba62": "ww",
       "999b9aeb-e6f4-4f28-8fc0-97ffadfdad3b": "Need4Speed",
-      "eb120bb3-9996-4054-bed7-948930987242": "RootBear"
+      "eb120bb3-9996-4054-bed7-948930987242": "RootBear",
+      "762c23ab-042e-4ec4-ade4-49a9bff16efa": "JC"
     }
   }
 }
