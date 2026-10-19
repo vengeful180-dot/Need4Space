@@ -9,6 +9,7 @@ export const UPDATES = [
       'Umbra V1: its paint and panels show in the race - the violet rim no longer floods the blades',
       'Anvil H1: its slam throws a ship 35 % harder and further',
       'Ship screen: the Umbra’s engine lights no longer stay dark when it is the ship you fly',
+      'Umbra V1: a tougher hull - 80 instead of 45 (toughness 2), every knock still costing it the most speed',
     ],
   },
   {
