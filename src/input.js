@@ -24,6 +24,7 @@ export class Input {
     this.padPrev = [];
     this.padId = null;
     addEventListener('keydown', (e) => {
+      if (e.target?.matches?.('input, textarea, select')) return;      // (typing a chat line, a name: not the ship's keys)
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);

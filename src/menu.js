@@ -611,6 +611,7 @@ export class Menu {
   key(e) {
     const c = e.code;
     if (!this.open) {
+      if (e.target.matches?.('input, textarea, select')) return;     // (the race's chat line being typed: its own keys)
       if (this.busy) { e.stopImmediatePropagation(); return; }
       if ((c === 'Escape' || c === 'KeyP') && !e.repeat) { e.preventDefault(); e.stopImmediatePropagation(); wake(); this.pause(); }
       return;

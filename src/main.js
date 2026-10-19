@@ -40,6 +40,7 @@ import { Showroom } from './showroom.js';
 import { XRControls } from './xr.js';
 import { Comms } from './pilots.js';
 import { Multiplayer } from './multiplayer.js';
+import { ChatBox } from './chat.js';
 
 // the map: the circuit chosen in the menu (saved), or ?map=space / forest / ice / desert / ocean / meadow (the meadow: the old test range)
 const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean', pyramid: 'pyramid' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
@@ -925,6 +926,9 @@ async function boot() {
       else { placeStart(false); menu.prepareShots(); menu.rooms.render(); menu.rooms.refresh(true); }
     },
     finished: () => { if (race.shown) hud.updateResults(race.results()); },
+    // the chat: a line in the race's box and the room's log
+    chat: (m) => { chatBox?.add(m); menu.rooms?.renderChat(); },
+    chatClear: () => chatBox?.clear(),
     change: () => menu.rooms?.render() }) : null;
   window.__feather.mp = mp;
   const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, audio, mp, map: MAP, shipId: SHIP, showroom: showcase,
@@ -948,6 +952,7 @@ async function boot() {
       rig.mode = 'orbit';
     } });
   window.__feather.menu = menu;
+  const chatBox = mp ? new ChatBox(mp, settings) : null;   // (the race's chat box over the HUD)
   audio.onSong = () => { settings.songName = audio.songName; if (settings.open) settings.draw(); menu.markSong(); };
   menu.markSong();
   window.__feather.showroom = () => showroom;

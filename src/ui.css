@@ -1202,3 +1202,26 @@ body.lite .md-music { backdrop-filter: none; background: linear-gradient(115deg,
   color: var(--dim); border: 1px solid rgba(255, 255, 255, 0.16); transition: color 0.15s, border-color 0.15s, background 0.15s; }
 .mp-x:hover { color: #fff; border-color: var(--bad); }
 .mp-x.armed { color: #fff; border-color: var(--bad); background: color-mix(in srgb, var(--bad) 30%, transparent); }
+
+/* chat: the room's (rooms.js) under its pilots, the race's (chat.js) over the HUD's left side */
+.mp-chat { margin-top: 0.8rem; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(5, 11, 18, 0.72); }
+.mc-log { height: 7.6rem; overflow: hidden auto; padding: 0.5rem 0.9rem; user-select: text; -webkit-user-select: text; }
+.mc-in { box-sizing: border-box; width: 100%; padding: 0.6rem 0.9rem; border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0;
+  background: rgba(4, 10, 17, 0.9); color: #fff; font: 600 1rem var(--ui); letter-spacing: 0.03em; text-transform: none; user-select: text; -webkit-user-select: text; }
+.mc-in:focus { outline: none; box-shadow: inset 0 0 0 1px var(--accent); }
+.mc-in::placeholder { color: var(--faint); }
+.nc-line { font: 600 0.95rem/1.45 var(--ui); letter-spacing: 0.02em; color: #e3e9f0; overflow-wrap: anywhere; }
+.nc-line b { font-weight: 700; letter-spacing: 0.04em; }
+.nc-line.sys { color: var(--dim); font-style: italic; }
+body.touch .mc-in { font-size: 16px; }
+#netchat { position: absolute; left: calc(var(--g) + env(safe-area-inset-left)); bottom: calc(var(--g) + 15.5rem); z-index: 3; width: min(30rem, 42vw);
+  display: flex; flex-direction: column; gap: 0.35rem; pointer-events: none; }
+#hud:not([data-kind="race"]) #netchat { display: none; }
+#netchat .nc-line { align-self: flex-start; max-width: 100%; box-sizing: border-box; padding: 0.25rem 0.65rem; background: rgba(5, 9, 14, 0.62);
+  border-left: 2px solid rgba(255, 255, 255, 0.25); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); transition: opacity 0.9s ease; }
+#netchat .nc-line.old { opacity: 0; }
+#netchat.typing .nc-line.old { opacity: 0.85; }
+#netchat .nc-in { pointer-events: auto; box-sizing: border-box; width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--accent); border-radius: 0;
+  background: rgba(4, 10, 17, 0.9); color: #fff; font: 600 1rem var(--ui); outline: none; user-select: text; -webkit-user-select: text; }
+body.touch #netchat { bottom: auto; top: 42%; width: min(22rem, 40vw); }
+body.touch #netchat .nc-line { font-size: 0.8rem; }

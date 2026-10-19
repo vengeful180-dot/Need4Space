@@ -2,6 +2,7 @@
 // ships, their ping to the host, who is ready - with Start race for the host and Leave room. multiplayer.js runs it.
 import { shipName } from './ships.js';
 import { COLOURS } from './multiplayer.js';
+import { chatLine } from './chat.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const pad2 = (i) => String(i + 1).padStart(2, '0');
@@ -27,8 +28,12 @@ export class Rooms {
       this.mp.name = e.target.value;
       if (this.needName && this.mp.myName) { this.needName = false; e.target.closest('.mp-namebox')?.classList.remove('need'); }
     });
-    // (Enter in the name: done typing - back to the list's keys)
-    this.body.addEventListener('keydown', (e) => { if (e.target.matches('.mp-name') && (e.key === 'Enter' || e.key === 'NumpadEnter')) { e.preventDefault(); e.target.blur(); } });
+    // (Enter in the name: done typing - back to the list's keys; in the chat: the line sent, the box kept for the next)
+    this.body.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== 'NumpadEnter') return;
+      if (e.target.matches('.mp-name')) { e.preventDefault(); e.target.blur(); }
+      else if (e.target.matches('.mc-in')) { e.preventDefault(); if (this.mp.say(e.target.value)) e.target.value = ''; }
+    });
     this.body.addEventListener('change', (e) => { if (e.target.matches('.mp-name')) { e.target.value = this.mp.name; } });
     this.render();
   }
@@ -97,6 +102,7 @@ export class Rooms {
         `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Getting ships ready'}</span></button>` : '';
       html = `<div class="mp-head"><b>${esc(room.name || 'Room')}</b><span>${esc(this.circuit(room.map || mp.h.map))} &middot; ${n}/${room.max || 8} &middot; ${mp.host ? 'you host' : 'host: ' + esc(rows.find((p) => p.host)?.name || '-')}</span></div>
         <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
+        ${this.chatOn ? `<div class="mp-chat"><div class="mc-log"></div><input class="mc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Chat - Enter to send"></div>` : ''}
         <nav class="mp-acts">${start}
           <button class="m-item mp-btn" data-act="mp:leave" tabindex="-1"><span class="m-name">Leave room</span></button></nav>
         <div class="mp-status">${esc(mp.message || (mp.host ? 'Your room is open: friends find it in their Multiplayer list' : ''))}</div>`;
@@ -104,10 +110,25 @@ export class Rooms {
     if (html !== this.html) {
       this.html = html;
       const caret = focus ? document.activeElement.selectionStart : null;
+      // (a line being typed in the chat kept across the redraw, focus and all)
+      const ci = this.body.querySelector('.mc-in'), cv = ci?.value || '', cf = !!ci && document.activeElement === ci, cc = ci?.selectionStart ?? 0;
       this.body.innerHTML = html;
       if (focus) { const i = this.body.querySelector('.mp-name'); if (i) { i.focus(); i.setSelectionRange(caret, caret); } }
+      const cn = this.body.querySelector('.mc-in');
+      if (cn) { cn.value = cv; if (cf) { cn.focus(); cn.setSelectionRange(cc, cc); } }
+      this.renderChat();
       if (this.menu.screen === 'multi') this.menu.refresh();
     }
+  }
+
+  get chatOn() { return this.menu.h.settings?.v.netChat !== false; }
+
+  // the room's chat log: its last 40 lines, scrolled to the newest
+  renderChat() {
+    const log = this.body.querySelector('.mc-log');
+    if (!log) return;
+    log.innerHTML = this.mp.chat.slice(-40).map(chatLine).join('') || '<div class="nc-line sys">Say hello - the room sees it, and the race too</div>';
+    log.scrollTop = log.scrollHeight;
   }
 
   items() { return [...this.body.querySelectorAll('.m-item')]; }

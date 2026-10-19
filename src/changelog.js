@@ -2,7 +2,20 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.18.0', date: '20 Oct 2026', name: 'The contained singularity',
+    notes: [
+      'Umbra V1: a new heart - a black singularity held in three glowing containment rings that tumble round it like a gyroscope',
+      'On the boost the rings swing into line round the engine and spin up, and the core flares',
+      'In the colours of its paint: violet, white or gold - cyan on the boost',
+      'Multiplayer: chat in the room, and in the race - press Enter to talk (Settings: Online races: chat)',
+    ],
+  },
+  {
     version: '1.17.0', date: '20 Oct 2026', name: 'Multiplayer (testing)',
+    brief: [
+      'Multiplayer, in testing: online rooms, players only',
+      'A shorter title menu, the music in its own corner',
+    ],
     notes: [
       'Multiplayer, in testing: race other players online - create a room, or join one from the list (Multiplayer on the title screen)',
       'Up to eight pilots a room, players only: the host starts, and the lights go out on every screen together',

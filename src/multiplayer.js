@@ -20,6 +20,8 @@ const HZ = 30;                        // states sent a second
 const JOIN = 'n4s-mp-join';           // (sessionStorage: the room to join once the page has reloaded into its circuit)
 const PILOT = 'need4space.pilot.v1';  // (the racing name: shared with the scoreboard)
 const CID = 'n4s-mp-cid';             // (this browser's own random id: a player the host removed stays out of that room)
+// a chat line: one line, no control characters, 120 characters at most
+export const cleanText = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ').slice(0, 24);
 
 // where a ship is at the room's time `now`, by its state S: carried on along the track and across it at its speeds
@@ -59,6 +61,7 @@ export class Multiplayer {
     this.cid ||= crypto.randomUUID();
     this.cids = new Map();            // (the host: each player's browser id - never sent on to the others)
     this.banned = new Set();
+    this.chat = [];                   // the room's chat, the last 60 lines: { id, name, css, text, sys, me }
   }
 
   get active() { return this.state !== 'off'; }
@@ -96,6 +99,7 @@ export class Multiplayer {
     this.myId = 0;
     this.players.clear();
     this.cids.clear();
+    this.chat = [];
     this.banned = new Set();
     this.players.set(0, { id: 0, name: this.name, kind: me.kind, livery: me.livery, ready: true, ping: 0, host: true });
     this.state = 'room';
@@ -120,6 +124,7 @@ export class Multiplayer {
     try {
       const w = await this.net.join(room, { name: this.name, kind: me.kind, livery: me.livery, cid: this.cid }, status);
       this.myId = w.id;
+      this.chat = [];
       this.room = { ...room, ...(w.room || {}) };
       this.state = 'room';
       this.message = 'In the room';
@@ -148,6 +153,8 @@ export class Multiplayer {
     for (const id of [...this.entries.keys()]) this.drop(id);
     this.players.clear();
     this.building.clear();
+    this.chat = [];
+    this.h.chatClear?.();
     const race = this.race, P = race.player;
     race.mp = null;
     race.useEntries(null);
@@ -180,7 +187,7 @@ export class Multiplayer {
     this.check();
   }
 
-  list() { return [...this.players.values()].map(({ kicked, ...p }) => p); }
+  list() { return [...this.players.values()].map(({ kicked, chatAt, ...p }) => p); }
 
   // the host removes a player: told why, the connection closed, and that browser kept out of the room while it lasts
   kick(id) {
@@ -208,6 +215,14 @@ export class Multiplayer {
     const p = this.players.get(id);
     if (!p) return;
     if (m.t === 'ready') { p.ready = !!m.ready; this.sharePlayers(); return; }
+    if (m.t === 'chat') {                              // (passed on to the others, a flood dropped)
+      const text = cleanText(m.text), now = performance.now();
+      if (!text || now - (p.chatAt || 0) < 400) return;
+      p.chatAt = now;
+      this.net.broadcast({ t: 'chat', by: id, text }, id);
+      this.heard(id, text);
+      return;
+    }
     if (m.t === 'ev' || m.t === 'fin') {
       const out = { ...m, by: id };                 // (who sent it: the host says, not the sender)
       this.net.broadcast(out, id);
@@ -235,6 +250,7 @@ export class Multiplayer {
   guestMsg(m) {
     if (m.t === 'players') { this.roster(m.list || []); if (this.state === 'room' && m.state === 'racing') this.message = 'A race is on - you join the next one'; return; }
     if (m.t === 'start') { if (this.state === 'room') this.begin(m); return; }
+    if (m.t === 'chat') { const text = cleanText(m.text); if (text && Number.isInteger(m.by) && m.by !== this.myId) this.heard(m.by, text); return; }
     if (m.t === 'ev' || m.t === 'fin') this.apply(m);
   }
 
@@ -254,7 +270,28 @@ export class Multiplayer {
     this.change();
   }
 
-  note(text) { this.message = text; this.noteAt = performance.now(); }
+  note(text) { this.message = text; this.noteAt = performance.now(); this.heard(-1, text, true); }
+
+  // ---------------------------------------------------------------- chat
+  // a line from the player: out to the room (the host passes it on), shown here at once; one every 0.6 s at most
+  say(text) {
+    text = cleanText(text);
+    const now = performance.now();
+    if (!text || !this.net || !this.active || now - (this.saidAt || 0) < 600) return false;
+    this.saidAt = now;
+    if (this.host) this.net.broadcast({ t: 'chat', by: 0, text }); else this.net.send({ t: 'chat', text });
+    this.heard(this.myId, text);
+    return true;
+  }
+
+  // a line said in the room (sys: a join, a leave - no name)
+  heard(id, text, sys = false) {
+    const p = this.players.get(id);
+    const m = { id, name: sys ? '' : p?.name || `Pilot ${id + 1}`, css: COLOURS[Math.max(0, id) % COLOURS.length], text, sys, me: id === this.myId && !sys };
+    this.chat.push(m);
+    if (this.chat.length > 60) this.chat.shift();
+    this.h.chat?.(m);
+  }
 
   // ---------------------------------------------------------------- the other players' ships
   // made for every player in the room not made yet (their ship loaded first if this page has none of that kind), then
@@ -502,6 +539,7 @@ export class Multiplayer {
   // back in the room after a race (the results' Back to the room): no lights pending, the others' ships at rest
   toRoom() {
     if (this.state !== 'race') return;
+    this.h.chatClear?.();
     this.state = 'room';
     this.goAt = null;
     for (const e of this.entries.values()) { e.net.last = e.net.prev = null; e.ship.setEngine(false); }
