@@ -1266,49 +1266,63 @@ body.touch #netchat .nc-line { font-size: 0.8rem; }
   .s-diff { gap: 0.45rem; letter-spacing: 0.14em; }
 }
 
-/* the title's list (and pause, circuit, music): each item a button - a dark glass panel with a cut corner, its value
-   (difficulty, circuit, ship) on its right; the one chosen filled with the accent, its edge lit, a shine sweeping across
-   it as it is chosen and an arrow in; the items sliding in one after another as the screen opens */
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.42rem; width: min(30rem, 100%); }
+/* the title's list (and pause, circuit, music): each item a slanted slab - faint at rest, its icon and name; the one
+   chosen wipes in solid in the accent, the text dark on it, a shine running across it and an arrow in; the values
+   right-aligned in small caps (Testing a pill); the items sliding in one after another as the screen opens */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.32rem; width: min(29rem, 100%); }
+.m-slab, .m-ic { display: none; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item {
-  overflow: hidden; gap: 1rem; padding: 0.82rem 2.6rem 0.78rem 1.1rem; font-size: 1.32rem; color: rgba(238, 242, 246, 0.64);
-  background: linear-gradient(90deg, rgba(10, 15, 22, 0.66), rgba(10, 15, 22, 0.3));
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.075);
-  clip-path: polygon(0 0, calc(100% - 0.85rem) 0, 100% 0.85rem, 100% 100%, 0 100%);
-  transition: color 0.2s, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s, box-shadow 0.25s, text-shadow 0.25s; }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:hover:not(.sel) {
-  color: rgba(238, 242, 246, 0.85); background: linear-gradient(90deg, rgba(20, 27, 38, 0.72), rgba(10, 15, 22, 0.35)); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel {
-  color: #fff; transform: translateX(0.6rem);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 40%, rgba(10, 15, 22, 0.55)), color-mix(in srgb, var(--accent) 12%, rgba(10, 15, 22, 0.3)) 70%, rgba(10, 15, 22, 0.2));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 0 1.6rem color-mix(in srgb, var(--accent) 18%, transparent);
-  text-shadow: 0 0 1.1rem color-mix(in srgb, var(--accent) 55%, transparent); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item::before { top: 0; bottom: 0; width: 4px; }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item::after {
-  content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.2) 50%, transparent 65%); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel::after { animation: m-shine 0.8s cubic-bezier(0.3, 0.7, 0.2, 1); }
+  gap: 0.95rem; padding: 0.86rem 2.8rem 0.82rem 1.6rem; font-size: 1.3rem; color: rgba(238, 242, 246, 0.66); background: none;
+  transition: color 0.18s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item::before { display: none; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list :is(.m-num, .m-name, .m-meta, .m-ic) { position: relative; z-index: 1; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-num { display: none; }
+/* the slab: slanted, inset so its slants show; faint, a hairline round it - the chosen one's wiped in solid */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-slab {
+  display: block; position: absolute; inset: 0 0.55rem; transform: skewX(-14deg); overflow: hidden; pointer-events: none;
+  background: linear-gradient(90deg, rgba(14, 20, 29, 0.72), rgba(14, 20, 29, 0.38)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  transition: box-shadow 0.25s, background 0.25s; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-slab::before {
+  content: ''; position: absolute; inset: 0; transform: scaleX(0); transform-origin: left;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #fff) 60%, color-mix(in srgb, var(--accent) 70%, transparent));
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-slab::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-130%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:hover:not(.sel) { color: #fff; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:hover:not(.sel) .m-slab {
+  background: linear-gradient(90deg, rgba(26, 34, 46, 0.8), rgba(14, 20, 29, 0.45)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel { color: #061018; transform: translateX(0.55rem); text-shadow: none; background: none; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-slab { box-shadow: 0 0 1.6rem color-mix(in srgb, var(--accent) 45%, transparent); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-slab::before { transform: scaleX(1); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-slab::after { animation: m-shine 0.85s 0.12s cubic-bezier(0.3, 0.7, 0.2, 1); }
 @keyframes m-shine { to { transform: translateX(130%); } }
-/* (the value on the right, as small caps - no box; the difficulty in its colour; Testing a pill) */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-num { color: rgba(6, 16, 24, 0.6); }
+/* the icon: the item's colour, the accent on a hover */
+.m-ic { width: 1.35rem; height: 1.35rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-ic { display: block; opacity: 0.85; transition: color 0.18s; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-item:hover:not(.sel) .m-ic { color: var(--accent); opacity: 1; }
+/* the value on the right: small caps, no box - dark on the chosen slab; the difficulty in its colour; Testing a pill */
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-meta {
-  margin-left: auto; padding: 0; border: 0; background: none; font: 700 0.68rem/1 var(--ui); letter-spacing: 0.24em; color: var(--dim); text-shadow: none; }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(255, 255, 255, 0.85); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-meta.m-lvl { color: var(--accent); }
-.m-list .m-meta.m-test { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.55rem 0.26rem; border-radius: 2rem;
-  color: #ffc14d; background: rgba(255, 193, 77, 0.1); border: 1px solid rgba(255, 193, 77, 0.38); }
-.m-list .m-item.sel .m-meta.m-test { color: #ffc14d; }
+  margin-left: auto; padding: 0; border: 0; background: none; font: 700 0.68rem/1 var(--ui); letter-spacing: 0.24em; color: var(--dim); text-shadow: none;
+  transition: color 0.18s; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(6, 16, 24, 0.72); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-item:not(.sel) .m-meta.m-lvl { color: var(--accent); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-meta.m-test { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem 0.26rem; border-radius: 2rem;
+  color: #ffc14d; background: rgba(255, 193, 77, 0.1); border: 1px solid rgba(255, 193, 77, 0.4); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta.m-test { color: #ffc14d; background: rgba(6, 12, 18, 0.88); border-color: rgba(6, 12, 18, 0.88); }
 .m-test i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #ffc14d; box-shadow: 0 0 0.4rem #ffc14d; animation: now-dot 1.8s ease-in-out infinite; }
-/* the arrow: in on the chosen one */
+/* the arrow: in on the chosen one, dark on its slab */
 .m-go { display: none; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-go {
-  display: block; position: absolute; right: 1.15rem; top: 50%; margin-top: -0.28rem; width: 0.5rem; height: 0.5rem; border: solid var(--accent); border-width: 2px 2px 0 0;
-  opacity: 0; transform: translateX(-0.7rem) rotate(45deg); transition: opacity 0.2s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-go { opacity: 1; transform: rotate(45deg); }
+  display: block; position: absolute; z-index: 1; right: 1.45rem; top: 50%; margin-top: -0.28rem; width: 0.52rem; height: 0.52rem; border: solid #061018; border-width: 2.5px 2.5px 0 0;
+  opacity: 0; transform: translateX(-0.8rem) rotate(45deg); transition: opacity 0.2s, transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-go { opacity: 1; transform: rotate(45deg); transition-delay: 0.08s; }
 /* (in as the screen opens: one after another - backwards only, so the chosen one's own slide is not held back after) */
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]).active .m-list .m-item {
-  animation: m-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms + 0.08s); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]).active .m-list .m-item { animation: m-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms + 0.08s); }
 @keyframes m-in { from { opacity: 0; transform: translateX(-1.8rem); } }
 @media (max-height: 500px) {
-  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.24rem; }
-  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item { padding: 0.44rem 2.2rem 0.4rem 0.9rem; font-size: 1.02rem; }
+  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.2rem; }
+  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item { padding: 0.46rem 2.3rem 0.42rem 1.3rem; font-size: 1.02rem; }
+  .m-ic { width: 1.1rem; height: 1.1rem; }
 }

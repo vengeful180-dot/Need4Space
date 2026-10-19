@@ -119,6 +119,22 @@ const K = (keys, what, act) => {
   return `<span${one ? ` class="hk" data-key="${act}"` : ''}>${keys.map(key).join('')}${what}</span>`;
 };
 const UD = ['up', 'down'], LR = ['left', 'right'];
+// the lists' icons (title, pause): a line drawing each, in the item's colour
+const MI = (d) => `<svg class="m-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
+const ICONS = {
+  race: MI('M5 21V4M5 4h12l-2.5 4L17 12H5'),
+  multi: MI('M3 20a6 6 0 0 1 12 0M9 13a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M16 13.5a3 3 0 1 0-1-5.8M16.5 15.2A5.5 5.5 0 0 1 21 20'),
+  circuit: MI('M7 20a3 3 0 0 1 0-6h10a3 3 0 0 0 0-6H9M9 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0'),
+  ship: MI('M12 3l2.2 6.8L21 13l-7 1.6L12 21l-2-6.4L3 13l6.8-3.2z'),
+  scoreboard: MI('M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7M10 17h4v3h-4z'),
+  settings: MI('M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1'),
+  resume: MI('M8 5l11 7-11 7z'),
+  restart: MI('M4 12a8 8 0 1 0 2.4-5.7M4 4v4.5h4.5'),
+  difficulty: MI('M4 16a8 8 0 0 1 16 0M12 16l4-5'),
+  controls: MI('M7.5 8h9a4.5 4.5 0 0 1 4.4 5.4l-.7 3.4a2.2 2.2 0 0 1-3.7 1.1L14.3 16H9.7l-2.2 1.9a2.2 2.2 0 0 1-3.7-1.1l-.7-3.4A4.5 4.5 0 0 1 7.5 8M8 11v3M6.5 12.5h3'),
+  quit: MI('M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10'),
+  mpleave: MI('M14 4h5v16h-5M10 8l-4 4 4 4M6 12h10'),
+};
 const HINTS = {
   main: K(['↑', '↓'], 'Select', UD) + K(['←', '→'], 'Song', LR) + K(['Enter'], 'Confirm', 'ok'),
   pause: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Resume', 'back'),
@@ -206,7 +222,8 @@ export class Menu {
     const h = this.h;
     const map = h.map || 'space', mapName = CIRCUITS.find(([id]) => id === map)?.[1] || '';
     const shipId = h.shipId || 'feather';
-    const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-num">${pad2(i)}</span>` +
+    const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-slab" aria-hidden="true"></span>` +
+      `${ICONS[act] || ''}<span class="m-num">${pad2(i)}</span>` +
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
