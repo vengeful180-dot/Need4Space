@@ -259,6 +259,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Logan",
+        "totalMs": 284300,
+        "bestLapMs": 92975,
+        "lapsMs": [
+          97108,
+          94217,
+          92975
+        ],
+        "points": 48,
+        "recordedAt": "2026-10-19T01:20:24.459Z",
+        "runId": "534579d7-4334-4e99-bccc-db4769c10b66"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "MMongul",
         "totalMs": 285958,
         "bestLapMs": 90600,
@@ -363,7 +378,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-18T18:39:32.371Z",
+  "updatedAt": "2026-10-19T01:20:24.459Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -393,7 +408,8 @@
       "5f71049b-a9a0-465c-8dd4-452417167ee8": "neb",
       "08da4ac0-5254-4eef-adef-228d3ef69a16": "Booger",
       "1cbafa8b-f91b-4e2d-a66f-92664373431c": "human",
-      "4bc8dc8d-ce82-476e-8078-f799f7de167f": "Adrian_Prime"
+      "4bc8dc8d-ce82-476e-8078-f799f7de167f": "Adrian_Prime",
+      "534579d7-4334-4e99-bccc-db4769c10b66": "Logan"
     }
   }
 }
