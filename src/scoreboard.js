@@ -40,7 +40,7 @@ export class Scoreboard {
       <div class="sb-rule">3 laps · fastest race wins</div>
       <div class="sb-summary"><span class="sb-board-title"></span><span class="sb-updated" aria-live="polite"></span></div>
       <div class="sb-table-wrap"><table class="sb-table"><thead><tr><th scope="col">Rank</th><th scope="col">Player</th><th scope="col">Race time</th><th scope="col">Best lap</th><th scope="col">Points</th></tr></thead><tbody></tbody></table>
-        <div class="sb-empty" hidden><span>No times yet</span><p>Finish a race to set the first time.</p></div></div>
+        <div class="sb-empty" hidden><span>No times yet</span></div></div>
       <div class="sb-personal"><span>Your best</span><b>—</b><span class="sb-personal-rank"></span></div>
       <div class="sb-pending"></div></div>`;
     this.el.addEventListener('click', (e) => {

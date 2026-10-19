@@ -1020,7 +1020,7 @@ async function boot() {
     }
     if (autoChase && ship.ready) {
       autoChase = false;
-      if (rig.mode === 'orbit') { menu.blend(1.3); rig.mode = 'chase'; rig.snap(ctl); hud.message('Ready  -  W throttle, A / D steer, Shift boost', 3); }
+      if (rig.mode === 'orbit') { menu.blend(1.3); rig.mode = 'chase'; rig.snap(ctl); hud.message('Ready', 1.5); }
     }
 
     // physics at a fixed 120 Hz

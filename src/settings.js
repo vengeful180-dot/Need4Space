@@ -239,7 +239,7 @@ export class Settings {
           `${it.id === (this.circuit || this.v.map) ? '<em class="s-cur">Current circuit</em>' : ''}</span><b class="s-n">${n}</b></div>`;
       }
       const [k, label, all] = it.row, opts = all.filter(([val]) => val !== 'custom' || this.v.quality === 'custom');
-      return `<div class="srow${focus}" data-r="${i}" data-sec="${it.id}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower for smoother racing; higher for sharper scenery. Saved in this browser.</small>' : ''}${k === 'song' && this.songName ? `<small class="s-help">Now playing: ${this.songName}</small>` : ''}</span><div class="seg">${opts.map(([val, t]) =>
+      return `<div class="srow${focus}" data-r="${i}" data-sec="${it.id}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower: smoother. Higher: sharper.</small>' : ''}${k === 'song' && this.songName ? `<small class="s-help">Now playing: ${this.songName}</small>` : ''}</span><div class="seg">${opts.map(([val, t]) =>
         `<button tabindex="-1" data-k="${k}" data-v='${JSON.stringify(val)}'${k === 'ai' ? ` data-lv="${val}"` : ''} class="${this.v[k] === val ? 'on' : ''}">${t}</button>`)
         .join('')}</div></div>`;
     }).join('') +

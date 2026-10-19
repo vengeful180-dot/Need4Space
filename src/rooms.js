@@ -136,17 +136,13 @@ export class Rooms {
   items() { return [...this.body.querySelectorAll('.m-item')]; }
 
   describe(a) {
-    if (a === 'mp:create') return `A room on the ${this.circuit(this.mp.h.map)} circuit: up to eight pilots, no rivals`;
-    if (a === 'mp:refresh') return 'Look for open rooms again';
-    if (a === 'mp:start') return this.mp.canStart() ? 'Everyone onto the grid: the lights in a few seconds' : 'Starts once a second pilot is in and every ship is ready';
-    if (a === 'mp:leave') return this.mp.host ? 'Close the room for everyone' : 'Back to the room list';
-    if (a === 'mp:cancel') return 'Back to the room list';
+    if (a === 'mp:leave') return this.mp.host ? 'Close the room for everyone' : '';
     if (a.startsWith('mp:join:')) {
       const r = this.list.find((x) => x.id === a.slice(8));
       if (!r) return '';
       if (r.state === 'racing') return 'Racing now - join once the race is over';
       if (r.players >= r.max) return 'This room is full';
-      return r.map !== this.mp.h.map ? `Join - the game loads the ${this.circuit(r.map)} circuit first` : `Join ${r.host || 'the host'} on the ${this.circuit(r.map)} circuit`;
+      return r.map !== this.mp.h.map ? `Loads the ${this.circuit(r.map)} circuit first` : '';
     }
     return '';
   }
