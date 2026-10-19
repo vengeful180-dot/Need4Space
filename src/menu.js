@@ -72,6 +72,13 @@ const traits = (H) => {
   if (H.boostHeal) t.push(`Boosting mends its hull: ${+(H.boostHeal * 100).toFixed(1)} % of it every ${H.boostHealEvery === 0.5 ? 'half second' : `${H.boostHealEvery || 1} s`}`);
   return t.length ? `<ul class="s-traits">${t.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 };
+// the ship's paints in its details, under its stats: a swatch each with its name under it, the one worn ringed and lit
+// (a chip paints the ship: Menu.paint)
+const paintRow = (id) => {
+  const L = LIVERIES[id];
+  return L ? `<div class="s-paint"><span class="s-paint-h">Paint</span><div class="s-paint-l">${L.names.map((n, k) =>
+    `<button class="s-pt" data-act="paint:${id}:${n}" tabindex="-1" style="--a: ${L.colors[k][0]}; --b: ${L.colors[k][1]}"><i></i><b>${L.labels[k]}</b></button>`).join('')}</div></div>` : '';
+};
 const statRows = (list) => list.map(([n, v]) => `<div class="d-stat"><span>${n}</span><b class="d-bar">${
   Array.from({ length: 10 }, (_, k) => `<i class="${k < v ? 'on' : ''}" style="--k:${k}"></i>`).join('')}</b></div>`).join('');
 const stats = (L) => [
@@ -563,7 +570,7 @@ export class Menu {
       const id = items[i].dataset.act.slice(5);
       this.h.showroom?.(true, id);
       const st = this.el.querySelector('.s-stats');
-      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = diffRow(id) + statRows(shipStats(HANDLING[id] || HANDLING.feather)) + traits(HANDLING[id] || HANDLING.feather); retrigger(st, 'swap'); }
+      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = diffRow(id) + statRows(shipStats(HANDLING[id] || HANDLING.feather)) + traits(HANDLING[id] || HANDLING.feather) + paintRow(id); retrigger(st, 'swap'); }
       // the confirm button: fly the ship on the stand (the one flown already: just back to the menu)
       const fly = this.el.querySelector('.s-fly-t'), now = id === (this.h.shipId || 'feather');
       const label = now ? `Keep the ${shipName(id)}` : `Fly the ${shipName(id)}`;
@@ -577,6 +584,7 @@ export class Menu {
         it.querySelectorAll('.s-chips i').forEach((c) => c.classList.toggle('on', c.dataset.act.endsWith(':' + cur)));
         const em = it.querySelector('.s-chips em'), label = L.labels[L.names.indexOf(cur)];
         if (em && em.textContent !== label) em.textContent = label;
+        if (k === id) st?.querySelectorAll('.s-pt').forEach((c) => c.classList.toggle('on', c.dataset.act.endsWith(':' + cur)));
       }
     }
     const d = this.el.querySelector(`.m-screen[data-s="${s}"] .m-desc`);
