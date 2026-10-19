@@ -10,6 +10,12 @@ export const SHIPS = [
   ['umbra', 'Umbra V1', 'A black hole for an engine and four floating blades: quick, but its field takes knocks badly'],
 ];
 
+// How hard each ship is to fly well (the Ship screen's tag, in the race levels' colours): the Feather the forgiving
+// all-rounder, the Anvil tough but heavy in the turns, the Comet quick and fragile, the Umbra the hardest - the
+// fastest, a glass hull, no slam to answer one with
+export const PILOTING = { feather: 'easy', heavy: 'medium', rocket: 'hard', umbra: 'expert' };
+export const PILOTING_LEVELS = [['easy', 'Easy', 'c-easy'], ['medium', 'Medium', 'c-normal'], ['hard', 'Hard', 'c-hard'], ['expert', 'Expert', 'c-brutal']];
+
 // How each ship flies (track.js TrackRacer): thrust and boost - its engine's pull, cruising and boosting; drag - the
 // speed-squared drag (less of it: a higher top speed for the same pull); turn - the yaw rate and grip it has at the
 // same share of its own top speed; impact - what a knock costs it (walls, other ships). The Comet: a higher top

@@ -9,6 +9,7 @@ export const UPDATES = [
       'Settings: Song - skip to the next one or back, in a race too',
       'Umbra V1: a softer pull off the line and out of the corners - still the fastest ship',
       'Umbra V1: its aura keeps drifting on the boost - slowed with time round the engine, no longer standing still',
+      'Ship screen: how hard each ship is to fly - Feather Easy, Anvil Medium, Comet Hard, Umbra Expert',
     ],
   },
   {

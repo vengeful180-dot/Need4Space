@@ -8,7 +8,7 @@ import { AI_LEVELS, LAPS, TEAMS } from './race.js';
 import { controlsHTML, GAMEPAD, fmt } from './hud.js';
 import { UPDATES, VERSION } from './changelog.js';
 import { Scoreboard } from './scoreboard.js';
-import { SHIPS, HANDLING, LIVERIES, shipName } from './ships.js';
+import { SHIPS, HANDLING, LIVERIES, PILOTING, PILOTING_LEVELS, shipName } from './ships.js';
 import { standardGamepad } from './input.js';
 import { SONGS } from './audio.js';
 
@@ -46,6 +46,17 @@ const shipStats = (H) => [
   // throw one nor block one)
   ['Slam', H.slam === false ? 0 : bars(6 * Math.pow(H.mass || 1, 0.8) * Math.pow(H.ram || 1, 0.6))],
 ];
+// how hard a ship is to fly: its level (ships.js PILOTING) as a tag in that level's colour, and four pips
+const piloting = (id) => {
+  const k = Math.max(0, PILOTING_LEVELS.findIndex(([l]) => l === (PILOTING[id] || 'easy'))), [, label, c] = PILOTING_LEVELS[k];
+  return { k, label, c };
+};
+const diffTag = (id) => { const P = piloting(id); return `<span class="m-meta s-diff" style="--c: var(--${P.c})">${P.label}</span>`; };
+const diffRow = (id) => {
+  const P = piloting(id);
+  return `<div class="d-stat s-diffrow" style="--c: var(--${P.c})"><span>Difficulty</span><b class="s-diffv">${P.label}` +
+    `<span class="s-pips">${PILOTING_LEVELS.map((_, i) => `<i class="${i <= P.k ? 'on' : ''}"></i>`).join('')}</span></b></div>`;
+};
 const statRows = (list) => list.map(([n, v]) => `<div class="d-stat"><span>${n}</span><b class="d-bar">${
   Array.from({ length: 10 }, (_, k) => `<i class="${k < v ? 'on' : ''}" style="--k:${k}"></i>`).join('')}</b></div>`).join('');
 const stats = (L) => [
@@ -222,7 +233,7 @@ export class Menu {
       </section>
       <section class="m-screen" data-s="ship">
         <header><div class="m-kicker">What to fly</div><h2 class="m-h2">Ship</h2></header>
-        <nav class="m-list">${SHIPS.map(([id, name], i) => item(['ship:' + id, name], i).replace(/<\/button>$/, chips(id) + '</button>')).join('')}</nav>
+        <nav class="m-list">${SHIPS.map(([id, name], i) => item(['ship:' + id, name], i).replace(/<\/button>$/, diffTag(id) + chips(id) + '</button>')).join('')}</nav>
         <div class="m-desc"></div>
         <div class="d-stats s-stats"></div>
         <button class="s-fly" data-act="shipfly" tabindex="-1"><kbd>Enter</kbd><span class="s-fly-t">Confirm</span></button>
@@ -442,7 +453,7 @@ export class Menu {
       const id = items[i].dataset.act.slice(5);
       this.h.showroom?.(true, id);
       const st = this.el.querySelector('.s-stats');
-      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = statRows(shipStats(HANDLING[id] || HANDLING.feather)); retrigger(st, 'swap'); }
+      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = diffRow(id) + statRows(shipStats(HANDLING[id] || HANDLING.feather)); retrigger(st, 'swap'); }
       // the confirm button: fly the ship on the stand (the one flown already: just back to the menu)
       const fly = this.el.querySelector('.s-fly-t'), now = id === (this.h.shipId || 'feather');
       const label = now ? `Keep the ${shipName(id)}` : `Fly the ${shipName(id)}`;
@@ -478,7 +489,7 @@ export class Menu {
       music: `Now playing: ${this.h.audio?.songName || '-'} - pick another, or skip one in Settings`,
       ...Object.fromEntries(SONGS.map((s, i) => ['song:' + i, s.line])),
       ...Object.fromEntries(CIRCUITS.map(([id, , d]) => ['map:' + id, d])),
-      ...Object.fromEntries(SHIPS.map(([id, , d]) => ['ship:' + id, d])),
+      ...Object.fromEntries(SHIPS.map(([id, , d]) => ['ship:' + id, PILOTING[id] === 'expert' ? `${d}. The hardest ship to fly` : d])),
       resume: free ? 'Back to free flight' : 'Back to the race',
       restart: free ? 'Back over the start line' : 'Back to the grid and the lights',
       difficulty: 'The rivals’ pace and racecraft, changed at once',

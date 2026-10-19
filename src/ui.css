@@ -536,6 +536,13 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .d-bar i.on { background: rgba(255, 255, 255, 0.38); }
 /* the Ship screen: the ship under the selection, its stat bars (as the difficulty cards') */
 .s-stats { width: min(24rem, 100%); margin-top: 1.6rem; padding-left: 1.3rem; }
+/* how hard the ship is to fly: a tag on its row and the first line of its stats, in the race level's colour */
+.m-meta.s-diff { color: var(--c); border-color: color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 10%, transparent); }
+.s-diffrow { margin-bottom: 0.55rem; }
+.s-diffv { display: flex; align-items: center; gap: 0.7rem; font: 700 0.86rem/1 var(--ui); letter-spacing: 0.22em; text-transform: uppercase; color: var(--c); }
+.s-pips { display: flex; gap: 4px; }
+.s-pips i { width: 0.9rem; height: 0.55rem; background: rgba(255, 255, 255, 0.1); transform: skewX(-20deg); }
+.s-pips i.on { background: var(--c); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--c) 70%, transparent); }
 .s-stats.swap { animation: fade-in 0.3s ease both; }
 .s-stats .d-bar i.on { background: var(--accent); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--accent) 70%, transparent); }
 /* the paints: a chip per livery on each ship's row - its two colours split on the diagonal; the one worn ringed, lit and
