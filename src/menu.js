@@ -121,6 +121,8 @@ export class Menu {
     h.hud.onHideResults = () => { if (this.ctx === 'results' && !this.busy) this.resume(); };
     addEventListener('keydown', (e) => this.key(e), true);       // capture: before input.js sees the key
     this.el.addEventListener('pointermove', (e) => this.hover(e));
+    addEventListener('resize', () => this.fitNews());
+    document.fonts?.ready.then(() => this.fitNews());           // (the menu's fonts set its lines' height)
     this.el.addEventListener('click', (e) => this.click(e));
     // a pointer lock lost mid-game (Esc while steering by mouse, alt-tab) pauses - unless the game released it
     const unlock = h.input.unlock.bind(h.input);
@@ -133,6 +135,17 @@ export class Menu {
   }
 
   get open() { return !!this.screen; }
+
+  // What's new kept whole under the screen's middle (ui.css max-height): what does not fit goes from the bottom - the
+  // update before's lines, then its heading, then the latest's last notes (two always stay) - never a line cut in half
+  fitNews() {
+    const n = this.el.querySelector('.m-news');
+    if (!n) return;
+    const cut = [...n.querySelectorAll('.n-prev li')].reverse().concat(n.querySelector('.n-prev') || [], [...n.querySelectorAll(':scope > .n-list li')].slice(2).reverse());
+    for (const e of cut) e.hidden = false;
+    if (!n.clientHeight) return;
+    for (const e of cut) { if (n.scrollHeight <= n.clientHeight + 1) break; e.hidden = true; }
+  }
 
   build() {
     const h = this.h;
@@ -264,6 +277,7 @@ export class Menu {
     for (const s of this.el.querySelectorAll('.m-screen')) s.classList.toggle('active', s.dataset.s === screen);
     this.el.querySelector('.m-hints').innerHTML = HINTS[screen] || '';
     if (screen === 'diff') this.enterDiff();
+    if (screen === 'main') this.fitNews();
     this.refresh();
   }
 

@@ -432,14 +432,14 @@ body[data-noslam] #hullbar .slam-l, body[data-noslam] #hullbar .bar.slam, body[d
   font: 700 0.72rem var(--ui); letter-spacing: 0.26em; text-transform: uppercase; }
 .n-tag { color: var(--accent); }
 .n-ver { color: var(--faint); letter-spacing: 0.16em; white-space: nowrap; text-transform: none; }
-.n-name { margin-top: 0.45rem; font: 700 1.25rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: #fff; }
+.n-name { margin-top: 0.45rem; font: 700 1.15rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; color: #fff; }
 .n-list { margin: 0.7rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.38rem; }
-.n-list li { position: relative; padding-left: 0.95rem; font: 500 0.98rem/1.3 var(--ui); color: var(--soft); }
+.n-list li { position: relative; padding-left: 0.95rem; font: 500 0.94rem/1.3 var(--ui); color: var(--soft); }
 .n-list li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 0.38rem; height: 2px; background: var(--accent); }
 .n-prev { margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 .n-prev .n-head { color: var(--faint); }
 .n-prev .n-list { margin-top: 0.45rem; gap: 0.3rem; }
-.n-prev .n-list li { font-size: 0.9rem; color: var(--dim); }
+.n-prev .n-list li { font-size: 0.86rem; color: var(--dim); }
 .n-prev .n-list li::before { opacity: 0.55; }
 body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, rgba(6, 9, 13, 0.9), rgba(6, 9, 13, 0.72)); }
 

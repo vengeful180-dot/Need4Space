@@ -4,18 +4,18 @@ export const UPDATES = [
   {
     version: '1.14.0', date: '19 Oct 2026', name: 'Umbra and the Pyramid Run',
     notes: [
-      'New ship, the Umbra V1: a black hole for an engine and blades floating free of its hull - on the boost, time slows round the engine',
-      'The fastest ship in the game and the most fragile, with no slam and no block. Three paints: Umbra, Event Horizon and Pharaoh',
-      'New circuit, the Pyramid Run: twice the top speed, long jumps through an asteroid field, a desert planet of ruins, down a colossal pyramid and out through its torch-lit root. No slams',
-      'The Ship screen rates every ship on slam power',
-      'A new name on the Supporters wall of fame - thank you, RwkY!',
+      'New ship: the Umbra V1 - a black-hole engine, floating blades, time slowing round it on the boost',
+      'The fastest ship and the most fragile: no slam, no block. Three paints',
+      'New circuit: the Pyramid Run - twice the top speed, a desert planet of ruins, down a colossal pyramid and through its torch-lit root',
+      'Every ship rated on slam power on the Ship screen',
+      'Thank you, RwkY, our newest supporter!',
     ],
   },
   {
     version: '1.13.0', date: '18 Oct 2026', name: 'Rival pilots',
     brief: [
-      'Rival pilots with faces and personalities, talking during the race',
-      'Early supporters ($5 or more) get a free Steam key - see Support',
+      'Rival pilots who talk during the race',
+      'Donate $5 or more: a free Steam key - see Support',
     ],
     notes: [
       'Meet the rivals: eight pilots, each with a face, a personality and plenty to say - Roxy, Torque, Milo, Skye, Smokey, Sarge, Valentina and Sprocket',
