@@ -379,6 +379,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Ubik",
+        "totalMs": 298925,
+        "bestLapMs": 96308,
+        "lapsMs": [
+          104258,
+          98358,
+          96308
+        ],
+        "points": 44,
+        "recordedAt": "2026-10-19T08:59:58.931Z",
+        "runId": "dccf4882-fd55-43dc-8ca9-bf02cc67cbc2"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "big jim",
         "totalMs": 299342,
         "bestLapMs": 94358,
@@ -393,7 +408,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-19T01:25:35.761Z",
+  "updatedAt": "2026-10-19T08:59:58.931Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -425,7 +440,8 @@
       "1cbafa8b-f91b-4e2d-a66f-92664373431c": "human",
       "4bc8dc8d-ce82-476e-8078-f799f7de167f": "Adrian_Prime",
       "534579d7-4334-4e99-bccc-db4769c10b66": "Logan",
-      "a59479ac-bed2-4172-ade3-9fca69c91d4e": "Jimbo"
+      "a59479ac-bed2-4172-ade3-9fca69c91d4e": "Jimbo",
+      "dccf4882-fd55-43dc-8ca9-bf02cc67cbc2": "Ubik"
     }
   }
 }
