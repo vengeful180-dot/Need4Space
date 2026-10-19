@@ -10,6 +10,7 @@ export const UPDATES = [
       'The Pyramid Run on the global scoreboard',
       'Every ship rated on slam power on the Ship screen',
       'Thank you, RwkY, our newest supporter!',
+      'Scoreboard: neater circuit and difficulty pickers, every button the same size',
     ],
   },
   {

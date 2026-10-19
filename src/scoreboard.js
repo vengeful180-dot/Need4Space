@@ -34,8 +34,8 @@ export class Scoreboard {
     this.el.innerHTML = `<div class="sb-heading"><div><div class="m-kicker">Top 10</div><h2 class="m-h2">Global scoreboard</h2></div>
       <span class="sb-connection">Connecting</span></div>
       <div class="sb-body"><div class="sb-toolbar"><div class="sb-filters">
-        <div class="sb-tabs" aria-label="Circuit">${MAPS.map(([id, label]) => `<button type="button" data-sb-map="${id}">${label}</button>`).join('')}</div>
-        <div class="sb-tabs sb-levels" aria-label="Difficulty">${LEVELS.map(([id, label]) => `<button type="button" data-sb-level="${id}" style="--sb-level:var(--c-${id})">${label}</button>`).join('')}</div>
+        <div class="sb-group"><span class="sb-group-h">Circuit</span><div class="sb-tabs sb-maps" aria-label="Circuit" style="--n:${MAPS.length}">${MAPS.map(([id, label]) => `<button type="button" data-sb-map="${id}">${label}</button>`).join('')}</div></div>
+        <div class="sb-group"><span class="sb-group-h">Difficulty</span><div class="sb-tabs sb-levels" aria-label="Difficulty" style="--n:${LEVELS.length}">${LEVELS.map(([id, label]) => `<button type="button" data-sb-level="${id}" style="--sb-level:var(--c-${id})">${label}</button>`).join('')}</div></div>
       </div><button type="button" class="sb-btn sb-refresh">↻ <span>Refresh</span></button></div>
       <div class="sb-rule">3 laps · fastest race wins</div>
       <div class="sb-summary"><span class="sb-board-title"></span><span class="sb-updated" aria-live="polite"></span></div>
@@ -130,6 +130,7 @@ export class Scoreboard {
       const on = button.dataset.sbMap ? button.dataset.sbMap === this.map : button.dataset.sbLevel === this.level;
       button.classList.toggle('on', on); button.setAttribute('aria-pressed', on);
     }
+    this.el.style.setProperty('--sb-on', `var(--c-${this.level})`);   // (the chosen circuit lit in the chosen difficulty's colour)
     this.el.querySelector('.sb-board-title').textContent = `${MAPS.find(([id]) => id === this.map)[1]} / ${LEVELS.find(([id]) => id === this.level)[1]}`;
     this.render(this.cache.get(this.map + ':' + this.level) || { entries: [], personal: null });
   }
