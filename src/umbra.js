@@ -1,7 +1,7 @@
 // The Umbra V1's own effects (ship.js builds them for a model with a BlackHole marker):
-//  - the black hole in its engine's bore, ray-marched: the light of its accretion disk bent round the horizon - the
-//    disk's far side seen over and under the shadow, the photon ring - the disk turning faster with the throttle and
-//    beamed brighter on the side turning toward the eye; white-hot on the boost
+//  - the contained singularity in its engine's bore: a black core with a hot rim and a halo, held by three glowing
+//    containment rings tumbling round it like a gyroscope - on the boost they swing into line round the bore, spin up
+//    and the core flares (in the paint's colours)
 //  - matter falling into the bore: streaks spiralling in from round the mouth, faster and more of them on the boost
 //  - the dark aura: smoke-dark wisps with a violet sheen boiling off the hull and the blades, trailing aft with speed,
 //    a few violet embers in them (Settings "Umbra aura")
@@ -22,83 +22,81 @@ float uN(vec3 x) {
              mix(mix(uH(i + vec3(0, 0, 1)), uH(i + vec3(1, 0, 1)), f.x), mix(uH(i + vec3(0, 1, 1)), uH(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }`;
 
-// The black hole: a camera-facing square at the hole's centre; each pixel's ray, in the hole's frame (y up: the disk's
-// plane is the ship's level), bent by the classic Schwarzschild trick (an acceleration -1.5 h^2 r / |r|^5 in units of
-// the horizon's radius rs, h the ray's angular momentum) and stepped finer near the hole. Where it crosses the disk's
-// plane inside the disk it gathers the disk's light (the disk half see-through at its ragged edges); into the horizon:
-// black. Premultiplied: the shadow covers what is behind it, the disk adds its light.
-function blackHoleMaterial(steps) {
+// The singularity's core: a camera-facing square at the hole's centre, a sphere drawn in it. CORE: the sphere itself -
+// black, opaque, writing depth (the containment rings pass behind it and in front), a thin hot rim and faint currents
+// of the field flowing round its edge. Else the halo over it: the bright ring hugging the horizon, a soft glow round it
+// and slow streaks of light wheeling round (additive), flaring on the boost.
+function coreMaterial(core) {
   return new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false,
-    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,
-    defines: { STEPS: steps },
-    uniforms: { size: { value: 1 }, bhInv: { value: new THREE.Matrix4() }, viewInv: { value: new THREE.Matrix4() },
-      rs: { value: 0.1 }, rIn: { value: 3.2 }, rOut: { value: 6.0 }, time: { value: 0 }, spin: { value: 0 },
-      glow: { value: 0 }, boost: { value: 0 } },
+    transparent: !core, depthWrite: core,
+    ...(core ? {} : { blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor }),
+    defines: { CORE: core ? 1 : 0 },
+    uniforms: { size: { value: 1 }, rc: { value: 0.19 }, time: { value: 0 }, glow: { value: 0 }, boost: { value: 0 }, flare: { value: 0 },
+      col: { value: new THREE.Color(0.5, 0.2, 1.0) }, hot: { value: new THREE.Color(1, 1, 1) } },
     vertexShader: /* glsl */`
-      uniform float size; uniform mat4 viewInv;
-      varying vec3 vW;
+      uniform float size;
+      varying vec2 vQ;
       void main() {
         vec4 c = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
         c.xy += position.xy * size;
-        vW = (viewInv * c).xyz;
+        vQ = position.xy * size;
         gl_Position = projectionMatrix * c;
       }`,
     fragmentShader: /* glsl */`
-      uniform mat4 bhInv; uniform float rs, rIn, rOut, time, spin, glow, boost;
-      varying vec3 vW;
+      uniform float rc, time, glow, boost, flare; uniform vec3 col, hot;
+      varying vec2 vQ;
       ${NOISE}
-      // the disk's light at p (on its plane, rs units) seen along v: hotter inward, streaked along its orbit (noise in
-      // the angle turned at each radius's own orbital speed), beamed toward the eye on the side coming at it
-      vec4 disk(vec3 p, vec3 v) {
-        float r = length(p.xz);
-        if (r < rIn || r > rOut) return vec4(0.0);
-        float x = (r - rIn) / (rOut - rIn);
-        float a = atan(p.z, p.x) - spin * 3.2 * pow(r / rIn, -1.5);
-        vec2 cs = vec2(cos(a), sin(a));
-        float n = 0.5 * uN(vec3(cs * 2.2, r * 2.6)) + 0.32 * uN(vec3(cs * 5.5, r * 7.0 + 3.0)) + 0.18 * uN(vec3(cs * 13.0, r * 17.0 + 7.0));
-        n = smoothstep(0.18, 0.85, n);
-        float edge = smoothstep(0.0, 0.06, x) * smoothstep(1.0, 0.55, x);
-        vec3 t = normalize(vec3(-p.z, 0.0, p.x));
-        float D = 1.0 / (1.0 - 0.55 * sqrt(rIn / r) * dot(t, -v));
-        float I = (0.5 + 5.0 * pow(1.0 - x, 2.0)) * (0.35 + 1.3 * n) * D * D * D * edge;
-        vec3 hot = mix(vec3(1.0, 0.86, 0.62), vec3(0.85, 0.9, 1.0), boost);
-        vec3 c = mix(hot, vec3(1.0, 0.46, 0.12), smoothstep(0.05, 0.5, x));
-        c = mix(c, vec3(0.62, 0.1, 0.06), smoothstep(0.45, 1.0, x));
-        c = mix(c, vec3(1.0), clamp((D - 1.0) * 0.7, 0.0, 0.55));
-        return vec4(c * I, edge * clamp(0.6 + 0.6 * n, 0.0, 0.97));
-      }
       void main() {
-        vec3 ro = (bhInv * vec4(cameraPosition, 1.0)).xyz / rs;
-        vec3 rd = normalize((bhInv * vec4(vW, 1.0)).xyz / rs - ro);
-        float B = rOut * 1.55;
-        float bq = dot(ro, rd), disc = bq * bq - (dot(ro, ro) - B * B);
-        if (disc < 0.0) discard;
-        vec3 p = ro + rd * max(-bq - sqrt(disc), 0.0), v = rd;
-        vec3 hv = cross(p, v);
-        float h2 = dot(hv, hv);
-        vec3 col = vec3(0.0);
-        float trans = 1.0, minr = 1e9;
-        for (int i = 0; i < STEPS; i++) {
-          float r2 = dot(p, p), r = sqrt(r2);
-          minr = min(minr, r);
-          if (r < 1.0) { trans = 0.0; break; }
-          float dt = clamp(0.09 * r, 0.03, 0.6);
-          v -= 1.5 * h2 * p / (r2 * r2 * r) * dt;
-          vec3 q = p + v * dt;
-          if (p.y * q.y < 0.0) {
-            vec4 d = disk(mix(p, q, p.y / (p.y - q.y)), normalize(v));
-            col += trans * d.rgb * d.a;
-            trans *= 1.0 - d.a;
-            if (trans < 0.02) break;
-          }
-          p = q;
-          if (r > B && dot(p, v) > 0.0) break;
-        }
-        // the photon ring: rays that grazed the photon sphere (1.5 rs) - a thin hot line round the shadow
-        float ring = exp(-pow((minr - 1.55) / 0.07, 2.0)) * trans;
-        col += vec3(1.0, 0.8, 0.6) * ring * 2.4;
-        gl_FragColor = vec4(col * glow, 1.0 - trans);
+        float r = length(vQ) / rc, a = atan(vQ.y, vQ.x);
+        #if CORE
+          if (r > 1.0) discard;
+          float z = sqrt(1.0 - r * r), edge = 1.0 - z;
+          // the field's currents: bands flowing round the horizon, seen only toward its edge
+          float f = uN(vec3(cos(a) * 2.5, sin(a) * 2.5, r * 4.0 - time * 0.9)) * uN(vec3(cos(a + time * 0.4) * 6.0, sin(a + time * 0.4) * 6.0, time * 0.3));
+          vec3 c = col * (pow(edge, 5.0) * (1.2 + 1.6 * boost) + f * 0.35 * pow(edge, 1.5)) + hot * pow(edge, 10.0) * (0.6 + 1.2 * boost + 2.0 * flare);
+          gl_FragColor = vec4(c * glow, 1.0);
+        #else
+          if (r < 0.985) discard;
+          float d = r - 1.0;
+          // the ring hugging the horizon (breathing), a soft glow round it, slow streaks of light wheeling round
+          float ring = exp(-pow(d / (0.07 + 0.04 * boost), 2.0)) * (0.85 + 0.15 * sin(time * 5.0));
+          float halo = exp(-d * (3.2 - 1.4 * boost)) * smoothstep(0.0, 0.08, d);
+          float sw = pow(0.5 + 0.5 * sin(a * 3.0 - time * 2.2 + d * 9.0), 6.0) * exp(-d * 2.4) * smoothstep(0.0, 0.15, d);
+          vec3 c = mix(col, hot, 0.35 + 0.45 * boost) * ring * (1.6 + 1.8 * boost + 6.0 * flare) + col * (halo * (0.3 + 0.6 * boost) + sw * (0.45 + 0.7 * boost));
+          gl_FragColor = vec4(c * glow * smoothstep(1.0, 0.75, d / 2.6), 1.0);
+        #endif
+      }`,
+  });
+}
+
+// A containment ring: a thin glowing tube (TorusGeometry: uv.x round the ring) - light pulses chasing round it, the
+// clamps (bright nodes fixed on it), brightest along the tube's middle as seen (a neon line, not a flat band)
+function ringMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    uniforms: { time: { value: 0 }, k: { value: 0 }, dir: { value: 1 }, nodes: { value: 4 },
+      col: { value: new THREE.Color(0.5, 0.2, 1.0) }, hot: { value: new THREE.Color(1, 1, 1) } },
+    vertexShader: /* glsl */`
+      varying vec2 vUv; varying vec3 vN, vV;
+      void main() {
+        vUv = uv;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal);
+        vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform float time, k, dir, nodes; uniform vec3 col, hot;
+      varying vec2 vUv; varying vec3 vN, vV;
+      void main() {
+        float a = vUv.x;
+        float chase = pow(0.5 + 0.5 * cos(6.2831853 * (a * 3.0 - dir * time)), 14.0);          // three pulses round it
+        float node = smoothstep(0.035, 0.0, abs(fract(a * nodes) - 0.5) - 0.465);             // the clamps
+        float mid = pow(abs(dot(normalize(vN), normalize(vV))), 1.6);                          // (the tube's middle)
+        vec3 deep = col * col / max(max(col.r, col.g), max(col.b, 0.05));                    // (the paint's colour, deepened:
+        vec3 c = deep * (0.35 + 1.6 * chase) + hot * (node * 1.0 + pow(chase, 3.0) * 0.3);    //  a bright tint tone-maps pale)
+        gl_FragColor = vec4(c * (0.25 + 0.75 * mid) * k, 1.0);
       }`,
   });
 }
@@ -112,7 +110,8 @@ function inflowMaterial(out = false) {
     transparent: true, depthWrite: false,
     blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
     defines: { OUT: out ? 1 : 0 },
-    uniforms: { time: { value: 0 }, power: { value: 0 }, rate: { value: 1 }, swirl: { value: 0 }, mouth: { value: 0.4 }, freeze: { value: 0 } },
+    uniforms: { time: { value: 0 }, power: { value: 0 }, rate: { value: 1 }, swirl: { value: 0 }, mouth: { value: 0.4 }, freeze: { value: 0 },
+      col: { value: new THREE.Color(0.5, 0.2, 1.0) }, hot: { value: new THREE.Color(1, 1, 1) } },
     vertexShader: /* glsl */`
       uniform float time, power, rate, swirl, mouth, freeze;
       attribute vec4 seed;                // ring radius, start angle, distance aft, fall time
@@ -156,18 +155,19 @@ function inflowMaterial(out = false) {
         #if OUT
           vA = power * smoothstep(0.0, 0.06, u) * smoothstep(1.0, 0.55, u);
         #else
-          vA = power * smoothstep(0.0, 0.15, u) * smoothstep(1.0, 0.86, u);
+          vA = power * smoothstep(0.0, 0.15, u) * smoothstep(0.82, 0.55, u);
         #endif
         vH = u;
         gl_Position = power > 0.0 ? projectionMatrix * mv : vec4(0.0, 0.0, -2.0, 1.0);
       }`,
     fragmentShader: /* glsl */`
-      uniform float freeze;
+      uniform float freeze; uniform vec3 col, hot;
       varying vec2 vQ; varying float vA, vH;
       void main() {
         float m = (1.0 - vQ.x * vQ.x) * smoothstep(-1.0, 0.2, vQ.y);
-        vec3 c = mix(vec3(0.75, 0.3, 1.0), vec3(1.0, 0.62, 0.32), smoothstep(0.3, 0.8, vH));
-        c = mix(c, vec3(1.0, 0.95, 0.88), smoothstep(0.75, 1.0, vH));
+        // (in the paint's colour, white-hot as it nears the core)
+        vec3 c = mix(col, mix(col, hot, 0.6), smoothstep(0.3, 0.8, vH));
+        c = mix(c, hot, 0.5 * smoothstep(0.55, 0.8, vH));
         float red = freeze * smoothstep(0.55, 1.0, vH);                      // (the light from the hanging matter redshifted)
         c = mix(c, vec3(1.0, 0.18, 0.08) * (1.0 - 0.85 * smoothstep(0.9, 1.0, vH)), red);
         #if OUT
@@ -430,21 +430,31 @@ export class Umbra {
     node.updateMatrixWorld(true);
     this.group.position.copy(ship.visual.worldToLocal(node.getWorldPosition(new THREE.Vector3())));
     ship.visual.add(this.group);
-    // the hole
-    this.bhMat = blackHoleMaterial(opts.steps || 72);
-    const U = this.bhMat.uniforms;
-    U.rs.value = B.rs;
-    U.rIn.value = B.disk[0] / B.rs;
-    U.rOut.value = B.disk[1] / B.rs;
-    U.size.value = B.disk[1] * 1.6;
-    this.hole = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.bhMat);
-    this.hole.frustumCulled = false;
-    this.hole.renderOrder = 2;
-    this.hole.onBeforeRender = (r, s, cam) => {
-      U.bhInv.value.copy(this.hole.matrixWorld).invert();
-      U.viewInv.value.copy(cam.matrixWorld);
-    };
-    this.group.add(this.hole);
+    // the singularity: its core (black, its rim), the halo over it, and the three containment rings round it - their
+    // radii inside the bore (0.70 m) whichever way they turn
+    this.rc = B.rs * 1.9;
+    this.coreMat = coreMaterial(true);
+    this.haloMat = coreMaterial(false);
+    const quad = new THREE.PlaneGeometry(2, 2);
+    this.hole = new THREE.Mesh(quad, this.coreMat);
+    this.halo = new THREE.Mesh(quad, this.haloMat);
+    this.hole.frustumCulled = this.halo.frustumCulled = false;
+    this.halo.renderOrder = 3;
+    this.group.add(this.hole, this.halo);
+    // each ring: its radius, its tumble (the axis its plane turns about, the tilt it starts at, how fast), its pulses'
+    // way round, its clamps
+    const R1 = B.disk[1] * 0.9;
+    this.rings = [[R1 * 0.56, [0, 1, 0], 0.5, 0.9, 1, 3], [R1 * 0.78, [1, 0, 0], 1.1, -0.7, -1, 4], [R1, [0.7, 0.7, 0], 0.3, 0.55, 1, 6]].map(([R, ax, tilt, w, dir, nodes]) => {
+      const m = ringMaterial();
+      m.uniforms.dir.value = dir;
+      m.uniforms.nodes.value = nodes;
+      const mesh = new THREE.Mesh(new THREE.TorusGeometry(R, 0.012 + 0.008 * R, 8, 160), m);
+      mesh.frustumCulled = false;
+      mesh.renderOrder = 2;
+      this.group.add(mesh);
+      return { mesh, axis: new THREE.Vector3(...ax).normalize(), tilt, w, dir, a: tilt * 3.0, roll: 0 };
+    });
+    this.align = 0;
     // matter falling in
     const N = 120, q = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
     g.index = q.index;
@@ -590,25 +600,25 @@ export class Umbra {
     const gamma = 1 - 0.8 * this.dil, dtl = dt * gamma;
     this.tl += dtl;
     this.ta += dt * (0.6 - 0.18 * this.dil);       // (the wisps and embers: 0.6 of the world's pace, ~0.4 on the boost)
-    const U = this.bhMat.uniforms, B = this.B;
+    const B = this.B;
     // the start: the hole forms - from a point to its full size as the reactor comes up - and at ignition the disk
     // lights in a flash, a ring of dark matter thrown out round the mouth and a ripple of bent space (onWave)
     const form = THREE.MathUtils.smoothstep(power, 0.05, 0.85);
     this.formK += (form - this.formK) * (1 - Math.exp(-dt / 0.15));
     const fk = Math.max(this.formK, 0.002);
-    U.rs.value = B.rs * fk;
-    U.size.value = B.disk[1] * 1.6 * fk;
+    const C = this.coreMat.uniforms, H = this.haloMat.uniforms;
+    C.rc.value = H.rc.value = this.rc * fk;
+    C.size.value = this.rc * 1.05 * fk;
+    H.size.value = this.rc * 3.8 * fk;
     if (!this.lit && power > 0.3) {
       this.lit = true; this.flash = 1; this.burst = 0;
       this.ship.onWave?.(this.group.getWorldPosition(_d), 1);
     } else if (power < 0.05) this.lit = false;
     this.flash = Math.max(0, this.flash - dt * 1.6);
     this.burst = Math.min(1, this.burst + dt / 0.9);
-    // the disk: dim and slow parked, turning up with the throttle, white-hot and fast on the boost
-    this.spinA += dtl * (0.25 + power * (0.6 + 0.8 * thr + 2.6 * boost));
-    U.spin.value = this.spinA;
+    // the singularity: dim parked, brighter with the throttle, flaring on the boost
     this.glow += ((0.08 + power * (0.75 + 0.35 * thr + 0.9 * boost)) - this.glow) * (1 - Math.exp(-dt / 0.25));
-    U.glow.value = this.glow + 4.0 * this.flash * this.flash;
+    const lightK = this.glow + 4.0 * this.flash * this.flash;
     // the dark matter: jets on the boost, the ring at ignition
     for (const m of [this.dmMat, this.dmSparkMat]) {
       const D = m.uniforms;
@@ -627,8 +637,7 @@ export class Umbra {
     if (M.EngineGlow) M.EngineGlow.emissive.copy(this.fieldCol);
     if (M.EngineCore) M.EngineCore.emissive.copy(this.fieldCol).lerp(_white, 0.6);
     for (const g of this.glowParts) g.q.e.copy(g.base).lerp(g.boosted, fb);
-    U.boost.value += (boost - U.boost.value) * (1 - Math.exp(-dt / 0.2));
-    U.time.value = this.tl;
+    this.updateRings(dt, power, thr, boost, fb, fk, lightK);
     const I = this.inMat.uniforms;
     // (its rate summed into a phase: time x a rate that changes jumped every streak along its fall)
     this.inPh = (this.inPh || 0) + dtl * (0.8 + 0.6 * thr + 1.6 * boost);
@@ -816,6 +825,42 @@ export class Umbra {
     }
   }
 
+  // The containment rings: each tumbling about its own axis (a gyroscope, faster with the throttle), its pulses chasing
+  // round it; on the boost all three swing into line round the bore - concentric, facing aft - and spin up, the
+  // core's rim and halo flaring. They grow with the core as the reactor comes up
+  updateRings(dt, power, thr, boost, fb, fk, lightK) {
+    const C = this.coreMat.uniforms, H = this.haloMat.uniforms, hot = this.hotCol ||= new THREE.Color();
+    hot.copy(this.fieldCol).lerp(_white, 0.75);
+    this.align += (fb - this.align) * (1 - Math.exp(-dt / (fb > this.align ? 0.25 : 0.6)));
+    const al = this.align * this.align * (3 - 2 * this.align);
+    this.ringT = (this.ringT || 0) + dt * (0.6 + power * (0.6 + 0.9 * thr + 2.6 * boost));
+    for (const U of [C, H]) {
+      U.time.value = this.t;
+      U.glow.value = lightK;
+      U.boost.value += (boost - U.boost.value) * (1 - Math.exp(-dt / 0.2));
+      U.flare.value = this.flash;
+      U.col.value.copy(this.fieldCol);
+      U.hot.value.copy(hot);
+    }
+    const qt = this.qt ||= new THREE.Quaternion(), qa = this.qa ||= new THREE.Quaternion(), zx = this.zx ||= new THREE.Vector3(0, 0, 1);
+    for (const g of this.rings) {
+      g.a += dt * g.w * (0.35 + power * (0.7 + 0.9 * thr)) * (1 - 0.6 * al);
+      g.roll += dt * g.dir * (0.5 + power * (0.8 + 3.5 * boost));
+      // tumbling: the ring's plane tipped about its axis; lined up: square to the bore, turning round it
+      qt.setFromAxisAngle(g.axis, g.a);
+      qa.setFromAxisAngle(zx, g.roll);
+      g.mesh.quaternion.copy(qt).multiply(qa).slerp(qa, al);
+      g.mesh.scale.setScalar(Math.max(0.002, fk * (1 + 0.12 * al)));
+      const U = g.mesh.material.uniforms;
+      U.time.value = this.ringT;
+      U.k.value = lightK * (0.5 + 0.45 * al);
+      U.col.value.copy(this.fieldCol);
+      U.hot.value.copy(hot);
+    }
+    const I = this.inMat.uniforms;
+    I.col.value.copy(this.fieldCol); I.hot.value.copy(hot);
+  }
+
   // the whole of it in or out with the hull (a wreck flown through blinks)
   show(v) {
     this.group.visible = this.aura.visible = this.embers.visible = v;      // (the dark matter rides in the group)
@@ -827,5 +872,5 @@ export class Umbra {
   // and how slow; reported whenever it can be (k 0 too: the pass keeps its record of the frames going)
   timeSource(cb) { cb(this.group.localToWorld(_d.set(0, 0, 1.2)), 3.5, this.dil * 0.7); }
 
-  objects() { return [this.hole, this.inflow, this.outflow, this.aura, this.embers, ...this.darkMatter, ...this.fields.flatMap((q) => q.g.children), ...(this.nose ? this.nose.children : [])]; }
+  objects() { return [this.hole, this.halo, ...this.rings.map((g) => g.mesh), this.inflow, this.outflow, this.aura, this.embers, ...this.darkMatter, ...this.fields.flatMap((q) => q.g.children), ...(this.nose ? this.nose.children : [])]; }
 }
