@@ -992,7 +992,11 @@ function finishPatch(sh, U) {
 // Glass that reads as glass. three.js scales a transparent surface's reflection by its opacity as well, so the canopy
 // and the bay windows were a flat grey film ("the glass on the engine looks so bad"). Here the reflection goes on at
 // full strength (premultiplied blending: the glass adds its reflection and dims what is behind by its opacity), and
-// grazing angles reflect more and let less through (fresnel).
+// grazing angles reflect more and let less through (fresnel). Its reflections kept at least ~2.5 pixels' worth of the
+// curve wide (geometric specular anti-aliasing): mirror-smooth, a highlight or a reflected line on the canopy's curve
+// was thinner than a pixel and hopped from pixel to pixel as the ship moved ("the line of the reflection is flickering
+// instead of showing it nicely") - up close the curve spans many pixels and it stays as sharp as before.
+export const GLASS_AA = { value: 1 };
 function glassify(m, tint, opacity, deckU) {
   m.color.set(tint);
   m.opacity = opacity;
@@ -1008,6 +1012,14 @@ function glassify(m, tint, opacity, deckU) {
   m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
   m.onBeforeCompile = (sh) => {
     if (deckU) deckPatch(sh, deckU);
+    sh.uniforms.glassAA = GLASS_AA;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+uniform float glassAA;`)
+      .replace('#include <lights_physical_fragment>', `#include <lights_physical_fragment>
+      {
+        float sw = max(length(dFdx(nonPerturbedNormal)), length(dFdy(nonPerturbedNormal)));
+        material.roughness = max(material.roughness, glassAA * min(sqrt(2.5 * sw), 0.45));
+      }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `
       float glassF = 0.04 + 0.96 * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 5.0);
       gl_FragColor = vec4(totalDiffuse * diffuseColor.a + totalSpecular + totalEmissiveRadiance,
