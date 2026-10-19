@@ -544,7 +544,7 @@ export class Multiplayer {
     this.goAt = null;
     for (const e of this.entries.values()) { e.net.last = e.net.prev = null; e.ship.setEngine(false); }
     if (this.host) { this.net.setState('open'); this.sharePlayers(); }
-    this.message = this.host ? 'Back in the room' : 'Back in the room - the host starts the next race';
+    this.message = '';
     this.change();
   }
 

@@ -12,7 +12,7 @@ export class ChatBox {
     this.settings = settings;
     this.el = document.createElement('div');
     this.el.id = 'netchat';
-    this.el.innerHTML = '<div class="nc-log"></div><input class="nc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Say something - Enter to send, Esc to close" hidden>';
+    this.el.innerHTML = '<div class="nc-log"></div><input class="nc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Enter to send, Esc to close" hidden>';
     document.getElementById('hud').append(this.el);
     this.log = this.el.querySelector('.nc-log');
     this.in = this.el.querySelector('.nc-in');

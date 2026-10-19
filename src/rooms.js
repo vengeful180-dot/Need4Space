@@ -60,7 +60,7 @@ export class Rooms {
     try {
       const r = await this.mp.rooms();
       this.list = Array.isArray(r.rooms) ? r.rooms : [];
-      this.status = this.list.length ? `${this.list.length} room${this.list.length > 1 ? 's' : ''} open` : 'No rooms open - create one and share its name';
+      this.status = '';                    // (the panel says how many)
       this.offline = false;
     } catch (e) { this.status = e.message; this.offline = true; }
     finally { this.loading = false; }
@@ -88,7 +88,7 @@ export class Rooms {
           <button class="m-item mp-btn" data-act="mp:refresh" tabindex="-1"><span class="m-name">Refresh</span></button>
         </nav>
         <div class="mp-panel"><div class="mp-panel-h"><span>Open rooms</span><b>${this.list.length}</b></div>
-          <nav class="mp-list">${rooms || `<div class="mp-empty">${this.loading && !this.list.length ? 'Looking for rooms...' : 'No rooms open yet. Create one, then tell your friends to join it.'}</div>`}</nav></div>
+          <nav class="mp-list">${rooms || `<div class="mp-empty">${this.loading && !this.list.length ? 'Looking for rooms' : 'No open rooms'}</div>`}</nav></div>
         ${this.notice ? `<div class="mp-status bad">${esc(this.notice)}</div>` : ''}<div class="mp-status${this.offline ? ' bad' : ''}">${esc(this.status)}</div>`;
     } else if (this.view === 'busy') {
       html = `<div class="mp-busy"><div class="mp-spin"></div><b>${esc(this.busyTitle || 'Joining')}</b><span>${esc(this.status)}</span></div>
@@ -104,10 +104,10 @@ export class Rooms {
         `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Getting ships ready'}</span></button>` : '';
       html = `<div class="mp-head"><b>${esc(room.name || 'Room')}</b><span>${esc(this.circuit(room.map || mp.h.map))} &middot; ${n}/${room.max || 8} &middot; ${mp.host ? 'you host' : 'host: ' + esc(rows.find((p) => p.host)?.name || '-')}</span></div>
         <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
-        ${this.chatOn ? `<form class="mp-chat" action="#"><div class="mc-log"></div><input class="mc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Chat - Enter to send"></form>` : ''}
+        ${this.chatOn ? `<form class="mp-chat" action="#"><div class="mc-log"></div><input class="mc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Chat"></form>` : ''}
         <nav class="mp-acts">${start}
           <button class="m-item mp-btn" data-act="mp:leave" tabindex="-1"><span class="m-name">Leave room</span></button></nav>
-        <div class="mp-status">${esc(mp.message || (mp.host ? 'Your room is open: friends find it in their Multiplayer list' : ''))}</div>`;
+        <div class="mp-status">${esc(mp.message || '')}</div>`;
     }
     if (html !== this.html) {
       this.html = html;
@@ -129,7 +129,7 @@ export class Rooms {
   renderChat() {
     const log = this.body.querySelector('.mc-log');
     if (!log) return;
-    log.innerHTML = this.mp.chat.slice(-40).map(chatLine).join('') || '<div class="nc-line sys">Say hello - the room sees it, and the race too</div>';
+    log.innerHTML = this.mp.chat.slice(-40).map(chatLine).join('');
     log.scrollTop = log.scrollHeight;
   }
 
