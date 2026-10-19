@@ -395,11 +395,11 @@ export class GameAudio {
       const fr = track.frame(ctl.s, this.frame), side = Math.sign(ctl.x) || 1;
       if (ctl.grind > 0) {
         grind = Math.min(1, Math.abs(ctl.vs || v) / 180) * 0.55;
-        this.place(P.grindPan, _v.copy(fr.P).addScaledVector(fr.R, side * TRACK_W / 2).addScaledVector(fr.U, 1));
+        this.place(P.grindPan, _v.copy(fr.P).addScaledVector(fr.R, side * track.W / 2).addScaledVector(fr.U, 1));
       }
-      const gap = TRACK_W / 2 - Math.abs(ctl.x) - 5.2;
+      const gap = track.W / 2 - Math.abs(ctl.x) - 5.2;
       buzz = 0.16 * clamp((6 - gap) / 5.5, 0, 1) * clamp(v / 60, 0, 1);
-      if (buzz > 0) this.place(P.buzzPan, _v.copy(fr.P).addScaledVector(fr.R, side * TRACK_W / 2).addScaledVector(fr.U, 2.5));
+      if (buzz > 0) this.place(P.buzzPan, _v.copy(fr.P).addScaledVector(fr.R, side * track.W / 2).addScaledVector(fr.U, 2.5));
       // landing after a real jump
       const air = ctl.airT || 0;
       if (air > 0.5) this.airTime += dt;

@@ -626,3 +626,11 @@ export function floaters({ near = 0.3, far = 2.0, touch = 0.2 } = {}) {
     loose: hs.filter((g) => g.d > touch).map((g) => ({ lamp: g.lamp.i, at: g.lamp.at.toArray().map(Math.round), size: g.lamp.s, layer: g.lamp.layer, hanger: !!g.lamp.foot, gap: fmt(g.d) })),
   };
 }
+
+// The Pyramid Run's ground check (egypt.js groundCheck): nothing that stands floats - the ruins' pieces on the sand, the
+// root's column plinths on the bore's floor, the braziers' brackets in their columns; proven first on deliberate breaks
+export async function pyramidFloaters() {
+  const F = window.__feather, W = F.world, { groundCheck } = await import('./egypt.js');
+  if (!W.ruins || !W.tomb) return { error: 'not the Pyramid Run' };
+  return groundCheck(F.track, W.ruins, W.tomb, { centre: W.planet.position.clone(), R: W.planet.geometry.parameters.radius });
+}

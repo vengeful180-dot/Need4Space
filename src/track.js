@@ -88,7 +88,7 @@ export const SPACE_LAYOUT = { ctrl: CTRL, at: AT, loops: LOOPS, gaps: GAPS, tunn
 export function layout(points, rest) {
   const ctrl = [], at = {};
   for (const [x, y, z, bank = 0, name = null] of points) { if (name) at[name] = ctrl.length; ctrl.push([x, y, z, bank]); }
-  return { ctrl, at, loops: [], gaps: [], tunnels: [], caves: [], pads: [], gates: [], flips: [], towers: false, meteor: false, ...rest };
+  return { ctrl, at, loops: [], gaps: [], tunnels: [], caves: [], pads: [], gates: [], flips: [], blocks: [], towers: false, meteor: false, ...rest };
 }
 
 function mergeTwo(a, b) {
@@ -283,6 +283,9 @@ function gateLeg(arcLen) {
 export class Track {
   constructor(L = SPACE_LAYOUT) {
     this.L = L;
+    this.speedK = L.speedK || 1;                     // (a speed circuit: TrackRacer's top speeds x this)
+    this.W = L.width || TRACK_W;                     // between the walls (a speed circuit's is wider)
+    this.slam = L.slam !== false;                    // the slam allowed (race.js canSlam: not on a speed circuit)
     const { ctrl: CTRL, at: AT, loops: LOOPS, gaps: GAPS, tunnels: TUNNELS, caves: CAVES, pads: PADS, gates: GATES } = L;
     const pts = CTRL.map(([x, y, z]) => new THREE.Vector3(x, y, z));
     this.curve = new THREE.CatmullRomCurve3(pts, true, 'centripetal');
@@ -353,6 +356,9 @@ export class Track {
     // (TrackRacer). To the meshes, the lips and the rivals' plan a flip is a cut; it is listed apart for the physics
     // and the field that shows it
     this.flips = (L.flips || []).map(([a, b]) => [this.at(a), this.at(b)]);
+    // obstacles standing on the deck (a speed circuit's): [point, m from it, across, width, height, length]
+    // (kind: how a world draws it - 'block', 'wall', 'obelisk', 'column'; the collision is its box whatever it is)
+    this.blocks = (L.blocks || []).map(([a, d, x, w = 8, h = 5, len = 6, kind = 'block']) => ({ s: this.at(a, d), x, w, h, len, kind }));
     this.gaps.push(...this.flips);
     this.solid = new Uint8Array(n).fill(1);
     for (const [s0, s1] of this.gaps) {
@@ -522,7 +528,7 @@ export class Track {
 
   // a racing line (lateral offset per metre): wide before a corner, the inside at its apex, wide again after
   racingLine(margin = 9) {
-    const n = this.n, W = TRACK_W / 2 - margin;
+    const n = this.n, W = this.W / 2 - margin;
     const smooth = (a, win) => {
       const out = new Float32Array(n);
       let acc = 0;
@@ -631,7 +637,7 @@ export class Track {
 
   meshes(scene) {
     TH = this.L.theme || SPACE_THEME;                // (the materials below are made with this circuit's colours)
-    const W = TRACK_W / 2;
+    const W = this.W / 2;
     const out = {};
     // a section drawn right-to-left faces the other way: mirror sections are reversed (their 'cut' flags move with
     // the segment they mark), so both walls face the deck
@@ -648,7 +654,7 @@ export class Track {
     deckMat.onBeforeCompile = (sh) => {
       sh.uniforms.detailMap = detail.map;
       sh.uniforms.detailNormal = detail.normal;
-      sh.uniforms.detailRep = { value: new THREE.Vector2(TRACK_W / 4, 40 / 4) };
+      sh.uniforms.detailRep = { value: new THREE.Vector2(this.W / 4, 40 / 4) };
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;')
         .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= 0.72 + 0.56 * texture2D(detailMap, vMapUv * detailRep).r;')
@@ -686,7 +692,7 @@ vec2 deckRipple(vec2 p, float t) {
 }`)
           .replace('#include <map_fragment>', `#include <map_fragment>
   {
-    float x = abs(vMapUv.x - 0.5) * ${TRACK_W.toFixed(1)}, along = vMapUv.y * 40.0, edge = ${(TRACK_W / 2).toFixed(1)} - x;
+    float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = vMapUv.y * 40.0, edge = ${(this.W / 2).toFixed(1)} - x;
     float n1 = texture2D(detailMap, vec2(along / 23.0, x / 9.0)).r, n2 = texture2D(detailMap, vec2(along / 3.7, x / 2.9) + 0.31).r;
     float reach = 0.5 + 2.4 * smoothstep(0.4, 0.75, texture2D(detailMap, vec2(along / 97.0, 0.17)).r);
     float base = 1.0 - smoothstep(reach * 0.35, reach, edge);
@@ -699,7 +705,7 @@ vec2 deckRipple(vec2 p, float t) {
     diffuseColor.rgb *= 1.0 - 0.42 * deckSeaWet;
     // the puddles: where the deck dips a little, lying in long patches (none under the weed, none under the sea)
     {
-      float xs = (vMapUv.x - 0.5) * ${TRACK_W.toFixed(1)}, al = mod(along, 400.0);
+      float xs = (vMapUv.x - 0.5) * ${this.W.toFixed(1)}, al = mod(along, 400.0);
       // (smooth patches a few metres across, more of them in stretches; their edges soft over a hand's width)
       float n = pdN(vec2(al / 4.5, xs / 2.6)) * 0.62 + pdN(vec2(al / 1.7, xs / 1.2) + 5.3) * 0.18 + pdN(vec2(al / 31.0, 0.7)) * 0.2;
       deckPuddle = smoothstep(0.6, 0.64, n) * deckSeaWet * deckRain;
@@ -736,7 +742,7 @@ float frN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
           .replace('#include <map_fragment>', `#include <map_fragment>
   {
     // (v split into whole 400 m and the rest: along the lap it runs to ~10 km and the noise wants small numbers)
-    float x = abs(vMapUv.x - 0.5) * ${TRACK_W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(TRACK_W / 2).toFixed(1)} - x;
+    float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(this.W / 2).toFixed(1)} - x;
     float side = step(0.5, vMapUv.x) * 17.0;
     float n1 = frN(vec2(along / 9.0, x / 3.0) + side), n2 = frN(vec2(along / 1.3, x / 1.1) + side + 3.7);
     float reach = 1.2 + 5.5 * smoothstep(0.25, 0.8, frN(vec2(along / 37.0, 1.3) + side));
@@ -765,7 +771,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
           .replace('#include <map_fragment>', `#include <map_fragment>
   {
     // (v split into whole 400 m and the rest: along the lap it runs to ~14 km and the noise wants small numbers)
-    float x = abs(vMapUv.x - 0.5) * ${TRACK_W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(TRACK_W / 2).toFixed(1)} - x;
+    float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(this.W / 2).toFixed(1)} - x;
     float side = step(0.5, vMapUv.x) * 17.0;
     float n1 = snN(vec2(along / 7.0, x / 2.5) + side), n2 = snN(vec2(along / 1.1, x / 0.9) + side + 3.7);
     float reach = 1.4 + 6.5 * smoothstep(0.25, 0.8, snN(vec2(along / 41.0, 1.3) + side));
@@ -881,7 +887,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // The cuts' edges: the deck ends in a closed face (no hollow box), hazard stripes on the last and first 6 m, a row
   // of amber lights along each lip, and a beacon post on each wall at both lips, blinking (Track.update)
   gapLips(metal) {
-    const E = TRACK_W / 2 + WALL_T, W = TRACK_W / 2, out = [], M = new THREE.Matrix4(), f = {};
+    const E = this.W / 2 + WALL_T, W = this.W / 2, out = [], M = new THREE.Matrix4(), f = {};
     const stripes = canvasTex(256, 64, (g, w, h) => {
       g.fillStyle = '#16171a'; g.fillRect(0, 0, w, h);
       g.fillStyle = '#e8b018';
@@ -930,7 +936,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // deck's sides, so they twist through the half turn with it, waves running along it the way the ships go, brightest
   // where it is seen edge on (looking down it, it is all but clear)
   flipFields(metal) {
-    const out = [], f = {}, R = TRACK_W / 2 + 9, Y0 = 3, E = TRACK_W / 2 + WALL_T;
+    const out = [], f = {}, R = this.W / 2 + 9, Y0 = 3, E = this.W / 2 + WALL_T;
     this.flipMats = [];
     if (!this.flips.length) return out;
     const col = new THREE.Color(...(TH.flip || SPACE_THEME.flip));
@@ -1008,7 +1014,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // inner face, two light strips along the roof, and the glass between them (faint, brighter at a grazing look, a
   // light wave running along it). Glass, so the sun still reaches the deck and its shadows stay true.
   tunnel() {
-    const out = [], A = TRACK_W / 2 + WALL_T + 0.2, H = 19, base = WALL_H;
+    const out = [], A = this.W / 2 + WALL_T + 0.2, H = 19, base = WALL_H;
     for (const [s0, s1] of this.tunnels) {
       const arc = [];
       for (let k = 0; k <= 28; k++) {
@@ -1287,7 +1293,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // light gates: an arch of light over the deck from wall to wall at the start, before both jumps, the rolls, the
   // loop and the corkscrew - pulses running up both legs, a white-hot core, each in its own colour
   lightGates() {
-    const R = TRACK_W / 2 + 2.5, out = [], f = {};
+    const R = this.W / 2 + 2.5, out = [], f = {};
     const ring = new THREE.TorusGeometry(R, 0.45, 12, 72, Math.PI);
     const leg = gateLeg(Math.PI * R);
     this.gateMats = [];
@@ -1350,9 +1356,9 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       const g = [box(8, h, 8, X, lo + h / 2), box(12, 2.4, 12, X, lo + h * 0.3), box(14, 2.4, 14, X, lo + h * 0.72),
         box(10, 4, 10, X, lo + h + 2), box(0.6, 18, 0.6, X, lo + h + 13),
         // the arm: two chords from under the deck girders out to the column, with posts between
-        box(X - TRACK_W / 2, 1.2, 1.2, (X + TRACK_W / 2) / 2, -DECK - 3.2, -3), box(X - TRACK_W / 2, 1.2, 1.2, (X + TRACK_W / 2) / 2, -DECK - 3.2, 3),
-        box(X - TRACK_W / 2, 1.2, 1.2, (X + TRACK_W / 2) / 2, -DECK - 9, 0)];
-      for (let k = 0; k <= 6; k++) { const x = TRACK_W / 2 + (X - TRACK_W / 2) * k / 6; g.push(box(0.5, 6.4, 0.5, x, -DECK - 6.1, 0)); }
+        box(X - this.W / 2, 1.2, 1.2, (X + this.W / 2) / 2, -DECK - 3.2, -3), box(X - this.W / 2, 1.2, 1.2, (X + this.W / 2) / 2, -DECK - 3.2, 3),
+        box(X - this.W / 2, 1.2, 1.2, (X + this.W / 2) / 2, -DECK - 9, 0)];
+      for (let k = 0; k <= 6; k++) { const x = this.W / 2 + (X - this.W / 2) * k / 6; g.push(box(0.5, 6.4, 0.5, x, -DECK - 6.1, 0)); }
       const glow = [box(0.25, h * 0.86, 0.5, X - 4.05, lo + h * 0.5, -2), box(0.25, h * 0.86, 0.5, X - 4.05, lo + h * 0.5, 2),
         box(12.2, 0.3, 12.2, X, lo + h * 0.3 + 1.0), box(14.2, 0.3, 14.2, X, lo + h * 0.72 + 1.0), box(1.4, 1.4, 1.4, X, lo + h + 22)];
       // (on the left turned round, not mirrored: a mirrored box is wound inside out - lit from inside, and black
@@ -1439,7 +1445,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     const every = Math.round(6 / this.step), n = Math.floor(this.n / every) * 2;
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.05, 0.4),
       new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.stud) }), n);
-    const M = new THREE.Matrix4(), W = TRACK_W / 2 - 2.4;
+    const M = new THREE.Matrix4(), W = this.W / 2 - 2.4;
     let k = 0;
     for (let i = 0; i + every <= this.n; i += every) {
       if (this.inGap(i * this.step, 2)) continue;
@@ -1462,7 +1468,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     ], true);                // (listed the deck's other way round: drawn as they were, the girders were inside out)
     const beams = [new THREE.Mesh(g(-12), metal), new THREE.Mesh(g(12), metal)];
     const every = Math.round(24 / this.step), n = Math.floor(this.n / every);
-    const ribs = new THREE.InstancedMesh(hullBox(TRACK_W + 1, 0.9, 1.0).translate(0, -D - 0.45, 0), metal, n);
+    const ribs = new THREE.InstancedMesh(hullBox(this.W + 1, 0.9, 1.0).translate(0, -D - 0.45, 0), metal, n);
     const M = new THREE.Matrix4();
     let nr = 0;
     for (let k = 0; k < n; k++) if (!this.inGap(k * every * this.step, 1)) ribs.setMatrixAt(nr++, this.basisAt(k * every, M));
@@ -1482,7 +1488,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // of the wall and the deck's side, tapered, with a light strip on its inner face; a truss beam (two chords, posts,
   // diagonals) across the top carrying a light bar. The first one (the start) is lit red.
   gantries() {
-    const X = TRACK_W / 2 + WALL_T / 2, E = TRACK_W / 2 + WALL_T, TOP = 15.3, BOT = 13.6;
+    const X = this.W / 2 + WALL_T / 2, E = this.W / 2 + WALL_T, TOP = 15.3, BOT = 13.6;
     const box = (w, h, d, x, y, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
     const strut = (a, b, w) => {
       const dir = b.clone().sub(a), len = dir.length(), g = new THREE.BoxGeometry(w, len, w);
@@ -1540,7 +1546,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       for (let i = 0; i < 32; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#e8e6e0' : '#16171a'; g.fillRect(i * 16, j * 16, 16, 16); }
     });
     tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(TRACK_W - 4.4, 2.75).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(this.W - 4.4, 2.75).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({
       map: tex, roughness: 0.55, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
     const i = this.start, M = new THREE.Matrix4().makeBasis(this.R[i], this.U[i], this.T[i].clone().negate()).setPosition(this.P[i].clone().addScaledVector(this.U[i], 0.02));
     m.matrixAutoUpdate = false;
@@ -1581,7 +1587,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       const n = T.clone().negate().addScaledVector(R, -side * 0.35).normalize(), x = new THREE.Vector3().crossVectors(U, n).normalize();
       M.makeBasis(x, U, n);
       Q.setFromRotationMatrix(M);
-      P.copy(this.P[i]).addScaledVector(R, side * (TRACK_W / 2 + WALL_T / 2)).addScaledVector(U, WALL_H + 2.1);
+      P.copy(this.P[i]).addScaledVector(R, side * (this.W / 2 + WALL_T / 2)).addScaledVector(U, WALL_H + 2.1);
       S.set(side > 0 ? 1 : -1, 1, 1);
       bm.setMatrixAt(k, M.compose(P, Q, S));
       pm.setMatrixAt(k, M.compose(P, Q, new THREE.Vector3(1, 1, 1)));
@@ -1593,7 +1599,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // lamp posts on the walls every 60 m (alternating sides), each a post, an arm over the track and a lit lens
   lampPosts() {
     const every = Math.round(60 / this.step), n = Math.floor(this.n / every);
-    const X = TRACK_W / 2 + WALL_T / 2;
+    const X = this.W / 2 + WALL_T / 2;
     const postG = new THREE.BoxGeometry(0.22, 4.2, 0.22).translate(0, 2.1, 0);
     const armG = new THREE.BoxGeometry(1.8, 0.18, 0.3).translate(-0.8, 4.15, 0);
     const lensG = new THREE.BoxGeometry(0.9, 0.06, 0.24).translate(-1.15, 4.04, 0);
@@ -1618,7 +1624,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
 
   // a lit trim along the deck's outer sides (it reads the track's line from other parts of the circuit)
   edgeTrims() {
-    const E = TRACK_W / 2 + WALL_T + 0.01;
+    const E = this.W / 2 + WALL_T + 0.01;
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.trim) });
     return [-1, 1].map((sd) => {
       const sec = [[sd * E, -0.55, 0, sd, 0], [sd * E, -0.38, 1, sd, 0]];
@@ -1696,7 +1702,10 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // Asteroids: six rock shapes - lumpy, ridged, cratered (bowls with raised rims), squashed and stretched - with
   // colour that darkens in the hollows; the surface gets fine procedural relief and grain in the shader (3-D noise in
   // the rock's own space, so it sticks to it), as bump through the surface gradient. Many small, a few huge.
-  asteroids(scene) {
+  // opts (a speed circuit's field): count, near / far (m from the line), sizes (m), spread (the box round the lap), the
+  // y range of the box used (share), keep (fn(point) -> false where none may be); place: [[point, size], ...] given
+  // instead (the caller's own scatter: the sampling below costs the lap's length times the count)
+  asteroids(scene, { count = 360, near = 160, far = 1800, sizes = [3, 95], spread = 1600, share = 0.8, keep = null, place = null } = {}) {
     const rnd = mulberry32(2024);
     const shape = (detail, k) => {
       let g = new THREE.IcosahedronGeometry(1, detail);
@@ -1743,16 +1752,25 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     const geos = [shape(4, 0), shape(4, 1), shape(3, 2), shape(3, 3), shape(3, 4), shape(3, 5)];
     const mat = rockMaterial({ big: 38, small: 6, key: 'asteroid' });
     const coarse = this.P.filter((_, i) => i % 10 === 0);
-    const box = new THREE.Box3().setFromPoints(this.P).expandByScalar(1600);
+    const box = new THREE.Box3().setFromPoints(this.P).expandByScalar(spread);
     const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), E = new THREE.Euler(), S = new THREE.Vector3(), X = new THREE.Vector3();
     const lists = geos.map(() => []), tones = geos.map(() => []);
-    for (let k = 0; k < 9000 && lists.flat().length < 360; k++) {
-      X.set(box.min.x + rnd() * (box.max.x - box.min.x), box.min.y + rnd() * (box.max.y - box.min.y) * 0.8, box.min.z + rnd() * (box.max.z - box.min.z));
-      const size = 3 + 95 * Math.pow(rnd(), 4.5);
+    for (const [p, sz] of place || []) {
+      E.set(rnd() * 6.3, rnd() * 6.3, rnd() * 6.3);
+      M.compose(p, Q.setFromEuler(E), S.set(sz, sz, sz));
+      const kind = sz > 30 ? (rnd() < 0.5 ? 0 : 1) : 2 + Math.floor(rnd() * 4);
+      lists[kind].push(M.clone());
+      tones[kind].push(0.7 + rnd() * 0.6);
+    }
+    for (let k = 0; !place && k < count * 25 && lists.flat().length < count; k++) {
+      X.set(box.min.x + rnd() * (box.max.x - box.min.x), box.min.y + rnd() * (box.max.y - box.min.y) * share, box.min.z + rnd() * (box.max.z - box.min.z));
+      const sz = sizes[0] + sizes[1] * Math.pow(rnd(), 4.5);
       let dmin = 1e9;
       for (const p of coarse) { const d = p.distanceTo(X); if (d < dmin) dmin = d; }
-      if (dmin < size * 1.5 + 160 || dmin > 1800) continue;
-      if (this.keepOut.some((k) => k.c.distanceTo(X) < k.r + size * 1.5 + 60)) continue;
+      if (dmin < sz * 1.5 + near || dmin > far) continue;
+      if (this.keepOut.some((k) => k.c.distanceTo(X) < k.r + sz * 1.5 + 60)) continue;
+      if (keep && !keep(X, sz)) continue;
+      const size = sz;
       E.set(rnd() * 6.3, rnd() * 6.3, rnd() * 6.3);
       M.compose(X, Q.setFromEuler(E), S.set(size, size, size));
       const kind = size > 30 ? (rnd() < 0.5 ? 0 : 1) : 2 + Math.floor(rnd() * 4);
@@ -1801,6 +1819,11 @@ const PAD_KICK = 55, PAD_MAX = 380;
 // "make turns harder at higher speeds": the yaw rate the ship can steer halves from walking pace to top speed,
 // and the hull slides more (grip 4 -> 2.4); airbrakes still add 90 %
 export const turnRate = (v) => 1.6 * (1 - 0.5 * smoothstep(60, 320, v));
+// a speed circuit's scale at speed v (its layout's speedK): 1 up to an ordinary circuit's top speed - the launch, the
+// turn, the grip, a pad's kick, a knock's damage all as on any circuit - then growing with the speed, up to speedK (at
+// four times its usual top speed a hull turns and grips as it does at its usual top speed)
+const V_TOP = 250;
+export const speedScale = (tr, v, H) => (tr.speedK > 1 ? clamp(Math.abs(v) / (V_TOP * Math.sqrt(H.thrust / H.drag)), 1, tr.speedK) : 1);
 export const gripAt = (v) => 4.0 * (1 - 0.4 * smoothstep(100, 320, v));
 // "add some kind of drifting at the corners, with brake and accelerate, so ships can take corners a bit easier
 // sometimes, with skill". Started by touching the brake (held, or let go of under 0.4 s ago) with the stick thrown
@@ -1943,7 +1966,7 @@ export class TrackRacer {
   repair() { this.health = this.maxHealth; this.ghost = 0; this.safe = 0; this.slamCool = 0; this.lunge = null; this.knocked = 0; }
 
   // the slam's charge: 0 just used .. 1 ready (the HUD)
-  get slamCharge() { return 1 - (this.slamCool || 0) / (this.handling.slamCool || 10); }
+  get slamCharge() { return this.handling.slam === false ? 0 : 1 - (this.slamCool || 0) / (this.handling.slamCool || 10); }
 
   // damage to the hull (the player's eased by the difficulty, as a wall's speed cost is); at 0, a wreck
   hurt(amount, why, at) {
@@ -1982,7 +2005,7 @@ export class TrackRacer {
     s += _DV.subVectors(w, f.P).dot(f.T);
     this.track.frame(s, f);
     _DV.subVectors(w, f.P);
-    return Math.abs(_DV.dot(f.R)) > TRACK_W / 2 || this.track.inGap(s) ? Infinity : _DV.dot(f.U);
+    return Math.abs(_DV.dot(f.R)) > this.track.W / 2 || this.track.inGap(s) ? Infinity : _DV.dot(f.U);
   }
 
   // what the animation layer reads each frame (the landing impulse is consumed)
@@ -2050,7 +2073,11 @@ export class TrackRacer {
     // steering (A/D, arrows, mouse, stick), airbrakes (Z / X, bumpers): a sharper turn, more drag; drifting, a
     // livelier nose
     this.steerS += (steer + (brakeR - brakeL) * 0.8 - this.steerS) * damp(8, dt);
-    const grip = air ? 0.25 : 1, dk = this.driftK, H = this.handling, vR = Math.sqrt(H.thrust / H.drag);
+    // (a speed circuit - its layout's speedK: every ship's top speed that many times its usual, its pull the same - the
+    // drag is what gives: it leaves the grid as on any circuit and keeps on gaining down the straights; turn, grip and
+    // pads as usual up to the usual top speed, scaled with the speed past it - speedScale)
+    const SK = tr.speedK, grip = air ? 0.25 : 1, dk = this.driftK, H = this.handling, vR1 = Math.sqrt(H.thrust / H.drag);
+    const sk = speedScale(tr, this.vs, H), vR = vR1 * sk;
     const ch = this.chain || 0, rateK = (brakeL || brakeR ? 1 + AIRBRAKE : 1) * (1 + (DRIFT.rate + 0.1 * ch - 1) * dk);
     // (a faster ship turns as the other does at the same share of its top speed - its yaw rate scaled with its speed,
     // so it holds the same lines - and then by its own turn)
@@ -2077,7 +2104,11 @@ export class TrackRacer {
     // slipstream: tucked in behind another ship (Race sets draft 0..1) the air is easier: up to 7 % more thrust
     const thrust = (this.throttle * THRUST * H.thrust + this.boosting * BOOST * H.boost) * power * this.thrustScale * (1 + 0.07 * (this.draft || 0));
     const sp = Math.hypot(this.vs, this.vx);
-    const drag = DRAG_L + DRAG_Q * H.drag * sp + (brakeL + brakeR) * 0.25;
+    // (a speed circuit: the usual drag up to ~200 m/s - the usual launch, metre for metre - then easing off as the
+    // speed builds, to 1 / SK of the linear and 1 / SK^2 of the quadratic: it keeps on gaining, more and more gently, up
+    // to SK times the usual top speed. Cut by SK from the line it gained 500 m/s in eight seconds - "way too crazy")
+    const sd = SK > 1 ? smoothstep(V_TOP * 0.8, V_TOP * SK, sp / vR1) : 0;
+    const drag = DRAG_L / (1 + (SK - 1) * sd) + DRAG_Q * H.drag / (1 + (SK * SK - 1) * sd) * sp + (brakeL + brakeR) * 0.25;
     this.vs += (hs * thrust - this.vs * drag) * dt;
     this.vx += (hx * thrust - this.vx * drag) * dt;
     // the brake: ~6 g plus a share of the speed (15 g at top speed), never into reverse (drifting: a feather of it)
@@ -2105,7 +2136,7 @@ export class TrackRacer {
     // a drift's kick, paid over ~0.2 s along the way it goes
     if (this.driftKick > 0) {
       const d = Math.min(this.driftKick, 180 * dt), v = Math.max(1, Math.hypot(this.vs, this.vx));
-      this.vs = Math.min(PAD_MAX * vR, this.vs + this.vs / v * d); this.vx += this.vx / v * d;
+      this.vs = Math.min(PAD_MAX * vR1 * SK, this.vs + this.vs / v * d); this.vx += this.vx / v * d;
       this.driftKick -= d;
     }
     // boost pads
@@ -2113,7 +2144,7 @@ export class TrackRacer {
     for (const p of tr.pads) {
       const ds = ((this.s - p.s) % tr.length + tr.length * 1.5) % tr.length - tr.length / 2;
       if (Math.abs(ds) < 8 && Math.abs(this.x - p.x) < 6 && this.padT <= 0 && !air) {
-        this.vs = Math.min(PAD_MAX * vR, this.vs + PAD_KICK);
+        this.vs = Math.min(PAD_MAX * vR1 * SK, this.vs + PAD_KICK * sk);      // (a speed circuit's pads kick harder the faster it goes)
         this.padT = 0.6;
         this.emit({ type: 'pad', i: tr.pads.indexOf(p), at: p.at });
       }
@@ -2123,7 +2154,7 @@ export class TrackRacer {
     this.s = tr.wrap(this.s + this.vs * dt);
     this.x += this.vx * dt;
     // walls
-    const lim = TRACK_W / 2 - ship.halfSpan * 0.92;
+    const lim = tr.W / 2 - ship.halfSpan * 0.92;
     this.scrape = Math.max(0, this.scrape - dt * 3);
     this.grind = Math.max(0, (this.grind || 0) - dt);
     this.wallCool = Math.max(0, (this.wallCool || 0) - dt);
@@ -2155,19 +2186,53 @@ export class TrackRacer {
         if (hit > 1.5 && this.wallCool <= 0) {
           this.wallCool = 0.25;
           this.scrape = Math.min(1, hit / 20);
-          const at = f.P.clone().addScaledVector(f.R, side * TRACK_W / 2).addScaledVector(f.U, 1.2);
+          const at = f.P.clone().addScaledVector(f.R, side * tr.W / 2).addScaledVector(f.U, 1.2);
           this.emit({ type: 'scrape', at, v: hit, side, wall: true });
           // (thrown into it by an attack: the full blow - "push them harder in the wall")
           const thrown = this.knocked > 0;
-          this.hurt(DAMAGE.wall * clamp(hit - DAMAGE.graze, 0, thrown ? ATTACK.wallCap : DAMAGE.cap) * damageSpeed(this.vs) * (thrown ? ATTACK.wallK : 1), 'wall', at);
+          this.hurt(DAMAGE.wall * clamp(hit - DAMAGE.graze, 0, thrown ? ATTACK.wallCap : DAMAGE.cap) * damageSpeed(this.vs / speedScale(tr, this.vs, this.handling)) * (thrown ? ATTACK.wallK : 1), 'wall', at);
         }
+      }
+    }
+    // the obstacles on the deck: flown into, the ship is thrown off the side nearer its edge, much of its speed gone
+    // (paid over ~0.1 s, as a knock), the hull hurt; high enough in the air it clears them. A wreck flown through
+    // passes through them too
+    this.blockCool = Math.max(0, (this.blockCool || 0) - dt);
+    if (tr.blocks.length && !(this.ghost > 0)) {
+      const half = ship.halfSpan * 0.8, along = (ship.length || 13) * 0.45;
+      for (const b of tr.blocks) {
+        const ds = ((this.s - b.s) % tr.length + tr.length * 1.5) % tr.length - tr.length / 2, dx = this.x - b.x;
+        if (Math.abs(ds) > b.len / 2 + along || Math.abs(dx) > b.w / 2 + half || this.y > b.h + HOVER) continue;
+        const side = Math.sign(dx) || 1;
+        this.x = b.x + side * (b.w / 2 + half + 0.05);
+        if (this.blockCool > 0) continue;              // (still sliding off its side: no second blow)
+        this.blockCool = 0.4;
+        const v0 = Math.abs(this.vs);
+        this.vx = side * Math.max(Math.abs(this.vx), 22);
+        this.slow = (this.slow || 0) + 0.42 * v0 * H.impact;
+        this.yawKick += side * 0.12;
+        this.driftCharge = 0;
+        const at = f.P.clone().addScaledVector(f.R, b.x + side * b.w / 2).addScaledVector(f.U, Math.min(b.h, 3));
+        this.emit({ type: 'scrape', at, v: 30, side: -side, wall: true, block: true });
+        this.hurt(DAMAGE.wall * DAMAGE.cap * 1.5 * damageSpeed(v0 / speedScale(tr, v0, this.handling)), 'wall', at);
       }
     }
     // height: hold + hover cushion; the deck falling away over a crest (kv < 0) throws the ship up. Over a cut there
     // is no deck: no cushion, no floor, a weak pull - the ship flies its arc (the -kv v^2 term is the frame turning,
     // not a force: it stays)
     const gap = tr.inGap(this.s);
-    const hold = gap ? HOLD_GAP : HOLD + HOLD_V2 * this.vs * this.vs;
+    let hold = gap ? HOLD_GAP : HOLD + HOLD_V2 * this.vs * this.vs;
+    // (a speed circuit: a hull still well up after a cut sinks to the deck at a steady 40 m/s2 whatever the deck does
+    // under it - at its speeds the deck's full pull, grown with v^2, slammed it down from 30 m at ~450 m/s)
+    // over the cut itself a steady rise of 30 m/s2 off the deck's line (the crest under it falling away by v^2 / R
+    // threw the fast hulls 50 m up and 2.5 km on, into the dip beyond)
+    if (tr.speedK > 1) {
+      if (gap) hold = Math.max(0, -30 - f.kv * this.vs * this.vs);
+      // (on down through the cushion's reach too: the full hold, 4,000 m/s2 at these speeds, came in at 2.5 m up
+      // where the cushion was still too weak to answer it, and slammed the hull onto the deck at 15-20 m/s; under
+      // the cushion's full reach the hold and its offset cancel - nothing is lost)
+      else if (this.y > HOVER + 0.6) hold = clamp(40 - f.kv * this.vs * this.vs, HOLD_GAP, hold);
+    }
     let ay = -hold - f.kv * this.vs * this.vs;
     // Redout's pitch: in the air the nose down pulls the hull back to the deck sooner (it lands its line and keeps its
     // speed), the nose up stretches the flight
@@ -2179,6 +2244,10 @@ export class TrackRacer {
       // the cushion stiffens through a dip: at 1,000 km/h the deck rising into the hull outran the spring and the
       // ship slammed the floor in every hollow
       if (f.kv > 0) ay += f.kv * this.vs * this.vs * w * power;
+      // (a speed circuit: over a crest too, as far as the field holds the hull - at four times the speed the deck
+      // falling away rode it 3-4 m up the cushion over every long rise and across the planet's curve, off its grip,
+      // past the obstacles nose dead ahead; a sharp edge still throws it)
+      else if (tr.speedK > 1) ay += Math.max(f.kv, -HOLD_V2) * this.vs * this.vs * w * power;
     }
     // coming down off a jump the cushion reaches up for the hull and catches the fall over the last metres (the
     // fastest descent it can still stop from at each height): it met the deck at 80 m/s, struck the floor and

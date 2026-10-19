@@ -2,7 +2,7 @@
 // damage, a score and a results table. Rivals - four Feathers in their teams' paint, two Comets and two Anvils in
 // liveries of their own - are clones of the loaded ships, driven by AI on the same track physics.
 import * as THREE from 'three';
-import { TrackRacer, TRACK_W, turnRate, gripAt, DAMAGE, damageSpeed, ATTACK } from './track.js';
+import { TrackRacer, TRACK_W, turnRate, gripAt, speedScale, DAMAGE, damageSpeed, ATTACK } from './track.js';
 import { Ship } from './ship.js';
 import { HANDLING, RIVAL_SHIPS, LIVERIES } from './ships.js';
 import { clamp, damp, mulberry32, smoothstep } from './noise.js';
@@ -61,7 +61,9 @@ export const AI_LEVELS = {
 // the cuts and round the loop. Then the speed each metre of it allows (with a share of airbrake), the braking back
 // from every limit, and where a lane of its own costs nothing.
 function makePlan(track, lim, T) {
-  const n = track.n, st = track.step, L = track.length, W = lim - T.lineM;
+  // (a speed circuit's line a few metres further in off the walls: arriving there at 130 m/s across the deck, the
+  // wall's escape took the hull off a line laid along its bound)
+  const n = track.n, st = track.step, L = track.length, W = lim - T.lineM - 3 * ((track.speedK || 1) - 1);
   const ix = (s) => ((Math.round(s / st) % n) + n) % n;
   const cr = (x, u) => {                                 // periodic Catmull-Rom
     const N = x.length, j = Math.floor(u), t = u - j, a = x[((j - 1) % N + N) % N], b = x[(j % N + N) % N];
@@ -72,7 +74,7 @@ function makePlan(track, lim, T) {
   // and held there 70 m on it could not swing out for a bend after one)
   const cut = (s) => track.gaps.some((g) => track.inSpan(s, g[0] - 70, g[1] + 70) && !(track.flips.includes(g) && !track.inSpan(s, g[0] - 25, g[1] + 25)));
   // least squared curvature, the bounds held (projected gradient descent on the bend; x0: a coarser solution)
-  const solve = (N, pads, x0, iters) => {
+  const solve = (N, pads, x0, iters, blocks = []) => {
     const h = L / N, per = Math.max(1, Math.round(h / st));
     const lo = new Float64Array(N).fill(-W), hi = new Float64Array(N).fill(W), K = new Float64Array(N);
     for (let j = 0; j < N; j++) {
@@ -86,6 +88,13 @@ function makePlan(track, lim, T) {
       for (let d = -14; d <= 10; d += Math.min(4, h / 2)) {
         const j = Math.round(track.wrap(p.s + d) / h) % N;
         lo[j] = Math.max(lo[j], p.x - 2.5); hi[j] = Math.min(hi[j], p.x + 2.5);
+      }
+    }
+    // the obstacles: passed on the side the free line takes, a hull's width and a margin clear of the edge
+    for (const b of blocks) {
+      for (let d = -b.len / 2 - 40 - 120 * (track.speedK - 1); d <= b.len / 2 + 25; d += Math.min(4, h / 2)) {     // (on its side early at a speed circuit's speeds)
+        const j = Math.round(track.wrap(b.s + d) / h) % N, m = b.w / 2 + 9 * Math.sqrt(track.speedK);
+        if (b.right) lo[j] = Math.max(lo[j], Math.min(W, b.x + m)); else hi[j] = Math.min(hi[j], Math.max(-W, b.x - m));
       }
     }
     const x = new Float64Array(N), r = new Float64Array(N), h2 = h * h;
@@ -105,8 +114,25 @@ function makePlan(track, lim, T) {
     if (!twin) pads.push(p);
     else if (Math.abs(p.x - xf) < Math.abs(twin.x - xf)) pads[pads.indexOf(twin)] = p;
   }
-  const coarse = solve(Math.round(L / 40), pads, free, 6000);
-  const fine = solve(Math.round(L / 10), pads, coarse, 5000);
+  // the obstacles: each passed on the side with more room, or - room enough either way - the side the line through the
+  // pads is already on (the free line's side had it swing across the road just after a pad, too fast to follow)
+  const viaPads = track.blocks?.length ? solve(Math.round(L / 40), pads, free, 6000) : free;
+  // (where that line runs over the whole run-up, not at the block alone: just after a pad pair it is still out at the
+  // pad and at the block already swinging back across)
+  const runUp = 40 + 120 * (track.speedK - 1);
+  const blocks = (track.blocks || []).map((b) => {
+    let xf = 0;
+    for (let k = 0; k <= 8; k++) xf += cr(viaPads, (track.wrap(b.s - (runUp * k) / 8) / L) * viaPads.length) / 9;
+    const roomR = W - (b.x + b.w / 2), roomL = (b.x - b.w / 2) + W;
+    const need = 9 * Math.sqrt(track.speedK) + 4;
+    return { ...b, right: roomR > need && roomL > need ? xf >= b.x : roomR > roomL };
+  });
+  // (with blocks, coarse to fine: the descent smooths only a few samples' reach, so solved at 40 m first the swing round
+  // a block came out a few hundred metres long however much road there was - at 1,500 m/s too quick to follow)
+  let x0 = free;
+  if (blocks.length) for (const h of [640, 160]) x0 = solve(Math.round(L / h), pads, x0, 6000, blocks);
+  const coarse = solve(Math.round(L / 40), pads, x0, 6000, blocks);
+  const fine = solve(Math.round(L / 10), pads, coarse, 5000, blocks);
   // per 2 m sample: the line, its slope, the bend the ship has to turn through (track + line), the speed limit
   const x = new Float32Array(n), slope = new Float32Array(n), c = new Float32Array(n), vlim = new Float32Array(n), ka = new Float32Array(n);
   for (let i = 0; i < n; i++) x[i] = cr(fine, (i * st / L) * fine.length);
@@ -120,7 +146,7 @@ function makePlan(track, lim, T) {
   }
   vlim.set(speedLimits(track, c, T, HANDLING.feather));
   // where a lane of its own costs nothing: a straight, no pad just ahead, clear of the cuts and the loop
-  const slack = new Float32Array(n), raw = new Float32Array(n), R = Math.round(150 / st);
+  const slack = new Float32Array(n), raw = new Float32Array(n), R = Math.round(150 / st), SK = Math.round(track.speedK || 1);
   for (let i = 0; i < n; i++) {
     let cm = 0;
     // (the track's bend too: through a gentle S the line runs straight across the deck, apex to apex, and a lane held
@@ -129,22 +155,27 @@ function makePlan(track, lim, T) {
     const s = i * st;
     let ok = 1 - smoothstep(0.0005, 0.0012, cm);
     if (track.inGap(s, 150) || track.inLoop(s, 150)) ok = 0;
-    for (const p of pads) { const ds = track.wrap(p.s - s + L / 2) - L / 2; if (ds > -40 && ds < 300) ok = 0; }
+    // (a speed circuit: back on the line as many times sooner, eased in as many times longer - at 1,500 m/s its own
+    // lane 45 m off the line, given up 500 m before a block, was a third of a second to cross the road)
+    for (const p of pads) { const ds = track.wrap(p.s - s + L / 2) - L / 2; if (ds > -40 && ds < 300 * SK) ok = 0; }
+    for (const b of blocks) { const ds = track.wrap(b.s - s + L / 2) - L / 2; if (ds > -30 && ds < 500 * SK) ok = 0; }
     raw[i] = ok;
   }
-  for (let i = 0; i < n; i++) { let a = 0; for (let j = -20; j <= 20; j++) a += raw[(i + j + n) % n]; slack[i] = a / 41; }
+  const E = 20 * SK;
+  for (let i = 0; i < n; i++) { let a = 0; for (let j = -E; j <= E; j++) a += raw[(i + j + n) % n]; slack[i] = a / (2 * E + 1); }
   return { x, slope, c, vlim, slack, pads };
 }
 
 // the speed each metre of the line allows a ship that flies as H does (ships.js HANDLING: it turns as the Feather at
 // the same share of its own top speed, then by its own turn), and the braking back from every limit
 function speedLimits(track, c, T, H) {
-  const n = track.n, st = track.step, vR = Math.sqrt(H.thrust / H.drag), vlim = new Float32Array(n);
+  const n = track.n, st = track.step, vR1 = Math.sqrt(H.thrust / H.drag), vlim = new Float32Array(n);
+  const vR = (m) => vR1 * speedScale(track, m, H);       // (a speed circuit: its scale at that speed - track.js)
   for (let i = 0; i < n; i++) {
     let k = 0;
     for (let j = -3; j <= 3; j++) k = Math.max(k, Math.abs(c[(i + j + n) % n]));
-    let lo = 40, hi = 400 * vR;                          // the fastest v with v * k <= its turn rate * A
-    for (let it = 0; it < 22; it++) { const m = (lo + hi) / 2; if (m * k <= turnRate(m / vR) * vR * H.turn * T.A) lo = m; else hi = m; }
+    let lo = 40, hi = 400 * vR1 * (track.speedK || 1);   // the fastest v with v * k <= its turn rate * A
+    for (let it = 0; it < 22; it++) { const m = (lo + hi) / 2; if (m * k <= turnRate(m / vR(m)) * vR(m) * H.turn * T.A) lo = m; else hi = m; }
     vlim[i] = lo;
   }
   for (let pass = 0; pass < 2; pass++) {
@@ -182,7 +213,7 @@ class Driver {
   // a slam coming at it: by its level's chance (AI_LEVELS counter) it hits back within the window - a double attack -
   // if its own slam is ready
   mayCounter(race) {
-    if (this.e.racer.slamCool > 0 || this.rnd() >= (this.level.counter ?? 0)) return;
+    if (!race.canSlam(this.e) || this.e.racer.slamCool > 0 || this.rnd() >= (this.level.counter ?? 0)) return;
     this.counterAt = race.time + 0.08 + this.rnd() * 0.35;
   }
 
@@ -225,12 +256,12 @@ class Driver {
     // airPitch) - in the air the hull barely grips, and a track bending under it slides it across into the wall
     this.inp.pitch = air && !tr.inGap(r.s) && !tr.inGap(r.s + v * 1.2) && !tr.inGap(r.s - 60) && tr.flipAt(r.s) < 0 ? -1 : 0;
     // the line where the ship will be once the steering has answered
-    const iA = at(v * T.lead);
+    const iA = at(v * (T.lead + 0.033 * (speedScale(tr, v, r.handling) - 1)));   // (a speed circuit flat out: 0.1 s ahead)
     const ws = r.s + this.seed[3] * 5000, wander = L.wander * (0.6 * Math.sin(ws / 173) + 0.4 * Math.sin(ws / 61 + this.seed[1] * 20));
     // (its lane and wander no further toward a wall than the line's own bound: where the line ran along that bound - the
     // apex of a gentle bend, where the line is straight and a lane looks free - they took the hull into the wall)
     const x0 = plan.x[iA], wb = lim - T.lineM;
-    let lineX = x0 + clamp(this.lane * plan.slack[iA] + (jump || loop ? 0 : wander), -wb - x0, wb - x0);
+    let lineX = x0 + clamp(this.lane * plan.slack[iA] + (jump || loop ? 0 : wander * (tr.blocks.length ? plan.slack[iA] : 1)), -wb - x0, wb - x0);
     // off the grid: its own column for the first few hundred metres, then onto the line (all three columns making for
     // the line at once side-swiped each other within a second of the lights)
     this.odo += r.vs * dt;
@@ -243,7 +274,10 @@ class Driver {
       if (!plan.pads.includes(p)) continue;
       if (!this.padPick.has(k)) this.padPick.set(k, this.rnd() < L.pads ? 0 : p.x ? -Math.sign(p.x) : this.rnd() < 0.5 ? -1 : 1);
       const skip = this.padPick.get(k);
-      if (skip && ds < 60 + v * 0.9) xT = p.x + skip * 11;          // (toward the middle: at a wall it would still hit)
+      // (toward the middle: at a wall it would still hit; never into a block on the way - at a speed circuit's
+      // speeds the pull-off starts 1.4 km out)
+      const off = p.x + skip * 11;
+      if (skip && ds < 60 + v * 0.9 && !tr.blocks.some((b) => { const db = race.gap(b.s, r.s); return db > -20 && db < ds + 20 && Math.abs(off - b.x) < b.w / 2 + 9; })) xT = off;
     }
     // the bends just ahead: the one to turn through now (the steering lags), the side of the next real one
     let cFF = 0;
@@ -324,7 +358,7 @@ class Driver {
     // needs), the nose follows the steering at the turn rate (in ~tauPsi, slower than the 0.12 s the stick takes to
     // answer); the bend ahead is fed forward. Gains fixed in steer units over-steered slowly and under-damped fast.
     // (its own ship's turn and grip: track.js scales them by its top speed and turn)
-    const H = r.handling, vR = Math.sqrt(H.thrust / H.drag);
+    const H = r.handling, vR = Math.sqrt(H.thrust / H.drag) * speedScale(tr, v, H);      // (a speed circuit scales them: track.js)
     const tRate = turnRate(v / vR) * vR * H.turn, g = gripAt(v / vR) * vR * H.turn, slope = plan.slope[iA];
     const slip = clamp((v * cFF) / g, -0.3, 0.3), th = Math.atan2(r.vx, v);
     const thD = Math.atan(slope) - clamp((r.x - xT) / (v * T.tauE), -0.3, 0.3);
@@ -356,7 +390,7 @@ class Driver {
     // the slam (Race attacks): alongside a hull in reach on a straight, now and then (by its aggression - the first
     // three far more readily at each other); a counter when one comes at it (mayCounter)
     if (this.counterAt != null && race.time >= this.counterAt) { this.slamNow = true; this.counterAt = null; }
-    else if (!(r.slamCool > 0) && straight && !jump && !loop && race.racing && r.ghost <= 0 && this.rnd() < (top ? 5 : 1.2) * this.aggression * dt) {
+    else if (race.canSlam(this.e) && !(r.slamCool > 0) && straight && !jump && !loop && race.racing && r.ghost <= 0 && this.rnd() < (top ? 5 : 1.2) * this.aggression * dt) {
       const t = race.reach(this.e);
       if (t && !(top && t.o.rank > 3 && this.rnd() < 0.7)) this.slamNow = true;
     }
@@ -383,7 +417,7 @@ class Driver {
       // in bursts (a flame flickering on and off reads as a fault): started with energy to spare, run down to the
       // dregs; started at once (with less) to finish a pass or after a knock
       const urgent = E > 0.15 && (this.passT > 0 || this.knockT > 0);
-      if (!this.boostOn && roomy && ((E > T.boostHi && (v < T.boostVmax || E > 0.92)) || urgent)) { this.boostOn = true; this.burstT = 0.6; }
+      if (!this.boostOn && roomy && ((E > T.boostHi && (v < T.boostVmax * this.race.track.speedK || E > 0.92)) || urgent)) { this.boostOn = true; this.burstT = 0.6; }
       else if (this.boostOn && (E < T.boostLo || (!roomy && this.burstT <= 0))) this.boostOn = false;
       boost = this.boostOn;
     } else {
@@ -448,7 +482,7 @@ export class Race {
       this.LEN[a * n + b] = ((E[a].ship.length || 13.34) + (E[b].ship.length || 13.34)) * 0.48;
     }
     // the furthest a hull's centre gets from the middle - the widest ship's - the line, and each ship's speeds on it
-    this.lim = TRACK_W / 2 - Math.max(...E.map((e) => e.ship.halfSpan)) * 0.92;
+    this.lim = track.W / 2 - Math.max(...E.map((e) => e.ship.halfSpan)) * 0.92;
     this.replan();
     this.player = this.entries[PLAYER_SLOT];
     this.setDifficulty(this.level);
@@ -626,7 +660,8 @@ export class Race {
       }
       const press = e.player ? playerActive && !!inp?.slam : !!e.driver?.slamNow;
       if (e.driver) e.driver.slamNow = false;
-      if (!press || r.slamCool > 0 || r.ghost > 0 || e.finished || this.time < ATTACK.startLock) continue;
+      // (a ship without the slam - the Umbra - or a circuit without it neither throws one nor answers one)
+      if (!press || !this.canSlam(e) || r.slamCool > 0 || r.ghost > 0 || e.finished || this.time < ATTACK.startLock) continue;
       const u = e.underAttack;                          // a slam at it within the window: hit back - a double attack
       if (u && !u.done && this.time - u.t <= ATTACK.counter && u.by.racer.ghost <= 0) { this.clash(u.by, e); continue; }
       const t = this.reach(e, 0, playerActive);
@@ -690,6 +725,9 @@ export class Race {
     this.events.push({ type: 'clash', at, a: att, b: def, dir: D.pos.clone().sub(A.pos).projectOnPlane(this.track.frame(A.s).T).normalize() });
   }
 
+  // whether e may slam at all: not the Umbra (ships.js slam: false), not on a circuit without it (layout slam: false)
+  canSlam(e) { return e.racer.handling.slam !== false && this.track.slam !== false; }
+
   // the nearest hull in reach of e's slam on side dir (+1 right, -1 left, 0 either): { o, side } or null
   reach(e, dir = 0, playerActive = true) {
     const r = e.racer;
@@ -708,11 +746,14 @@ export class Race {
   // the HUD's arrow: a slam coming at the player it can still answer (+-2: the side it comes from), else a hull in
   // reach of its slam (+-1), 0 - only with its slam ready
   // the player's slam charge for the HUD: filling over the start's lock, then its own
-  slamCharge() { return this.racing && this.time < ATTACK.startLock ? this.time / ATTACK.startLock : this.player.racer.slamCharge; }
+  slamCharge() {
+    if (!this.canSlam(this.player)) return 0;                     // (no slam: no meter filling over the start's lock either)
+    return this.racing && this.time < ATTACK.startLock ? this.time / ATTACK.startLock : this.player.racer.slamCharge;
+  }
 
   attackSide() {
     const p = this.player, r = p.racer, u = p.underAttack;
-    if (!this.racing || r.slamCool > 0 || r.ghost > 0 || this.time < ATTACK.startLock) return 0;
+    if (!this.racing || !this.canSlam(p) || r.slamCool > 0 || r.ghost > 0 || this.time < ATTACK.startLock) return 0;
     if (u && !u.done && this.time - u.t <= ATTACK.counter) return 2 * (Math.sign(u.by.racer.x - r.x) || 1);
     return this.reach(p)?.side || 0;
   }
@@ -734,7 +775,7 @@ export class Race {
   // speed (none at the grid's crawl), at a lower rate than a wall's. atk: an airbrake attack (+1 a on b, -1 b on a) -
   // the one attacked takes ATTACK.dmg times its share, the attacker ATTACK.keep of its own
   ram(ea, eb, v, atk = 0, mass = 1) {
-    const k = DAMAGE.ship * Math.max(0, v - DAMAGE.shipGraze) * damageSpeed(Math.max(ea.racer.vs, eb.racer.vs));
+    const k = DAMAGE.ship * Math.max(0, v - DAMAGE.shipGraze) * damageSpeed(Math.max(ea.racer.vs, eb.racer.vs) / speedScale(this.track, Math.max(ea.racer.vs, eb.racer.vs), ea.racer.handling));
     if (k <= 0 || this.time < DAMAGE.safe) return;
     if (ea.player) eb.playerHitT = this.time;          // (the HUD: the hull of a rival the player has just hurt)
     if (eb.player) ea.playerHitT = this.time;
@@ -758,7 +799,7 @@ export class Race {
         if (((E[a].player || E[b].player) && !playerActive) || A.y > 4 || B.y > 4 ||  // one over the other in the air
           A.ghost > 0 || B.ghost > 0 ||                                             // a wreck being flown through
           Math.abs(ds) >= LEN || Math.abs(dx) >= WID) { this.touch[key] = 0; continue; }
-        const limA = TRACK_W / 2 - E[a].ship.halfSpan * 0.92, limB = TRACK_W / 2 - E[b].ship.halfSpan * 0.92;
+        const limA = this.track.W / 2 - E[a].ship.halfSpan * 0.92, limB = this.track.W / 2 - E[b].ship.halfSpan * 0.92;
         const first = this.touch[key] === 0;
         this.touch[key] += dt;
         if (first) this.stats.contacts++;
@@ -924,7 +965,7 @@ export class Race {
       else if (r.skids) r.skids.on = false;
       if (!(r.grind > 0)) continue;
       const f = this.track.frame(r.s);
-      fx.grind(f.P.clone().addScaledVector(f.R, r.grindSide * TRACK_W / 2).addScaledVector(f.U, 1.0).addScaledVector(f.T, -2), r.vel, r.grindSide, dt, f);
+      fx.grind(f.P.clone().addScaledVector(f.R, r.grindSide * this.track.W / 2).addScaledVector(f.U, 1.0).addScaledVector(f.T, -2), r.vel, r.grindSide, dt, f);
     }
     for (const e of this.entries) {
       const r = e.racer, ship = e.ship;

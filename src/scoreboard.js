@@ -26,7 +26,7 @@ export class Scoreboard {
     const receipts = load(SAVED);
     this.savedRuns = new Map(receipts && typeof receipts === 'object' && !Array.isArray(receipts) ? Object.entries(receipts) : []);
     if (this.pending && this.savedRuns.has(this.pending.runId)) { this.pending = null; save(PENDING, null); }
-    this.map = this.h.map;
+    this.map = MAPS.some(([id]) => id === this.h.map) ? this.h.map : MAPS[0][0];     // (a circuit with no board yet: the first one's)
     this.level = this.h.settings.v.ai;
     this.cache = new Map();
     this.refreshRequest = 0;
@@ -186,6 +186,7 @@ export class Scoreboard {
   captureResult() {
     const race = this.h.race, player = race?.player;
     if (!player?.finished || player.laps.length !== LAPS || !Number.isFinite(player.finishTime)) return;
+    if (!MAPS.some(([id]) => id === this.h.map)) return;                            // (no board for this circuit)
     const slot = document.getElementById('results');
     slot.querySelector('.sb-result')?.remove();
     const panel = document.createElement('div'); panel.className = 'sb-result'; slot.querySelector('.r-score').after(panel);

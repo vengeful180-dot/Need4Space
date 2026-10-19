@@ -36,7 +36,7 @@ const NOISE3 = /* glsl */`
 
 const BAND_N = new THREE.Vector3(0.3, 0.85, -0.42).normalize();     // the Milky Way's great circle
 
-function nebula() {
+export function nebula() {
   const m = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false,
     uniforms: { bandN: { value: BAND_N } },
@@ -58,7 +58,7 @@ function nebula() {
   return new THREE.Mesh(new THREE.SphereGeometry(90000, 64, 32), m);
 }
 
-function stars() {
+export function stars() {
   const rnd = mulberry32(77), n = 9000;
   const pos = new Float32Array(n * 3), col = new Float32Array(n * 3), size = new Float32Array(n);
   const v = new THREE.Vector3(), c = new THREE.Color();

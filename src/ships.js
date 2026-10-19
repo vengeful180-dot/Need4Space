@@ -7,6 +7,7 @@ export const SHIPS = [
   ['feather', 'Feather S1', 'Twin turbofan pods on swept wings: the original'],
   ['rocket', 'Comet R1', 'Faster and sharper, but every knock costs it more'],
   ['heavy', 'Anvil H1', 'Heavy armour and two pulse engines: shrugs off knocks, hits hardest on the boost'],
+  ['umbra', 'Umbra V1', 'A black hole for an engine and four floating blades: quick, but its field takes knocks badly'],
 ];
 
 // How each ship flies (track.js TrackRacer): thrust and boost - its engine's pull, cruising and boosting; drag - the
@@ -25,6 +26,10 @@ export const HANDLING = {
   rocket: { thrust: 1, boost: 0.9, drag: 0.92, turn: 1.05, impact: 1.5, health: 80, ram: 0.6, airbrakes: 1, mass: 0.8, slamCool: 10 },   // (clean flying laps 2-4 % under the Feather's)
   // the Anvil: a little slower off the line and in the turns, more on the boost, and knocks cost it a third less
   heavy: { thrust: 0.97, boost: 1.12, drag: 1, turn: 0.94, impact: 0.65, health: 150, ram: 1.6, airbrakes: 2, mass: 1.7, slamCool: 10 },
+  // the Umbra: the fastest there is - the top speed, the pull, the boost - and a glass hull: under half the Feather's,
+  // every knock costing it nearly twice the speed, light enough to be thrown far, a feeble ram; and no slam at all -
+  // it can neither throw one nor answer one (slam: false)
+  umbra: { thrust: 1.08, boost: 1.12, drag: 0.9, turn: 1.02, impact: 1.9, health: 45, ram: 0.5, airbrakes: 1, mass: 0.8, slamCool: 10, slam: false },
 };
 
 // the rivals' ships, by grid slot (the player's slot, 4, is skipped): two Comets near the front (passing is hard: from
@@ -45,6 +50,7 @@ export const SHIP_URLS = {
   feather: all('assets/racer_web_2k.glb'),
   rocket: all('assets/rocket_web_2k.glb'),
   heavy: all('assets/heavy_web_2k.glb'),
+  umbra: all('assets/umbra_web_2k.glb'),
 };
 
 // each ship's liveries (Settings, the Ship screen): the first is the GLB's own paint, the others' hull maps (colour,
@@ -58,6 +64,8 @@ export const LIVERIES = {
     colors: [['#c4c8cc', '#4a4e56'], ['#e6e6e2', '#1a1a1d'], ['#f05b16', '#e6e6e2']] },
   heavy: { names: ['hazard', 'military', 'navy'], labels: ['Hazard', 'Military', 'Navy'], key: 'heavyLivery', res: [2048],
     colors: [['#e8b51a', '#1b1b1b'], ['#5b633e', '#ad9c6f'], ['#1a3062', '#7d8aa8']] },
+  umbra: { names: ['umbra', 'horizon', 'pharaoh'], labels: ['Umbra', 'Event Horizon', 'Pharaoh'], key: 'umbraLivery', res: [2048],
+    colors: [['#141218', '#7a42ec'], ['#e4e4e8', '#7842ec'], ['#be9246', '#7842ec']] },
 };
 
 // the rivals' Feathers when the player flies another ship: a tier lighter - they are never as close to the camera as

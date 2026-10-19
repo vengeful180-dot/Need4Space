@@ -11,6 +11,7 @@ import { ForestWorld, SUN_DIR as FOREST_SUN } from './forest.js';
 import { IceWorld, SUN_DIR as ICE_SUN } from './ice.js';
 import { DesertWorld, SUN_DIR as DESERT_SUN } from './desert.js';
 import { OceanWorld, SUN_DIR as OCEAN_SUN } from './ocean.js';
+import { PyramidWorld, SUN_DIR as PYRAMID_SUN } from './pyramid.js';
 import { DUST_GLSL, DUST_FOG_CHUNK } from './haze.js';
 import { SEA_GLSL, SEA_FOG_CHUNK } from './sea.js';
 import { ICE_GLSL, ICE_FOG_CHUNK } from './frost.js';
@@ -40,7 +41,7 @@ import { XRControls } from './xr.js';
 import { Comms } from './pilots.js';
 
 // the map: the circuit chosen in the menu (saved), or ?map=space / forest / ice / desert / ocean / meadow (the meadow: the old test range)
-const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
+const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean', pyramid: 'pyramid' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
 // the ship: the one chosen in the menu (saved), or ?ship=feather / rocket (ships.js); its model by memory tier
 const SHIP = shipChoice(savedSettings().ship), SHIP_URL = SHIP_URLS[SHIP], SHIP_NAME = shipName(SHIP);
 const TAG_P = new THREE.Vector3(), WRECK_M = new THREE.Matrix4();     // (a wreck blast: the deck's axes)
@@ -86,7 +87,7 @@ const progress = (step, f = 0) => {
 const nextFrame = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 50); });
 async function boot() {
   if (new URLSearchParams(location.search).has('bootprof')) (await import('./profile.js')).bootProfile();
-  const sunDir = { space: SPACE_SUN, forest: FOREST_SUN, ice: ICE_SUN, desert: DESERT_SUN, ocean: OCEAN_SUN, meadow: MEADOW_SUN }[MAP];
+  const sunDir = { space: SPACE_SUN, forest: FOREST_SUN, ice: ICE_SUN, desert: DESERT_SUN, ocean: OCEAN_SUN, pyramid: PYRAMID_SUN, meadow: MEADOW_SUN }[MAP];
   // (the forest uses the space map's cascades - the same boxes - and its own air for fog: atmo.js)
   patchShaders({ sunDir, sunFog: SUN_FOG, shadowHalf: MAP !== 'meadow' ? FAR_HALF : 22, shadowDepth: 200,
     cascades: MAP !== 'meadow' ? [{ half: SHADOW_HALF, depth: SHADOW_FAR - SHADOW_NEAR }, { half: MID_HALF, depth: MID_FAR - MID_NEAR },
@@ -153,7 +154,8 @@ async function boot() {
   deferBakes(true);
   const world = MAP === 'space' ? new SpaceWorld(scene, renderer, camera) : MAP === 'forest' ? new ForestWorld(scene, renderer, camera)
     : MAP === 'ice' ? new IceWorld(scene, renderer, camera) : MAP === 'desert' ? new DesertWorld(scene, renderer, camera)
-    : MAP === 'ocean' ? new OceanWorld(scene, renderer, camera) : new MeadowWorld(scene, renderer);
+    : MAP === 'ocean' ? new OceanWorld(scene, renderer, camera) : MAP === 'pyramid' ? new PyramidWorld(scene, renderer, camera)
+    : new MeadowWorld(scene, renderer);
   deferBakes(false);
   await finishLoadJobs();
   progress('circuit', 1);
@@ -220,7 +222,7 @@ async function boot() {
   // the fly-by camera on the track: ahead along the circuit, outside a wall, above the deck there
   const trackAnchor = (lead) => {
     const f = track.frame(racer.s + lead);
-    return f.P.clone().addScaledVector(f.R, (Math.random() < 0.5 ? -1 : 1) * (TRACK_W / 2 + 12 + Math.random() * 10))
+    return f.P.clone().addScaledVector(f.R, (Math.random() < 0.5 ? -1 : 1) * (track.W / 2 + 12 + Math.random() * 10))
       .addScaledVector(f.U, 6 + Math.random() * 10);
   };
   rig.rollFollow = mode === 'race' ? 1 : 0.6;
@@ -242,12 +244,12 @@ async function boot() {
   rig.deckFn = (p) => {
     if (mode !== 'race' || !track) return;
     let d = overDeck(p, racer.s - 20);
-    if (d && Math.abs(d.x) < TRACK_W / 2 + 6 && d.h < 2.4) p.addScaledVector(d.U, 2.4 - d.h);
+    if (d && Math.abs(d.x) < track.W / 2 + 6 && d.h < 2.4) p.addScaledVector(d.U, 2.4 - d.h);
     // (and the view of the ship: the points between them over the deck too)
     const sp = ship.root.position;
     for (const k of [0.3, 0.6, 0.85]) {
       d = overDeck(camS.lerpVectors(sp, p, k), racer.s - 20 * k);
-      if (d && Math.abs(d.x) < TRACK_W / 2 + 2 && d.h < 0.8) p.addScaledVector(d.U, (0.8 - d.h) / k);
+      if (d && Math.abs(d.x) < track.W / 2 + 2 && d.h < 0.8) p.addScaledVector(d.U, (0.8 - d.h) / k);
     }
   };
   placeStart(false);
@@ -276,10 +278,13 @@ async function boot() {
   const touch = new TouchControls(input);              // phones and tablets: sticks and buttons on screen (the setting)
   const fx = new FX(scene, camera);
   fx.track = track;
+  // the Umbra's boost: ripples of bent space out of its black hole, carried along a little slower than the ship
+  if (ship.umbra) ship.onWave = (at, k) => fx.shock(at, (ctl.vel ? ctl.vel.clone().multiplyScalar(0.92) : null), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05);
   // the damage smoke's light: the circuit's sun, and the sky on the side away from it (night on the ocean: moonlight)
   { const L = { space: [[1.0, 0.95, 0.88], [0.16, 0.19, 0.26]], forest: [[1.0, 0.92, 0.78], [0.36, 0.44, 0.46]],
       ice: [[1.0, 0.74, 0.56], [0.34, 0.42, 0.56]], desert: [[1.0, 0.7, 0.46], [0.42, 0.37, 0.42]],
-      ocean: [[0.52, 0.6, 0.74], [0.1, 0.13, 0.2]], meadow: [[1.0, 0.93, 0.8], [0.4, 0.46, 0.55]] }[MAP] || [[1, 0.95, 0.88], [0.32, 0.36, 0.42]];
+      ocean: [[0.52, 0.6, 0.74], [0.1, 0.13, 0.2]], meadow: [[1.0, 0.93, 0.8], [0.4, 0.46, 0.55]],
+      pyramid: [[1.0, 0.94, 0.86], [0.2, 0.18, 0.2]] }[MAP] || [[1, 0.95, 0.88], [0.32, 0.36, 0.42]];
     fx.setLight(sunDir, new THREE.Color(...L[0]), new THREE.Color(...L[1])); }
   const hud = new HUD(mm, START);
   const comms = new Comms(document.getElementById('hud'));      // the rival pilots' faces and lines (the setting)
@@ -607,8 +612,10 @@ async function boot() {
     Ship.blast = v.shipBlast !== false;                 // a hull destroyed in a race blows up
     shock.allowed = v.shockwaves !== false;             // slams and blasts bend the picture
     // each ship's paint (the player's and the showroom's ships take theirs: Ship.update; the rivals keep their teams')
-    Ship.liveries = { feather: v.featherLivery || 'classic', rocket: v.cometLivery || 'titanium', heavy: v.heavyLivery || 'hazard' };
+    Ship.liveries = { feather: v.featherLivery || 'classic', rocket: v.cometLivery || 'titanium', heavy: v.heavyLivery || 'hazard', umbra: v.umbraLivery || 'umbra' };
     Ship.pulseRings = v.pulseRings !== false;
+    Ship.umbraAura = v.umbraAura !== false;             // the Umbra's dark aura
+    Ship.umbraTime = v.umbraTime !== false;             // and its slowed time on the boost
     Ship.sharpEdges = v.sharpEdges !== false;
     blurOn = v.blur;
     slamCamOn = v.slamCam !== false;
@@ -1263,7 +1270,7 @@ async function boot() {
     // what slams (the prompt by the arrow): the key, the pad's button, the touch button
     const slamKey = touch.on ? 'Slam' : inp.pad ? 'X' : 'Space';
     hud.update(dt, { speed: ctl.speed, agl: MAP !== 'meadow' && mode === 'free' ? NaN : ctl.agl, throttle: ctl.throttle, tags, atkHint, slamKey, cine: slow.w,
-      slamCharge: mode === 'race' && race ? (race.racing ? race.slamCharge() : 0) : null,
+      slamCharge: mode === 'race' && race ? (race.racing ? race.slamCharge() : 0) : null, noSlam: mode === 'race' && !!race && !race.canSlam(race.player),
       boostEnergy: ctl.boostEnergy, boosting: ctl.boosting, airCharge: inp.airCharge, airCharges: inp.airCharges, state, stateClass: cls, camera: rig.name, assist: ctl.assist,
       health: mode === 'race' && racer ? racer.health / racer.maxHealth : null, ghost: mode === 'race' && racer ? racer.ghost : 0,
       drifting: mode === 'race' && !!ctl.drift, driftCharge: ctl.driftCharge, driftTier: ctl.driftTier || 0, driftChain: ctl.chain || 0,

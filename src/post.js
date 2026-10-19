@@ -927,6 +927,13 @@ float hN(vec3 x) {
   return mix(mix(mix(hH(i), hH(i + vec3(1, 0, 0)), f.x), mix(hH(i + vec3(0, 1, 0)), hH(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(hH(i + vec3(0, 0, 1)), hH(i + vec3(1, 0, 1)), f.x), mix(hH(i + vec3(0, 1, 1)), hH(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }`;
+// Time slowed round a black hole (the Umbra on the boost - ship.timeSource): near it the light lingers - the picture a
+// long exposure of the last fraction of a second, more of it the nearer the hole - redshifted and dimmed. The exposure:
+// a half-size picture blended toward each new frame (time constant ACC_T s), every frame while an Umbra is near.
+// (Not a record of past frames: shown as they were, every 50 ms apart, the place round the engine stepped like a
+// frame-rate drop.)
+const ACC_T = 0.14;
+
 export class EngineHeatPass extends Pass {
   constructor(max = 16) {
     super();
@@ -935,14 +942,24 @@ export class EngineHeatPass extends Pass {
     this.max = max;
     this.list = [];
     this.amount = 8;                                   // the bend at its strongest, in pixels at 1080p (each way: half)
+    this.timeList = [];
+    this.acc = null; this.accN = 0; this.accT = -1; this.recording = false;
+    this.blend = new FullScreenQuad(new THREE.ShaderMaterial({
+      uniforms: { tDiffuse: { value: null }, tAcc: { value: null }, a: { value: 1 } }, depthTest: false, depthWrite: false,
+      vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader: /* glsl */`uniform sampler2D tDiffuse, tAcc; uniform float a; varying vec2 vUv;
+        void main() { gl_FragColor = vec4(mix(texture2D(tAcc, vUv).rgb, texture2D(tDiffuse, vUv).rgb, a), 1.0); }`,
+    }));
     this.quad = new FullScreenQuad(new THREE.ShaderMaterial({
       uniforms: { tDiffuse: { value: null }, time: { value: 0 }, n: { value: 0 }, amount: { value: this.amount }, focal: { value: 1 },
         hA: { value: Array.from({ length: max }, () => new THREE.Vector4()) }, hB: { value: Array.from({ length: max }, () => new THREE.Vector4()) },
-        camPos: { value: new THREE.Vector3() }, invProj: { value: new THREE.Matrix4() }, camRot: { value: new THREE.Matrix4() }, px: { value: new THREE.Vector2(1, 1) } },
+        camPos: { value: new THREE.Vector3() }, invProj: { value: new THREE.Matrix4() }, camRot: { value: new THREE.Matrix4() }, px: { value: new THREE.Vector2(1, 1) },
+        tAcc: { value: null }, nT: { value: 0 }, tC: { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }, aspect: { value: 1 } },
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
       fragmentShader: /* glsl */`
         uniform sampler2D tDiffuse; uniform float time, amount, focal; uniform int n; uniform vec4 hA[${max}], hB[${max}];
         uniform vec3 camPos; uniform mat4 invProj, camRot; uniform vec2 px; varying vec2 vUv;
+        uniform sampler2D tAcc; uniform float aspect; uniform int nT; uniform vec4 tC[4];
         ${HEAT_NOISE}
         void main() {
           vec2 uv = vUv;
@@ -954,7 +971,7 @@ export class EngineHeatPass extends Pass {
               if (i >= n) break;
               // the cone: from the nozzle A along the flame (to hB.xyz) and a little past it; ra its radius at the nozzle
               vec3 A = hA[i].xyz, U = hB[i].xyz - A;
-              float ra = hA[i].w, k = hB[i].w, Lf = length(U), L = Lf + 2.0 * ra;
+              float ra = hA[i].w, k = abs(hB[i].w), Lf = length(U), L = Lf + 2.0 * ra;
               vec3 ud = U / max(Lf, 1e-3), w0 = camPos - A;
               float b = dot(d, ud), dd = dot(d, w0), e = dot(ud, w0);
               float t = clamp((e - b * dd) / max(1.0 - b * b, 1e-4), 0.0, L);     // (where the ray passes closest)
@@ -968,10 +985,38 @@ export class EngineHeatPass extends Pass {
               w *= 1.0 - 0.6 * smoothstep(0.75, 0.97, abs(b));        // (down the exhaust from behind: the nozzle stays readable)
               vec3 q = (P - A - ud * time * 5.0) / (ra * 0.7) + vec3(0.0, 0.0, time * 1.6);    // (rippling back with the gas)
               off += vec2(hN(q) - 0.5, hN(q * 1.7 + 11.0) - 0.5) * w;
+              // a black hole's wake (k < 0: the Umbra): space twisted round the axis - the picture behind turned about
+              // it, most near the axis, waving as it runs back
+              if (hB[i].w < 0.0) {
+                vec3 tv = (transpose(camRot) * vec4(cross(ud, P - A - ud * t), 0.0)).xyz;
+                float tl = length(tv.xy);
+                if (tl > 1e-6) off += tv.xy / tl * w * (0.9 + 0.35 * sin(time * 2.3 - t * 1.7)) * (1.0 - 0.5 * f);
+              }
             }
             uv += clamp(off, -0.6, 0.6) * px * amount * (1.0 / px.y) / 1080.0;   // (several plumes over each other: no more than one's worth)
           }
-          gl_FragColor = texture2D(tDiffuse, uv);
+          vec4 col = texture2D(tDiffuse, uv);
+          if (nT > 0) {
+            // time slowed: how slow here (the strongest source)
+            float kd = 0.0;
+            for (int i = 0; i < 4; i++) {
+              if (i >= nT) break;
+              float d = length((vUv - tC[i].xy) * vec2(aspect, 1.0)) / tC[i].z;
+              kd = max(kd, tC[i].w * (1.0 - smoothstep(0.08, 1.0, d)));
+            }
+            if (kd > 0.002) {
+              // the light lingering: the exposure in place of the moment, wholly at the hole; the picture drawn a little
+              // in toward it (time and space bent together)
+              vec2 rd = (vUv - tC[0].xy) * vec2(aspect, 1.0);
+              vec2 tuv = uv - normalize(rd + 1e-5) / vec2(aspect, 1.0) * 0.006 * kd * kd;
+              vec3 c = mix(texture2D(tDiffuse, tuv).rgb, texture2D(tAcc, tuv).rgb, smoothstep(0.0, 1.0, kd));
+              // the light climbing out of the well: redder and dimmer the slower the time it left
+              float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
+              c = mix(c, lum * vec3(1.35, 0.5, 0.42), 0.4 * kd) * (1.0 - 0.25 * kd);
+              col.rgb = mix(col.rgb, c, smoothstep(0.0, 0.2, kd));
+            }
+          }
+          gl_FragColor = col;
         }`,
     }));
   }
@@ -988,6 +1033,24 @@ export class EngineHeatPass extends Pass {
     const u = this.quad.material.uniforms, n = Math.min(list.length, this.max);
     for (let i = 0; i < n; i++) { const e = list[i]; u.hA.value[i].set(e[1], e[2], e[3], e[4]); u.hB.value[i].set(e[5], e[6], e[7], e[8]); }
     u.n.value = n;
+    // the places where time runs slow (ship.timeSource: the Umbra's hole), on the frame: centre, reach (in frame
+    // heights), how slow
+    const T = this.timeList, v = this._tv || (this._tv = new THREE.Vector3());
+    T.length = 0;
+    for (const s of ships) s.timeSource?.((p, r, k) => { const d = p.distanceTo(cp); if (d < 300) T.push([d, p.x, p.y, p.z, r, k]); });
+    T.sort((x, y) => x[0] - y[0]);
+    this.recording = T.length > 0;
+    let nt = 0;
+    const th = 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov || 60) / 2);
+    for (const e of T) {
+      if (nt >= 4 || !(e[5] > 0.002)) continue;
+      v.set(e[1], e[2], e[3]).applyMatrix4(camera.matrixWorldInverse);
+      const z = -v.z;
+      if (z < 0.5) continue;
+      v.applyMatrix4(camera.projectionMatrix);
+      u.tC.value[nt++].set(v.x * 0.5 + 0.5, v.y * 0.5 + 0.5, e[4] / (th * z), e[5]);
+    }
+    u.nT.value = this.accN >= 2 ? nt : 0;               // (only once the exposure has begun)
   }
 
   render(renderer, writeBuffer, readBuffer) {
@@ -1002,8 +1065,30 @@ export class EngineHeatPass extends Pass {
       u.focal.value = readBuffer.height / (2 * Math.tan(THREE.MathUtils.degToRad(cam.fov) / 2));
     }
     u.px.value.set(1 / readBuffer.width, 1 / readBuffer.height);
+    u.aspect.value = readBuffer.width / readBuffer.height;
+    u.tAcc.value = this.acc ? this.acc[0].texture : null;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.quad.render(renderer);
+    // the exposure: every frame while an Umbra is near, blended toward the picture coming in by the time since the
+    // last (frame-rate independent); once at the start too, so its program is built with the rest
+    const now = performance.now() / 1000;
+    if (this.recording || !this.acc) {
+      const w = Math.max(1, readBuffer.width >> 1), h = Math.max(1, readBuffer.height >> 1);
+      if (!this.acc || this.acc[0].width !== w || this.acc[0].height !== h) {
+        this.acc?.forEach((t) => t.dispose());
+        this.acc = [0, 1].map(() => new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, depthBuffer: false }));
+        this.accN = 0;
+      }
+      const dt = Math.min(0.1, Math.max(0, now - this.accT)), B = this.blend.material.uniforms;
+      B.tDiffuse.value = readBuffer.texture;
+      B.tAcc.value = this.acc[0].texture;
+      B.a.value = this.accN ? 1 - Math.exp(-dt / ACC_T) : 1;
+      renderer.setRenderTarget(this.acc[1]);
+      this.blend.render(renderer);
+      this.acc.reverse();
+      this.accN = this.recording ? this.accN + 1 : 0;
+    } else this.accN = 0;
+    this.accT = now;
   }
 }
 

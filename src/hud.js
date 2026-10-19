@@ -294,6 +294,8 @@ export class HUD {
     if (this.noteT > 0 && (this.noteT -= dt) <= 0) this.noteEl.classList.remove('on');
     // the slam: a chevron on the side of a hull in reach (orange), or of a slam coming that can still be blocked (red)
     const hint = (s.atkHint > 0 ? 'r' : s.atkHint < 0 ? 'l' : '') + (Math.abs(s.atkHint || 0) === 2 ? ' in' : '');
+    // a ship without the slam (the Umbra): no meter, no prompt, no touch button
+    if (!!s.noSlam !== this.noSlam) { this.noSlam = !!s.noSlam; document.body.toggleAttribute('data-noslam', this.noSlam); }
     if (s.slamCharge != null) {
       const sc = Math.round(Math.max(0, Math.min(1, s.slamCharge)) * 100) / 100;
       if (sc !== this.sc) {

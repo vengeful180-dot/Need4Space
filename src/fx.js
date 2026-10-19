@@ -606,18 +606,24 @@ export class FX {
   damaged(ship, r, hp, dt, mine = false) {
     const k = Math.min(1, (0.5 - hp) / 0.5), R = ship.root, hs = (ship.halfSpan || 5) * 0.5, L = ship.length || 13;
     const P = (this._dp ||= new THREE.Vector3()), V = (this._dv ||= new THREE.Vector3()), U = (this._du ||= new THREE.Vector3());
+    // the breaches: points on the hull's own top skin (ship.skin, three well apart), carried with the hull as it
+    // floats, leans and bobs (its visual frame) - a box round the origin put the Umbra's smoke in the air over it
     if (!ship.breaches) {
-      const rnd = mulberry32(((ship.root.id || 1) * 2654435761) >>> 0);
-      ship.breaches = [0, 1, 2].map((b) => ({ x: (rnd() - 0.5) * 2 * hs * (b ? 1 : 0.4), y: 0.45 + rnd() * 0.6,
-        z: L * (0.05 + rnd() * 0.32), acc: rnd() }));
+      const rnd = mulberry32(((ship.root.id || 1) * 2654435761) >>> 0), S = ship.skin || [], pick = [];
+      for (let tries = 0; pick.length < 3 && tries < 200; tries++) {
+        const e = S[Math.floor(rnd() * S.length)];
+        if (e && pick.every((q) => q.p.distanceTo(e.p) > Math.min(2.5, L * 0.18) || tries > 150)) pick.push(e);
+      }
+      ship.breaches = [0, 1, 2].map((b) => (pick[b] ? { p: pick[b].p, n: pick[b].n, acc: rnd() }
+        : { p: new THREE.Vector3((rnd() - 0.5) * 2 * hs * (b ? 1 : 0.4), 0.45 + rnd() * 0.6, L * (0.05 + rnd() * 0.32)), n: new THREE.Vector3(0, 1, 0), acc: rnd() }));
     }
-    const open = hp < 0.2 ? 3 : hp < 0.33 ? 2 : 1, burning = hp < 0.25;
-    U.set(0, 1, 0).applyQuaternion(R.quaternion);
+    const open = hp < 0.2 ? 3 : hp < 0.33 ? 2 : 1, burning = hp < 0.25, M = (ship.visual || R).matrixWorld;
     for (let b = 0; b < open; b++) {
       const br = ship.breaches[b];
       br.acc += dt * (16 + 18 * k) * (mine ? 0.55 : 1);
+      U.copy(br.n).transformDirection(M);
       for (; br.acc >= 1; br.acc -= 1) {
-        P.set(br.x + (Math.random() - 0.5) * 0.3, br.y, br.z + (Math.random() - 0.5) * 0.4).applyQuaternion(R.quaternion).add(R.position);
+        P.copy(br.p).add(_v.set((Math.random() - 0.5) * 0.25, 0.04, (Math.random() - 0.5) * 0.3)).applyMatrix4(M);
         // out of the breach (up off the hull, a little to the side), carried on with the ship and falling back
         V.copy(U).multiplyScalar(1.5 + Math.random() * 2.5).add(_v.set(Math.random() - 0.5, 0, Math.random() - 0.5).multiplyScalar(2.2))
           .addScaledVector(r.vel, 0.86 + Math.random() * 0.06);
@@ -669,7 +675,7 @@ export class FX {
         drag: 0.25, grav: 22, fadeIn: 0.01, stretch: 0.025, plane, bounce: 0.35 });
     }
     if (f) {                                              // the gouge on the wall's face, this frame's length of it
-      const face = f.P.clone().addScaledVector(f.R, side * (TRACK_HALF - 0.02)).addScaledVector(f.U, 0.75 + Math.random() * 0.15);
+      const face = f.P.clone().addScaledVector(f.R, side * ((this.track?.W ?? TRACK_W) / 2 - 0.02)).addScaledVector(f.U, 0.75 + Math.random() * 0.15);
       this.marks.add(face, f.T, out, sp * dt + 0.25, 0.7 + Math.random() * 0.3);
     }
   }
@@ -940,7 +946,7 @@ export class FX {
         const f = tr.frame(d.s, d.f);
         d.s += d.v.dot(f.T) * dt;
         const h = _v.copy(d.p).sub(f.P).dot(f.U);
-        if (h < 0.12 && Math.abs(_v.dot(f.R)) < TRACK_HALF + 2) {
+        if (h < 0.12 && Math.abs(_v.dot(f.R)) < tr.W / 2 + 2) {
           d.p.addScaledVector(f.U, 0.12 - h);
           const vn = d.v.dot(f.U);
           if (vn < 0) { d.v.addScaledVector(f.U, -1.45 * vn).multiplyScalar(0.72); d.spin *= 0.7; }

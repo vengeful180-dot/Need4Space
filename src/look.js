@@ -37,7 +37,9 @@ function polyK(name, lines, R, mouth) {
 
 // extra: a map's own dark besides the lines (the forest's hill: GLSL defining caveExtra( w ), per vertex, and
 // cavePixel( w, k ), per pixel - light let in where the per-vertex dark is too coarse: a beam down a shaft)
-export function setCave(lines, R, mouth, shade = null, extra = null) {
+// fill: [r, g, b] - light of its own inside the cave (the Pyramid Run's bore: its glowing rings), added where the sky's
+// is shut out; none elsewhere (the chunks unchanged)
+export function setCave(lines, R, mouth, shade = null, extra = null, fill = null) {
   const C = THREE.ShaderChunk;
   if (C.common.includes('vCaveW') || (!lines.length && !extra)) return;
   const fn = polyK('caveLight', lines, R, mouth) + (shade?.lines.length ? polyK('shadeK0', shade.lines, shade.R, shade.mouth)
@@ -55,7 +57,8 @@ export function setCave(lines, R, mouth, shade = null, extra = null) {
   C.lights_fragment_end = `{
 	float caveAmb = mix( 0.012, 1.0, caveK ) * vCaveK.y;
 	irradiance *= caveAmb;
-	iblIrradiance *= caveAmb;
+	iblIrradiance *= caveAmb;${fill ? `
+	irradiance += vec3( ${fill.map((x) => x.toFixed(3)).join(', ')} ) * ( 1.0 - caveK ) * vCaveK.y;` : ''}
 	#if defined( RE_IndirectSpecular )
 		radiance *= caveAmb;
 		clearcoatRadiance *= caveAmb;

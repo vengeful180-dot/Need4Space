@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { Umbra } from './umbra.js';
 
 // The hull's 8K normal map kept as two channels (RG8, 171 MB on the GPU instead of 341): a unit normal's z is
 // rebuilt exactly from x and y in the shader. Copied on the GPU at load, the RGBA original freed.
@@ -40,8 +41,10 @@ import { LIVERIES, BAKE } from './ships.js';
 
 // Blender (Z up) -> glTF / three (Y up): (x, y, z) -> (x, z, -y). The nose is at -Z, starboard at +X.
 const toThree = ([x, y, z]) => new THREE.Vector3(x, z, -y).normalize();
+const _Z = new THREE.Vector3(0, 0, 1), _Y = new THREE.Vector3(0, 1, 0), _lq2 = new THREE.Quaternion();
+const UMBRA_ENGINE = [0.5, 0.2, 1.0];     // the Umbra's engine and field: violet
 const ease = (t) => t * t * (3 - 2 * t);
-const _lq = new THREE.Quaternion(), _lv = new THREE.Vector3();
+const _lq = new THREE.Quaternion(), _lv = new THREE.Vector3(), _lm = new THREE.Matrix4();
 
 export async function loadShip(url, onProgress) {
   const [gltf] = await Promise.all([new GLTFLoader().loadAsync(url, onProgress), MeshoptSimplifier.ready]);
@@ -1132,6 +1135,8 @@ export class Ship {
     this.orbits = [];
     this.pulses = [];
     this.lamps = [];
+    this.floaters = [];
+    let bhNode = null;
     const balls = [];
     this.mats = {};
     this.tris = 0;
@@ -1149,7 +1154,11 @@ export class Ship {
         this.orbits.push({ node: o, m, balls: [] });
       } else if (m && m.type === 'ball') {
         balls.push({ node: o, phase: m.phase });
+      } else if (m && m.type === 'levitate') {  // the Umbra's blades: held off their pods by the field (updateFloaters)
+        this.floaters.push({ node: o, n: toThree(m.normal), base: o.position.clone(), q: o.quaternion.clone(), gap: m.gap,
+          phase: this.floaters.length * 1.7, side: Math.sign(m.normal[0]) || 1 });
       }
+      if (o.userData && o.userData.blackhole) bhNode = o;     // the Umbra's engine: the black hole's centre (umbra.js)
       let pu = o.userData && o.userData.pulse;  // a pulse engine's stage: its glow fires in turn (updatePulse)
       if (typeof pu === 'string') pu = JSON.parse(pu);
       if (pu && o.isMesh) this.pulses.push({ node: o, stage: pu.stage, stages: pu.stages });
@@ -1161,6 +1170,7 @@ export class Ship {
         if (o.userData.parts == null) this.mats[o.material.name] = o.material;
       }
     });
+    if (bhNode) this.umbraU = { rim: { value: new THREE.Color(0, 0, 0) }, glow: { value: new THREE.Vector4(0, 0, 0, 0) } };      // (hullPatch: the aura's rim light; the pinstripes' colour)
     // a copy made while the original's canopy stood open (or its nozzle's teeth folded out, its rotor turned) took that
     // pose as its rest: closing the canopy left it open. Every moving part's rest is the original's own.
     if (base) {
@@ -1191,7 +1201,7 @@ export class Ship {
     this.ownPaint = base ? base.ownPaint : rb && { map: rb.map, orm: rb.roughnessMap };
 
     if (base) {                        // same hull: same probes, tips and span, nozzles, parts atlas
-      for (const k of ['probes', 'lows', 'bottom', 'tipR', 'tipL', 'halfSpan', 'length', 'tangentsFixed', 'nozzles', 'parts']) this[k] = base[k];
+      for (const k of ['probes', 'lows', 'floatLows', 'skin', 'bottom', 'tipR', 'tipL', 'halfSpan', 'length', 'tangentsFixed', 'nozzles', 'parts']) this[k] = base[k];
     } else {
       this.repairTangents();
       this.root.updateMatrixWorld(true);
@@ -1200,7 +1210,7 @@ export class Ship {
     if (opts.team) this.paint(opts.team);
     else if (base && this.mats.RacerBaked?.isMeshPhysicalMaterial) this.hullPatch(this.mats.RacerBaked);   // (a copy: see hullPatch)
     // the engine's colour: rings, cores, conduits, plumes, halos, sparks (each team its own)
-    this.engineColor = new THREE.Color(...(opts.engine || [0.1, 0.42, 1.0]));
+    this.engineColor = new THREE.Color(...(opts.engine || (bhNode ? UMBRA_ENGINE : [0.1, 0.42, 1.0])));
     const white = new THREE.Color(1, 1, 1);
     if (this.mats.EngineGlow) this.mats.EngineGlow.emissive.copy(this.engineColor);
     this.lookU.accentCol.value.copy(this.engineColor).multiplyScalar(12);
@@ -1301,7 +1311,7 @@ export class Ship {
       this.retros.push(new Plume(this.visual, new THREE.Vector3(c.x, c.y, b.min.z - 0.1), 0.32, 1.6, this.engineColor, true));
     }
     // the Anvil's pulse exhaust on each of its plumes (a ship with pulse stages)
-    this.pulseFx = this.pulses.length ? this.plumes.map((p) => new PulseExhaust(this.visual, p, this.engineColor)) : [];
+    this.pulseFx = this.pulses.length && !bhNode ? this.plumes.map((p) => new PulseExhaust(this.visual, p, this.engineColor)) : [];
     this.exhaustLights = (opts.lights === false ? [] : this.plumes.slice(0, 2)).map((p) => {
       const l = new THREE.PointLight(this.engineColor.clone().lerp(new THREE.Color(1, 1, 1), 0.3), 0, 16, 2);
       l.position.copy(p.outer.position).add(new THREE.Vector3(0, 0, 2.5));
@@ -1340,6 +1350,15 @@ export class Ship {
       .concat(this.partMeshes.map((pm) => ({ mesh: pm.mesh, levels: pm.levels, parts: true }))) : [];
     this.lodErr = base ? base.lodErr : null;
     this.buildDetails();
+    // the Umbra's black hole, the matter falling into it and its aura (umbra.js) - the aura rising off the painted hull
+    // and the blades
+    if (bhNode) {
+      this.model.updateMatrixWorld(true);
+      const hull = [];
+      this.model.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'RacerBaked') hull.push(o); });
+      this.umbra = new Umbra(this, bhNode, hull, { steps: opts.lights === false ? 48 : 72 });
+      this.umbra.setLivery(this.liveryShown || 'umbra');          // (the paint shown before the effect existed)
+    }
     // the rest of the lit materials (rotors, the canopy's frame) take the deck's light too
     this.model.traverse((o) => {
       for (const m of o.isMesh ? [].concat(o.material) : []) {
@@ -1391,7 +1410,8 @@ export class Ship {
     this.model.updateMatrixWorld(true);
     this.model.traverse((o) => {
       if (!o.isMesh || !o.material || o.material.isShaderMaterial || o.userData.parts != null) return;
-      const m = o.material, glow = (m.emissive && m.emissive.getHex() !== 0 && (m.emissiveIntensity ?? 1) > 0) || /glow|led|nav|lamp|light|screen/i.test(m.name);
+      // (a painted hull with glowing lines in its livery - an emissive map - is a hull, not a lamp: it keeps its shadow)
+      const m = o.material, glow = (m.emissive && m.emissive.getHex() !== 0 && (m.emissiveIntensity ?? 1) > 0 && !m.emissiveMap) || /glow|led|nav|lamp|light|screen/i.test(m.name);
       if (glow || /glass/i.test(m.name)) o.castShadow = false;
       const w = pieceWidth(o.geometry, o.matrixWorld);
       if (w < 0.6) this.details.push({ mesh: o, w, thr: glow ? 0.25 : 0.34 });     // (big parts never get that thin)
@@ -1442,7 +1462,8 @@ export class Ship {
   // built per part (buildLods), each part simplified exactly as when it was a mesh of its own.
   // the parts that move or light on their own (the Anvil's ball anchors, pulse stages and lamps): never merged or atlased
   ownMoving() {
-    return [...this.orbits.map((o) => o.node), ...this.pulses.map((p) => p.node), ...this.lamps.map((l) => l.node)];
+    return [...this.orbits.map((o) => o.node), ...this.pulses.map((p) => p.node), ...this.lamps.map((l) => l.node),
+      ...(this.floaters || []).map((f) => f.node)];
   }
 
   buildParts() {
@@ -1671,6 +1692,10 @@ export class Ship {
         roughnessMap: old.roughnessMap, metalnessMap: old.metalnessMap, roughness: old.roughness,
         metalness: old.metalness, clearcoat: Q.lite ? 0 : 0.25, clearcoatRoughness: 0.24,
       });
+      // the Umbra's livery: its pinstripes glow (the emissive map; umbra.js drives how bright) and a thin-film sheen
+      // over its dark paint, violet to green at a glancing look
+      if (old.emissiveMap) { m.emissiveMap = old.emissiveMap; m.emissive.setRGB(1, 1, 1); m.emissiveIntensity = 0; }
+      if (this.umbra && !Q.lite) { m.iridescence = 0.18; m.iridescenceIOR = 1.3; m.iridescenceThicknessRange = [250, 420]; }
       m.name = 'RacerBaked';
       m.userData.clearcoat = 0.25;                     // (Laptop mode drops it: quality.js setLite)
       this.hullPatch(m);
@@ -1701,8 +1726,20 @@ export class Ship {
         '#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\n  material.clearcoat *= clamp(1.0 - metalnessFactor, 0.0, 1.0);\n#endif');
       if (rg) sh.fragmentShader = rgNormalChunk(sh.fragmentShader);
       sharpPatch(sh, this.edgeU);
+      // the Umbra's aura on its own skin: a violet light round its silhouette (umbra.js sets how strong)
+      if (this.umbraU) {
+        sh.uniforms.umbraRim = this.umbraU.rim;
+        sh.uniforms.umbraGlow = this.umbraU.glow;
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
+          .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  // (another livery's pinstripes: the baked violet read as their brightness, in that livery's own light)
+  if (umbraGlow.w > 0.5) totalEmissiveRadiance = umbraGlow.rgb * max(totalEmissiveRadiance.r, max(totalEmissiveRadiance.g, totalEmissiveRadiance.b));
+  { float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
+    float f3 = fr * fr * fr; totalEmissiveRadiance += umbraRim * f3 * f3 * 1.6; }`);      // (the silhouette only: broad grazing faces stay dark)
+      }
     };
-    m.customProgramCacheKey = () => (rg ? 'feather-hull-rg-sharp' : 'feather-hull-sharp');
+    m.customProgramCacheKey = () => (rg ? 'feather-hull-rg-sharp' : 'feather-hull-sharp') + (this.umbraU ? '-umbra' : '');
   }
 
   paint(team) {
@@ -1759,22 +1796,51 @@ export class Ship {
     let maxX = -1e9;
     const tipCandidates = [];
     const env = new Map();               // the underside: the lowest point in each 0.4 m square of the plan
+    // (the Umbra's floating blades apart: their clearance points ride with them - floatLows - where the field has
+    // thrown them, out and down on the boost; held at their rest the blades went through the deck)
+    const fl = this.floaters, own = (o) => { for (let q = o; q; q = q.parent) { const k = fl.findIndex((f) => f.node === q); if (k >= 0) return k; } return -1; };
+    const bestS = dirs.map(() => -1e9), ptsS = dirs.map(() => new THREE.Vector3());
+    // the top skin's points (fx.js damaged: where smoke breaks out of the hull): a sample of the hull's own upward-facing
+    // vertices - not the glass, glows or lamps, not the floating blades
+    const skin = [], nv = new THREE.Vector3();
+    let skinSeen = 0, seed = 7;
+    const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const fBest = fl.map(() => dirs.map(() => -1e9)), fPts = fl.map(() => dirs.map(() => new THREE.Vector3()));
     this.model.traverse((o) => {
       if (!o.isMesh) return;
-      const p = o.geometry.attributes.position;
+      const p = o.geometry.attributes.position, fk = own(o), nrm = o.geometry.attributes.normal;
+      const skinOk = fk < 0 && nrm && !/glass|canopy|glow|led|nav|lamp|light|screen|core|plume/i.test(o.material?.name || '');
       for (let i = 0; i < p.count; i++) {
         v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        if (skinOk && (i % 5) === 0) {
+          nv.fromBufferAttribute(nrm, i).transformDirection(o.matrixWorld);
+          if (nv.y > 0.45) {                              // (a reservoir: an even sample however many there are)
+            const e = { p: v.clone(), n: nv.clone() };
+            skinSeen++;
+            if (skin.length < 160) skin.push(e); else { const j = Math.floor(rand() * skinSeen); if (j < 160) skin[j] = e; }
+          }
+        }
         for (let k = 0; k < dirs.length; k++) {
           const d = v.dot(dirs[k]);
           if (d > best[k]) { best[k] = d; pts[k].copy(v); }
+          if (fk >= 0) { if (d > fBest[fk][k]) { fBest[fk][k] = d; fPts[fk][k].copy(v); } } else if (d > bestS[k]) { bestS[k] = d; ptsS[k].copy(v); }
         }
         if (v.x > maxX - 0.05) {
           if (v.x > maxX) maxX = v.x;
           tipCandidates.push(v.clone());
         }
+        if (fk >= 0) continue;
         const key = Math.round(v.x * 2.5) * 4096 + Math.round(v.z * 2.5), e = env.get(key);
         if (!e || v.y < e.y) env.set(key, v.clone());
       }
+    });
+    // (the body's own: within the middle of the span, so not a wing tip's edge)
+    this.skin = skin.filter((e) => Math.abs(e.p.x) < maxX * 0.4);
+    if (this.skin.length < 3) this.skin = skin;
+    this.floatLows = fl.map((f, k) => {
+      const inv = f.node.matrixWorld.clone().invert(), seenF = new Set(), q = [];
+      for (const x of fPts[k]) { const key = x.toArray().join(); if (!seenF.has(key) && fBest[k][0] > -1e9) { seenF.add(key); q.push(x.clone().applyMatrix4(inv)); } }
+      return { k, pts: q, parentW: f.node.parent.matrixWorld.clone() };
     });
     this.probes = pts;
     // the deck clearance's points (animate): the underside's lowest for every tilt it meets on the deck - straight down
@@ -1782,7 +1848,7 @@ export class Ship {
     // under, between the corners the 26 probes hold) - and those probes, each point once
     const under = [...env.values()], seen = new Set(), lows = [];
     const keep = (q) => { const k = q.toArray().join(); if (!seen.has(k)) { seen.add(k); lows.push(q); } };
-    pts.forEach(keep);
+    (fl.length ? ptsS : pts).forEach(keep);
     for (const t of [0, 3, 6, 10, 15, 22, 30, 40]) for (let a = 0; a < (t ? 24 : 1); a++) {
       const r = Math.sin(t * Math.PI / 180), az = a * Math.PI / 12;
       const d = v.set(r * Math.cos(az), -Math.cos(t * Math.PI / 180), r * Math.sin(az));
@@ -1867,10 +1933,12 @@ export class Ship {
     }
     for (const n of BAY_FILL) if (this.mats[n]) this.mats[n].emissiveIntensity = ease(this.avionics);
     // (the accent strips are drawn at the Feather's places: none on the Anvil)
-    this.lookU.accentOn.value = this.orbits.length ? 0 : 0.6 + 0.4 * Math.max(this.spin, ease(this.avionics));
+    this.lookU.accentOn.value = this.orbits.length || this.umbra ? 0 : 0.6 + 0.4 * Math.max(this.spin, ease(this.avionics));
     // the brake lights: red with the brake (or what the caller says is braking), if the setting has them on
     const lamp = Ship.brakeLights !== false ? smoothstep(0.08, 0.6, ctrl.brakeLight ?? brake) : 0;
     if (this.orbits.length || this.pulses.length || this.lamps.length) this.updatePulse(dt, thr1, boost1, lamp, ctrl.speed || 0);
+    if (this.floaters.length) this.updateFloaters(dt, thr1, boost1, ctrl);
+    if (this.umbra) this.umbra.update(dt, this.power, thr1, boost1, ctrl.speed || 0, Ship.umbraAura !== false, Ship.umbraTime !== false, lamp);
     if (this.kind && LIVERIES[this.kind]) {        // the player's and the showroom's ships wear the chosen livery (a rival its own)
       const want = this.livery || Ship.liveries?.[this.kind] || LIVERIES[this.kind].names[0];
       if (want !== this.liveryShown) this.applyLivery(want);
@@ -1890,6 +1958,19 @@ export class Ship {
     // differential thrust: in a turn the outer engine works harder (plumes[0] is the right nacelle, [1] the left)
     const st = clamp(ctrl.steer || 0, -1, 1);
     this.plumes.forEach((p, k) => p.update(this.t, this.spin, thrust * (k === 0 ? 1 - 0.4 * st : k === 1 ? 1 + 0.4 * st : 1), Math.min(1, boost + kick)));
+    if (this.umbra) {
+      // the Umbra's mouth shows its black hole, not a flame: the plume's cones and halo stay hidden; its heat shimmer
+      // (space bent behind the hole, stronger), its light and its trail stay. On the boost the hole sends out ripples
+      // of bent space (the caller's onWave: post.js ShockPass rings), four a second
+      for (const p of this.plumes) { p.outer.visible = p.inner.visible = p.halo.visible = false; p.heat *= 1.7; }
+      for (const l of this.exhaustLights) l.intensity = 22 * this.spin * (0.5 + 0.4 * thr1 + 1.2 * Math.min(1, boost + kick));
+      const b1 = Math.min(1, boost + kick);
+      this.waveT = (this.waveT ?? 0) - dt;
+      if (this.onWave && b1 > 0.5 && this.power > 0.5 && this.waveT <= 0) {
+        this.waveT = 0.26;
+        this.onWave(this.umbra.group.getWorldPosition(this._wv || (this._wv = new THREE.Vector3())), b1);
+      }
+    }
     if (this.pulseFx.length) {
       // the pulse engine's jet: longer, hotter, kicking on every pulse; its rings and shock diamonds
       const pk = this.pulseKick || 0;
@@ -1904,7 +1985,7 @@ export class Ship {
       this.pulseFx.forEach((f) => f.update(dt, Ship.pulseRings === false ? 0 : this.spin, clamp(thr, 0, 1), Math.min(1, boost + kick), pk));
     }
     // a hint of blue on the road under the nozzles (220 cd painted the whole road blue)
-    for (const l of this.exhaustLights) l.intensity = 30 * this.spin * (0.25 + thrust);
+    if (!this.umbra) for (const l of this.exhaustLights) l.intensity = 30 * this.spin * (0.25 + thrust);
     this.animate(dt, ctrl);
     // light trails off every nozzle: on with speed and thrust, longer and brighter on boost
     this.ensureTrails(scene);
@@ -1980,6 +2061,36 @@ export class Ship {
     }
   }
 
+  // The Umbra's blades, each held off its pod by the field across the gap - and the field gives: each blade floats on its
+  // own beat, swings aft as the ship pulls away and forward as it brakes, rolls its tip into a turn and is thrown out on
+  // the lateral pull, buzzes at speed, and on the boost the field throws it far out from the body (the gap opening
+  // from ~0.3 m to ~1.5 m, the sheets across it stretching with it) with its tip lifting. Springs (stiffness k, damping z) so it all eases and overshoots a little, like
+  // something held by a field rather than bolted on. Parked with the engine off the field still holds them, stiller.
+  updateFloaters(dt, thr, boost, ctrl) {
+    const t = (this.floatT = (this.floatT ?? 0) + dt), P = 0.35 + 0.65 * this.power;
+    const S = (this.floatS ||= { out: 0, outV: 0, aft: 0, aftV: 0, roll: 0, rollV: 0 });
+    const spring = (key, target, k, z) => {
+      S[key + 'V'] += (k * (target - S[key]) - 2 * z * Math.sqrt(k) * S[key + 'V']) * dt;
+      S[key] += S[key + 'V'] * dt;
+    };
+    const st = clamp(ctrl.steer || 0, -1, 1), acc = clamp((ctrl.accel || 0) / 40, -1, 1), lat = clamp((ctrl.lat || 0) / 45, -1, 1);
+    const sp = smoothstep(80, 600, ctrl.speed || 0);
+    spring('out', this.power * (1.2 * boost + 0.05 * thr), 26, 0.5);          // (m: the gap opening on the boost)
+    spring('aft', this.power * (acc * 0.16 - 0.05 * (ctrl.brake || 0)), 26, 0.4);   // (m along the ship: lagging, surging)
+    spring('roll', this.power * (st * 0.055 + lat * 0.03), 22, 0.4);           // (rad: into the turn)
+    const buzz = sp * this.power * 0.004;
+    for (const f of this.floaters) {
+      const w = Math.sin(t * 1.25 + f.phase) * 0.6 + Math.sin(t * 2.1 + f.phase * 2.3) * 0.4;
+      const hum = Math.sin(t * 61 + f.phase * 5) * buzz;
+      f.node.position.copy(f.base).addScaledVector(f.n, (0.045 * w + hum) * P + S.out);
+      f.node.position.z += S.aft * (1 + 0.15 * Math.sin(f.phase * 3));
+      // the roll about the ship's length (tips up and down), and on the boost each tip lifting a little more
+      const r = (Math.sin(t * 0.9 + f.phase) * 0.012 * P + S.out * 0.05) * f.side - S.roll;
+      f.node.quaternion.copy(f.q).multiply(_lq.setFromAxisAngle(_Z, r))
+        .multiply(_lq2.setFromAxisAngle(_Y, S.aft * 0.12 * f.side));                // (a swept-back yaw as it lags)
+    }
+  }
+
   // A ship's liveries (Settings, ships.js LIVERIES): its hull atlas's colour and roughness / metal maps swapped - the UVs,
   // the normals and the occlusion are the same for all of them. The first is the GLB's own; the others load once (the
   // largest size there is that is not over the ship's own atlas) and go on when both maps are in, so the hull never
@@ -1987,6 +2098,7 @@ export class Ship {
   applyLivery(name) {
     const m = this.mats.RacerBaked, LV = LIVERIES[this.kind];
     this.liveryShown = name;
+    this.umbra?.setLivery(name);                          // (its light in the paint's colour: umbra.js UMBRA_GLOW)
     if (!m || !LV) return;
     this.liveryTex ||= { [LV.names[0]]: this.ownPaint || { map: m.map, orm: m.roughnessMap } };
     this.loadEdges(name, this.atlasW || LV.res[0]);
@@ -2099,8 +2211,18 @@ export class Ship {
     const j = a.jolt * a.jolt, hz = a.hum * 0.0018;
     const jx = (noise2(t * 6.0, 3.1) - 0.5) * 0.03 * j, jy = (noise2(t * 5.0, 8.7) - 0.5) * 0.025 * j;
     const jr = (noise2(t * 4.5, 1.9) - 0.5) * 0.02 * j;
-    this.visual.position.set(a.sway + jx + Math.sin(t * 61.0) * hz, a.lift + bob + buzz + jy + Math.sin(t * 53.0 + 1.0) * hz, 0);
-    this.visual.rotation.set(a.pitch + rockX, a.yaw + a.yawOff, a.lean + rockZ + jr, 'YXZ');
+    // the Umbra rides its own field: the whole hull levitating 0.4 m higher than the others (its blades clear of the
+    // deck), rising and settling on a slow swell a hand's breadth high at any speed, nose and tail rocking with it
+    // (each ship on its own beat)
+    let lev = 0, levP = 0, levR = 0;
+    if (this.umbra) {
+      const u = t + (this.levPhase ??= Math.random() * 20);
+      lev = P * (0.4 + 0.15 * Math.sin(u * 2.2) + 0.05 * Math.sin(u * 3.7 + 1.1));    // (higher than the others: the blades)
+      levP = P * 0.014 * Math.cos(u * 2.2 + 0.6);
+      levR = P * 0.011 * Math.sin(u * 1.45 + 2.0);
+    }
+    this.visual.position.set(a.sway + jx + Math.sin(t * 61.0) * hz, a.lift + bob + buzz + jy + Math.sin(t * 53.0 + 1.0) * hz + lev, 0);
+    this.visual.rotation.set(a.pitch + rockX + levP, a.yaw + a.yawOff, a.lean + rockZ + jr + levR, 'YXZ');
     // the low side stays clear of the deck however hard it leans ("when they steer the engines hit the ground"), and
     // the ends and corners where the deck turns under the hull (a twist, a loop - c.deckHeight: each point's height
     // over the deck at its own place along the track; else the deck is the plane under the middle): the hull's
@@ -2112,10 +2234,17 @@ export class Ship {
       const deck = c.deckHeight, R = this.root;
       for (let pass = 0; pass < 2; pass++) {
         let under = 0;
-        for (const p of this.lows) {
-          _lv.copy(p).applyQuaternion(_lq).add(this.visual.position);
-          const h = deck ? deck(_lv.applyQuaternion(R.quaternion).add(R.position)) : _lv.y + this.bottom + c.height;
-          under = Math.max(under, 0.3 - h);
+        const low = (clear) => {
+          const h = deck ? deck(_lv.applyQuaternion(_lq).add(this.visual.position).applyQuaternion(R.quaternion).add(R.position))
+            : _lv.applyQuaternion(_lq).add(this.visual.position).y + this.bottom + c.height;
+          under = Math.max(under, clear - h);
+        };
+        for (const p of this.lows) { _lv.copy(p); low(0.3); }
+        // the floating blades where they are now (a little more room: they swing)
+        for (const F of this.floatLows || []) {
+          const f = this.floaters[F.k];
+          _lm.compose(f.node.position, f.node.quaternion, f.node.scale).premultiply(F.parentW);
+          for (const q of F.pts) { _lv.copy(q).applyMatrix4(_lm); low(0.45); }
         }
         if (under <= 0.001) break;
         this.visual.position.y += under;
@@ -2133,6 +2262,7 @@ export class Ship {
     su.ghost.value = clamp(Math.min(g / 0.5, (3 - gone - g) / 0.2), 0, 1) * 0.6;
     this.shield.visible = su.amount.value > 0.01 || su.ghost.value > 0.01;
     this.model.visible = !(g > 0 && (g > 3 - gone || (g * 8) % 1 < 0.45));
+    if (this.umbra) this.umbra.show(this.model.visible);
     this.boostKick = Math.max(0, this.boostKick - dt * 1.4);
   }
 
@@ -2161,12 +2291,19 @@ export class Ship {
   fxObjects() {
     return [...this.plumes, ...(this.retros || [])].flatMap((p) => [p.outer, p.inner, p.halo])
       .concat((this.pulseFx || []).flatMap((f) => f.objects()))
+      .concat(this.umbra ? this.umbra.objects() : [])
       .concat(this.brakeLights || [], this.shield ? [this.shield] : [], (this.trails || []).map((t) => t.mesh),
         (this.engineTrails || []).map((t) => t.mesh), this.exhaust ? [this.exhaust.mesh] : []);
   }
 
   // the hot gas behind each main engine, for the heat shimmer (post.js EngineHeatPass): add(nozzle, the flame's end,
   // the radius at the nozzle, how hot) - world space, the vectors reused
+  // the Umbra's slowed time round its hole (post.js EngineHeatPass): nothing from the others, nor with it switched off
+  // or the hull blinked out
+  timeSource(add) {
+    if (this.umbra && Ship.umbraTime !== false && this.umbra.group.visible) this.umbra.timeSource(add);
+  }
+
   heatSources(add) {
     const a = _hA, b = _hB, e = _hE;
     for (const p of this.plumes) {
@@ -2174,7 +2311,7 @@ export class Ship {
       p.outer.localToWorld(a.set(0, 0, 0));
       p.outer.localToWorld(b.set(0, 0, 1));
       p.outer.localToWorld(e.set(p.r * 1.02, 0, 0));
-      add(a, b, e.distanceTo(a), p.heat);
+      add(a, b, e.distanceTo(a), this.umbra ? -p.heat : p.heat);       // (negative: the Umbra's twisting wake)
     }
     if (this.ventHeat > 0.02) {           // the side exits: hot air streaming aft out of each
       for (const v of this.vents) {

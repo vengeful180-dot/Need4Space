@@ -6,11 +6,11 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   blur: true, reflections: true, streaks: true, ai: 'easy', music: 'high', sfx: 'high', aa: 'smaa', aoRes: 'auto',
   brakeLights: true, laptop: false, touch: 'auto', map: 'space', shafts: true, lensWater: true, iceSnow: true, iceDust: true, aurora: true,
   iceStorm: true, iceGeysers: true, wreckFx: true, wreckMist: true, airPitch: true, sandFx: true, dustDevils: true, heatHaze: true,
-  sandstorm: true, caveFx: true, canyonAO: true, engineHeat: true, engineTrails: 'puffs', colossus: true, nozzleMotion: true, featherLivery: 'classic', cometLivery: 'titanium', heavyLivery: 'hazard', pulseRings: true, sharpEdges: true, showroom: true,
+  sandstorm: true, caveFx: true, canyonAO: true, engineHeat: true, engineTrails: 'puffs', colossus: true, nozzleMotion: true, featherLivery: 'classic', cometLivery: 'titanium', heavyLivery: 'hazard', umbraLivery: 'umbra', pulseRings: true, sharpEdges: true, showroom: true,
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, slamNote: true };
+  pilots: true, slamNote: true, umbraAura: true, umbraTime: true, pyrRuins: true, pyrTomb: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -18,14 +18,14 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
 // AO at half resolution, medium shadows, no deck reflections, the heaviest weather left out.
 const PRESET_KEYS = ['laptop', 'scale', 'aa', 'ao', 'aoRes', 'reflections', 'shadows', 'streaks', 'blur', 'shafts', 'iceSnow', 'iceDust',
   'iceGeysers', 'wreckFx', 'wreckMist', 'sandFx', 'dustDevils', 'heatHaze', 'caveFx', 'engineHeat', 'engineTrails', 'seaReflect',
-  'shockwaves', 'showroom'];
+  'shockwaves', 'showroom', 'umbraTime'];
 export const PRESETS = {
   low: { laptop: true, scale: 1, aa: 'smaa1', ao: false, aoRes: 'auto', reflections: false, shadows: 'off', streaks: false, blur: false,
     shafts: false, iceSnow: false, iceDust: false, iceGeysers: false, wreckFx: false, wreckMist: false, sandFx: false, dustDevils: false,
-    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false },
+    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false, umbraTime: false },
   balanced: { laptop: false, scale: 1, aa: 'fast', ao: true, aoRes: 'half', reflections: false, shadows: 'medium', streaks: true, blur: true,
     shafts: true, iceSnow: true, iceDust: false, iceGeysers: true, wreckFx: true, wreckMist: false, sandFx: true, dustDevils: false,
-    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true },
+    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true, umbraTime: true },
   high: Object.fromEntries(PRESET_KEYS.map((k) => [k, DEFAULTS[k]])),
 };
 // no row of their own any more: the race's mechanics and the ships' look as the game has them, for everyone, whatever
@@ -68,6 +68,10 @@ const ROWS = [
   ['heatHaze', 'Heat shimmer', [[true, 'On'], [false, 'Off']]],
   ['sandstorm', 'Sandstorm', [[true, 'On'], [false, 'Off']]],
   ['lensWater', 'Water on the lens', [[true, 'On'], [false, 'Off']]],
+  ['umbraAura', 'Umbra: dark aura and dark-matter boost', [[true, 'On'], [false, 'Off']]],
+  ['umbraTime', 'Umbra: time slowed round the engine on the boost', [[true, 'On'], [false, 'Off']]],
+  ['pyrRuins', 'Ruins on the planet', [[true, 'On'], [false, 'Off']]],
+  ['pyrTomb', "The tunnel's columns, monoliths and sandfalls", [[true, 'On'], [false, 'Off']]],
   ['colossus', 'Broken capital ship in the sky', [[true, 'On'], [false, 'Off']]],
   ['wreckFx', 'Derelict: sparks, flicker, drift, arcs', [[true, 'On'], [false, 'Off']]],
   ['wreckMist', 'Derelict: coolant mist, sun beams', [[true, 'On'], [false, 'Off']]],
@@ -88,13 +92,14 @@ const ROWS = [
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
   ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'airPitch', 'music', 'sfx', 'touch']],
-  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater']],
+  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraTime']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],
   ['forest', 'Forest moon', ['caveFx']],
   ['ice', 'Ice planet', ['iceSnow', 'iceDust', 'aurora', 'iceStorm', 'iceGeysers']],
   ['desert', 'Desert planet', ['sandFx', 'dustDevils', 'heatHaze', 'sandstorm']],
   ['ocean', 'Ocean planet', ['seaLife', 'seaReflect', 'oceanStorm', 'shipWet', 'kraken', 'oceanRain', 'oceanPillars']],
+  ['pyramid', 'Pyramid Run', ['pyrRuins', 'pyrTomb']],
 ];
 {
   const placed = new Set(SECTIONS.flatMap(([, , keys]) => keys));

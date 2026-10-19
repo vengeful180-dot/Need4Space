@@ -2,14 +2,16 @@
 
 © 2026 vengeful180. All rights reserved. This is proprietary software: see [LICENSE](LICENSE).
 
-An anti-gravity racer in space, built in the browser with [three.js](https://threejs.org/). You race the **Feather S1** or the **Comet R1** (pick one under Ship in the menu), hover-racers modelled and texture-baked in Blender, against eight AI rivals over three laps on one of four circuits (pick one under Circuit in the menu):
+An anti-gravity racer in space, built in the browser with [three.js](https://threejs.org/). You race the **Feather S1**, the **Comet R1**, the **Anvil H1** or the **Umbra V1** (pick one under Ship in the menu), hover-racers modelled and texture-baked in Blender, against eight AI rivals over three laps on one of six circuits (pick one under Circuit in the menu):
 
 - **Space** (26.6 km): past a ringed gas giant, through 12 km of a colossal derelict broken in three and a graveyard of wrecks, a meteorite you fly through, jump gaps, a vertical loop, barrel rolls and a glass tunnel.
 - **Forest moon** (13.8 km): floating islands over a jungle, a river arching over the track, a colossal tree, two kilometres of caverns, a giant's skull to fly through.
 - **Ice planet** (14 km): a frozen sea at dusk under an aurora, a crevasse down an ice shelf, a glacier to fly through, storms and geysers.
 - **Desert planet** (14.3 km): dunes at sunset, a half-buried city, a sandstorm, a sandstone gorge under natural bridges, a banked wall.
+- **Ocean planet** (21.8 km): a world of sea at night under a great moon, sea stacks and spray, a dive into the deep through a drowned city, a surge back out of the water.
+- **Pyramid Run** (56.5 km): a speed circuit with twice the top speed - long jumps through an asteroid field, a desert planet of ancient ruins, down a colossal pyramid into the planet, through its torch-lit root and out of a crater. No slams.
 
-Every circuit has a gravity flip: the road ends, gravity turns over and you ride upside down on the road overhead.
+Space, the forest moon, the ice and the desert planet each have a gravity flip: the road ends, gravity turns over and you ride upside down on the road overhead.
 
 **Experimental WebXR support:** race from a tracked, seated cockpit with an Xbox controller, an in-headset HUD and menus, and adjustable VR resolution. See [WebXR setup and controls](#webxr).
 
@@ -106,7 +108,9 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
 
 ## Support
 
-Need4Space is free. If you enjoy it, you can support development on PayPal: [paypal.me/DimianAlex](https://paypal.me/DimianAlex) or Revolut: [revolut.me/alexan_vic](https://revolut.me/alexan_vic).
+Need4Space on the web is free to play, and always will be. If you enjoy it, you can support development on PayPal: [paypal.me/DimianAlex](https://paypal.me/DimianAlex) or Revolut: [revolut.me/alexan_vic](https://revolut.me/alexan_vic).
+
+Need4Space is coming to Steam too, as a paid game. Early supporters who donate $5 or more get a free Steam key and a place on the Supporters wall of fame: write the name you want on the wall and an email for your key in the payment note.
 
 ## Credits
 

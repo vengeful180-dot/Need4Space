@@ -41,6 +41,9 @@ const shipStats = (H) => [
   ['Handling', bars(6 + 40 * (H.turn - 1))],
   ['Toughness', bars(6 + 6 * (1 / H.impact - 1) + 8 * ((H.health || 100) / 100 - 1))],
   ['Ramming', bars(6 * (H.ram || 1))],
+  // the slam: thrown the harder the heavier the ship and the harder its ram (none at all for the Umbra: it can neither
+  // throw one nor block one)
+  ['Slam', H.slam === false ? 0 : bars(6 * Math.pow(H.mass || 1, 0.8) * Math.pow(H.ram || 1, 0.6))],
 ];
 const statRows = (list) => list.map(([n, v]) => `<div class="d-stat"><span>${n}</span><b class="d-bar">${
   Array.from({ length: 10 }, (_, k) => `<i class="${k < v ? 'on' : ''}" style="--k:${k}"></i>`).join('')}</b></div>`).join('');
@@ -59,12 +62,13 @@ export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed
   ['forest', 'Forest moon', 'High over a jungle moon: floating islands, a river arching over the track, a colossal tree, two kilometres of caverns, a giant\'s skull, home upside down'],
   ['ice', 'Ice planet', 'Over a frozen sea at dusk, a storm in the east: a crevasse down an ice shelf, a glacier to fly through, two rifts to jump, upside down over the floes'],
   ['desert', 'Desert planet', 'Dunes at sunset: a half-buried city, a sandstorm, a sandstone gorge under natural bridges, a banked wall, a gravity flip'],
-  ['ocean', 'Ocean planet', 'A world of sea at night under a great moon: sea stacks and spray, a dive into the deep through a drowned city, a surge back out of the water']];
+  ['ocean', 'Ocean planet', 'A world of sea at night under a great moon: sea stacks and spray, a dive into the deep through a drowned city, a surge back out of the water'],
+  ['pyramid', 'Pyramid Run', 'A speed circuit: twice the top speed. Long jumps in orbit, pads and obstacles, a dive onto a desert world, down a colossal pyramid into the planet and out of a crater']];
 // donations: the author's PayPal and Revolut (where: 'paypal' | 'revolut')
 const DONATE = { paypal: 'https://paypal.me/DimianAlex', revolut: 'https://revolut.me/alexan_vic' };
 const donate = (where = 'paypal') => window.open(DONATE[where] || DONATE.paypal, '_blank', 'noopener');
 // the supporters, thanked on the Support screen (a name added here as each one donates)
-const SUPPORTERS = ['Mangooo'];
+const SUPPORTERS = ['Mangooo', 'RwkY'];
 const PAUSE = [['resume', 'Resume'], ['restart', 'Restart race'], ['difficulty', 'Difficulty'], ['scoreboard', 'Global scoreboard'], ['settings', 'Settings'],
   ['controls', 'Controls'], ['quit', 'Quit to menu']];
 // a hint along the bottom: its keys and what they do, and clickable like the key ("can only go back pressing Esc"):
@@ -159,10 +163,13 @@ export class Menu {
         <div class="d-sweep"></div>
       </button></div>`).join('');
     const km = h.track ? (h.track.length / 1000).toFixed(1) : null;
-    const U = UPDATES[0];                                // the latest update's notes on the title (changelog.js)
+    // the latest update's notes on the title, and the one before's in brief under them (changelog.js)
+    const U = UPDATES[0], U1 = UPDATES[1];
     const news = `<aside class="m-news"><div class="n-head"><span class="n-tag">What's new</span>` +
       `<span class="n-ver">v${U.version} &middot; ${U.date}</span></div><div class="n-name">${U.name}</div>` +
-      `<ul class="n-list">${U.notes.map((n) => `<li>${n}</li>`).join('')}</ul></aside>`;
+      `<ul class="n-list">${U.notes.map((n) => `<li>${n}</li>`).join('')}</ul>` +
+      (U1 ? `<div class="n-prev"><div class="n-head"><span>Earlier</span><span class="n-ver">v${U1.version} &middot; ${U1.name}</span></div>` +
+        `<ul class="n-list">${(U1.brief || U1.notes.slice(0, 2)).map((n) => `<li>${n}</li>`).join('')}</ul></div>` : '') + '</aside>';
     this.el.innerHTML = `<div class="m-bg"></div><div class="m-fade"></div><div class="m-pulse"></div><div class="m-scan"></div>
       <section class="m-screen" data-s="main">
         <header><div class="m-kicker">Anti-gravity racing</div><h1 class="m-logo brand-logo" aria-label="Need4Space"><span class="brand-fallback" aria-hidden="true"><span>NEED</span><i>4</i><span>SPACE</span></span><svg class="brand-mark" viewBox="0 0 2172 440" aria-hidden="true" focusable="false"><use href="#brand-wordmark"/></svg></h1><div class="m-sub">${shipName(shipId)} <span class="m-v">v${VERSION}</span></div></header>
@@ -431,8 +438,8 @@ export class Menu {
       settings: 'Picture, effects, audio and performance',
       controls: 'Keyboard, mouse and gamepad',
       support: 'Donate to keep Need4Space flying - early supporters ($5 or more) get a free Steam key',
-      circuit: 'Space, the forest moon, or the ice, desert or ocean planet',
-      ship: 'The Feather S1, the Comet R1 or the Anvil H1 - look them over in the showroom',
+      circuit: 'Space, the forest moon, the ice, desert or ocean planet, or the Pyramid Run',
+      ship: 'The Feather S1, the Comet R1, the Anvil H1 or the Umbra V1 - look them over in the showroom',
       scoreboard: 'The global top 10 for each circuit and difficulty',
       ...Object.fromEntries(CIRCUITS.map(([id, , d]) => ['map:' + id, d])),
       ...Object.fromEntries(SHIPS.map(([id, , d]) => ['ship:' + id, d])),
