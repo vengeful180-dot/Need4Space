@@ -452,6 +452,7 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .m-num { width: 1.6rem; font: 600 0.78rem var(--display); letter-spacing: 0.1em; color: var(--faint); transition: color 0.2s; }
 .m-meta { margin-left: 0.4rem; padding: 0.32rem 0.55rem 0.28rem; font: 700 0.78rem/1 var(--ui); letter-spacing: 0.24em; color: var(--accent);
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent); }
+.m-item[hidden] { display: none; }                /* (all: unset above drops the hidden attribute's own rule) */
 .m-item.sel { color: #fff; transform: translateX(0.7rem); background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 24%, transparent), transparent 88%); }
 .m-item.sel::before { transform: scaleY(1); }
 .m-item.sel .m-num { color: var(--accent); }
@@ -1041,3 +1042,62 @@ body.touch #fps { top: auto; bottom: 0.2rem; left: calc(0.6rem + env(safe-area-i
 #xr-controls button:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 .in-xr #touch, .in-xr #hud { display: none !important; }
 @media (max-width: 600px) { #xr-controls span { display: none; } #xr-controls { right: 8px; bottom: 8px; } }
+
+/* Multiplayer (rooms.js): the racing name, the rooms, inside a room its pilots and their ping to the host */
+.mp-body { display: flex; flex-direction: column; width: min(46rem, 100%); }
+.mp-body .m-list { width: 100%; margin-top: 1.4rem; }
+.mp-namebox { display: flex; align-items: center; gap: 0.9rem; margin-top: 2.2rem; font: 700 0.82rem var(--ui); letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--dim); }
+.mp-name { box-sizing: border-box; width: 16rem; padding: 0.6rem 0.8rem; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 0;
+  background: rgba(4, 10, 17, 0.85); color: #fff; font: 600 1.05rem var(--ui); letter-spacing: 0.04em; text-transform: none; user-select: text; }
+.mp-name:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mp-name::placeholder { color: var(--faint); }
+.mp-list { max-height: min(46vh, 30rem); overflow: auto; }
+.mp-list .m-item { font-size: 1.2rem; }
+.mp-list .m-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0.06em; }
+.mp-list .m-item[data-act^="mp:"]:not(.mp-room) .m-name { text-transform: uppercase; letter-spacing: 0.14em; }
+.mp-list .m-meta { flex: none; }
+.mp-list .m-item.off { opacity: 0.45; }
+.mp-status { min-height: 1.3em; margin-top: 1rem; padding-left: 1.3rem; font: 600 0.95rem var(--ui); letter-spacing: 0.08em; color: var(--soft); }
+.mp-status.bad { color: var(--bad); }
+.mp-busy { display: flex; align-items: center; gap: 0.9rem; margin-top: 2.6rem; font: 600 1rem var(--ui); letter-spacing: 0.06em; color: var(--dim); }
+.mp-busy b { font: 700 1.15rem var(--display); letter-spacing: 0.12em; text-transform: uppercase; color: #fff; }
+.mp-spin { width: 1.1rem; height: 1.1rem; border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); border-top-color: var(--accent);
+  border-radius: 50%; animation: mp-spin 0.8s linear infinite; }
+@keyframes mp-spin { to { transform: rotate(360deg); } }
+.mp-head { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 2.2rem; }
+.mp-head b { font: 700 1.6rem var(--display); letter-spacing: 0.08em; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-head span { font: 700 0.82rem var(--ui); letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); }
+.mp-players { width: 100%; margin-top: 1.2rem; border-collapse: collapse; font: 600 1.05rem var(--ui); font-variant-numeric: tabular-nums;
+  border-top: 2px solid var(--accent); background: rgba(5, 11, 18, 0.7); }
+.mp-players th { padding: 0.7rem 1rem; text-align: left; font: 700 0.7rem var(--ui); letter-spacing: 0.2em; text-transform: uppercase; color: var(--faint); }
+.mp-players td { padding: 0.6rem 1rem; color: #d5dbe2; border-top: 1px solid rgba(255, 255, 255, 0.07); white-space: nowrap; }
+.mp-players td:first-child { max-width: 16rem; overflow: hidden; text-overflow: ellipsis; }
+.mp-players tr.me td { color: #fff; background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.mp-players small { margin-left: 0.6rem; padding: 0.12rem 0.35rem; font: 700 0.62rem var(--ui); letter-spacing: 0.2em; text-transform: uppercase;
+  color: #06111b; background: var(--accent); }
+.mp-ping, .nb-ping { font: 600 0.86rem var(--display); letter-spacing: 0.02em; color: var(--dim); }
+.mp-ping.good, .nb-ping.good { color: var(--ok); }
+.mp-ping.fair, .nb-ping.fair { color: var(--warn); }
+.mp-ping.poor, .nb-ping.poor { color: var(--bad); }
+.mp-ping.host, .nb-ping.host { font: 700 0.7rem var(--ui); letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); }
+.mp-ready { font: 700 0.72rem var(--ui); letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
+.mp-ready.on { color: var(--ok); }
+@media (max-width: 760px) {
+  .mp-namebox { flex-wrap: wrap; margin-top: 1.2rem; }
+  .mp-name { width: 100%; }
+  .mp-players th:nth-child(2), .mp-players td:nth-child(2) { display: none; }
+  .mp-players td, .mp-players th { padding: 0.5rem 0.6rem; }
+}
+/* the race's pilots online, with their pings (Settings: Online ping list) */
+#netbox { display: none; margin-top: 0.6rem; padding: 0.45rem 0.9rem 0.5rem 0.7rem; min-width: 14rem; }
+#netbox.on { display: block; }
+#hud:not([data-kind="race"]) #netbox { display: none; }
+.nb-row { display: flex; align-items: center; gap: 0.5rem; font: 700 0.86rem/1.75 var(--ui); letter-spacing: 0.06em; color: var(--soft); }
+.nb-row.me { color: #fff; }
+.nb-row .sw { margin-right: 0; }
+.nb-pos { width: 1.2rem; font: 700 0.8rem var(--display); color: var(--dim); }
+.nb-name { flex: 1 1 auto; min-width: 0; max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb-ping { margin-left: auto; padding-left: 0.6rem; }
+body.touch #netbox { min-width: 10rem; padding: 0.3rem 0.6rem; }
+body.touch .nb-row { font-size: 0.74rem; }

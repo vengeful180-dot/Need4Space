@@ -4,6 +4,7 @@ import { shipName } from './ships.js';
 import { PILOTS, face } from './pilots.js';
 
 const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const fmt = (t) => {
   if (!isFinite(t)) return '--:--.--';
@@ -190,20 +191,21 @@ export class HUD {
     if (was) this.onHideResults?.();
   }
 
-  showResults(rows, score, total) {
-    const winner = rows[0].time, me = rows.findIndex((r) => r.player) + 1;
-    const level = document.documentElement.dataset.level || 'normal';
+  // opts.online: an online race - no difficulty, no scoreboard; Back to the room (the table updates as the others finish)
+  showResults(rows, score, total, opts = {}) {
+    const me = rows.findIndex((r) => r.player) + 1, online = !!opts.online;
+    const level = online ? 'online' : document.documentElement.dataset.level || 'normal';
     // the rival pilots (the setting): their faces as the race left them - the winner laughing, the ones ahead of the
     // player smug, the one just behind angry, the rest rolling their eyes
     const look = (i) => (i === 0 ? 'laugh' : i < me - 1 ? 'smirk' : i === me ? 'angry' : 'roll');
     const who = (r, i) => {
-      const p = this.pilots && !r.player && PILOTS[r.name];
+      const p = this.pilots && !online && !r.player && PILOTS[r.name];
       return p ? `<img class="r-face" src="${face(p, look(i))}" alt="" style="--c:${r.css}">${p.short || p.name}<small class="r-team">${r.name}</small>`
-        : `<span class="sw" style="background:${r.css}"></span>${r.name}`;
+        : `<span class="sw" style="background:${r.css}"></span>${esc(r.name)}`;
     };
-    const tr = rows.map((r, i) => `<tr class="${r.player ? 'me' : ''}" style="--i:${i}"><td>${i + 1}</td>
+    const tr = this.resultRows = (list) => list.map((r, i) => `<tr class="${r.player ? 'me' : ''}" style="--i:${i}"><td>${i + 1}</td>
       <td>${who(r, i)}${r.player ? '<small>You</small>' : r.kind ? `<small class="r-ship">${shipName(r.kind)}</small>` : ''}</td>
-      <td>${r.est ? '~' : ''}${fmt(r.time)}</td><td class="r-gap">${i ? '+' + (r.time - winner).toFixed(2) : ''}</td>
+      <td>${r.est ? '~' : ''}${fmt(r.time)}</td><td class="r-gap">${i ? '+' + (r.time - list[0].time).toFixed(2) : ''}</td>
       <td>${Number.isFinite(r.best) ? fmt(r.best) : '-'}</td></tr>`).join('');
     $('results').innerHTML = `
       <div class="r-head">
@@ -211,21 +213,42 @@ export class HUD {
           <div class="r-place">${me ? ordinal(me) : '-'}<small>of ${rows.length}</small></div></div>
         <div class="r-total"><span class="lbl">Score</span><b>${total}</b></div>
       </div>
-      <table class="r-table${this.pilots ? ' faces' : ''}"><thead><tr><th>Pos</th><th>Ship</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody>${tr}</tbody></table>
+      <table class="r-table${this.pilots && !online ? ' faces' : ''}"><thead><tr><th>Pos</th><th>${online ? 'Pilot' : 'Ship'}</th><th>Time</th><th>Gap</th><th>Best lap</th></tr></thead><tbody>${tr(rows)}</tbody></table>
       <div class="r-score">
         <div><span>Finishing position</span><b>${score.position}</b></div>
         <div><span>Boost pads (2 each)</span><b>${score.pads}</b></div>
         <div><span>Clean laps (5 each)</span><b>${score.clean}</b></div>
         <div><span>Fastest lap of the race</span><b>${score.fastest}</b></div>
       </div>
-      <div class="r-actions">
+      <div class="r-actions">${online ? `
+        <button class="m-item" data-act="mp:room" tabindex="-1"><kbd>Esc</kbd>Back to the room</button>
+        <button class="m-item" data-act="mpleave" tabindex="-1">Leave the room</button>` : `
         <button class="m-item" data-act="again" tabindex="-1"><kbd>R</kbd>Race again</button>
         <button class="m-item" data-act="difficulty" tabindex="-1">Difficulty</button>
         <button class="m-item" data-act="scoreboard" tabindex="-1">Global scoreboard</button>
-        <button class="m-item" data-act="menu" tabindex="-1"><kbd>Esc</kbd>Main menu</button>
+        <button class="m-item" data-act="menu" tabindex="-1"><kbd>Esc</kbd>Main menu</button>`}
       </div>`;
     $('results').classList.remove('hidden');
     this.onResults?.();
+  }
+
+  // the results' table again (an online race: another player has finished) - the rest of the screen as it is
+  updateResults(rows) {
+    const body = $('results').querySelector('.r-table tbody');
+    if (!body || !this.resultRows || $('results').classList.contains('hidden')) return;
+    body.innerHTML = this.resultRows(rows);
+    const me = rows.findIndex((r) => r.player) + 1, place = $('results').querySelector('.r-place');
+    if (place && me) place.innerHTML = `${ordinal(me)}<small>of ${rows.length}</small>`;
+  }
+
+  // an online race: its pilots in race order, each with their ping to the host (multiplayer.js table) - or null, gone
+  netList(rows) {
+    const el = $('netbox');
+    if (!el) return;
+    const html = rows ? rows.map((r) => `<div class="nb-row${r.me ? ' me' : ''}"><span class="nb-pos">${r.pos || '-'}</span>` +
+      `<span class="sw" style="background:${r.css}"></span><span class="nb-name">${esc(r.name)}</span>` +
+      `<span class="nb-ping ${r.host ? 'host' : r.ping == null ? '' : r.ping < 80 ? 'good' : r.ping < 160 ? 'fair' : 'poor'}">${r.host ? 'Host' : r.ping == null ? '-' : Math.round(r.ping) + ' ms'}</span></div>`).join('') : '';
+    if (html !== this.netHTML) { this.netHTML = html; el.innerHTML = html; el.classList.toggle('on', !!rows); }
   }
 
   // the race's lap list (one row per lap, built when the lap count is known)

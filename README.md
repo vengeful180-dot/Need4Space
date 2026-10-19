@@ -13,6 +13,8 @@ An anti-gravity racer in space, built in the browser with [three.js](https://thr
 
 Space, the forest moon, the ice and the desert planet each have a gravity flip: the road ends, gravity turns over and you ride upside down on the road overhead.
 
+**Multiplayer (in testing):** race up to seven other players online in rooms, players only. See [Multiplayer](#multiplayer).
+
 **Experimental WebXR support:** race from a tracked, seated cockpit with an Xbox controller, an in-headset HUD and menus, and adjustable VR resolution. See [WebXR setup and controls](#webxr).
 
 ## Running it
@@ -91,6 +93,7 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
 ## Features
 
 - **WebXR (experimental):** a tracked seated cockpit, Xbox controls, in-headset menus, a toggleable HUD, and saved 65% / 80% / 100% VR race resolution choices. See [WebXR](#webxr) for setup and limitations.
+- **Multiplayer:** rooms of up to eight players, everyone's ping to the host in the room and beside the standings. See [Multiplayer](#multiplayer).
 - **Rivals:** AI on three difficulty levels, Normal, Hard and Brutal. They follow a racing line, plan their boost, use the boost pads, slipstream, overtake and defend.
 - **Physics:** track-space hover physics with jumps, loops, gravity flips, wall knocks and ship-to-ship contact.
 - **Picture:**
@@ -105,6 +108,14 @@ The Playwright harness in `tools/test_xr.js` checks stereo projections, recenter
 - **3D sound:** HRTF-panned positional audio with distance filtering and Doppler; echo inside the tunnel and the meteorite.
 - **Rival pilots:** eight pilots with their own faces and personalities talk during the race - passes, slams, wrecks, the circuit, each other.
 - **Settings:** graphics presets, picture and performance options, and each circuit's effects in a section of its own.
+
+## Multiplayer
+
+Multiplayer is in testing. Choose **Multiplayer** on the title screen. **Create a room** opens one on the circuit you have loaded; everyone else sees it in the list and joins with a click (a room on another circuit loads that circuit first). Up to eight players, no AI rivals. The host starts the race once every player's ship is ready, and the lights go out on every screen together. Online, the menu never pauses the race.
+
+One player hosts: the other players' browsers connect straight to the host's (WebRTC), and the host passes everyone's ship on to the rest. Each player's ping to the host shows in the room and beside the standings in the race (Settings: *Online races: the pilots and their ping*). A small lobby service lists the rooms and passes each player's handshake to the host; the race itself never goes through it. Some networks (phone data, school or work Wi-Fi) block direct connections between players.
+
+Locally, `serve.py` runs its own lobby (`lobby.py`): open the game with `?lobby=local` in two windows. `python tools/test_lobby.py` tests it.
 
 ## Support
 

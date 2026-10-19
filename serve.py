@@ -10,10 +10,12 @@ import sys
 import urllib.parse
 import urllib.error
 from scoreboard import ScoreStore
+from lobby import Lobby, LobbyError
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SCORES = ScoreStore()
+LOBBY = Lobby()
 ORIGINS = set(filter(None, os.environ.get('NEED4SPACE_ALLOWED_ORIGINS', '').split(',')))
 
 
@@ -43,7 +45,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(content)
 
     def do_OPTIONS(self):
-        if not self.path.startswith('/api/scoreboard') or not self.origin_allowed():
+        if not self.path.startswith(('/api/scoreboard', '/api/lobby/')) or not self.origin_allowed():
             self.json_response(403, {'error': 'Origin not allowed.'})
             return
         self.send_response(204)
@@ -53,8 +55,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Vary', 'Origin')
         self.end_headers()
 
+    def lobby(self, method):
+        """the multiplayer lobby (lobby.py): rooms, the hosts' calls, the players' handshakes"""
+        url = urllib.parse.urlsplit(self.path)
+        parts = url.path[len('/api/lobby/'):].strip('/').split('/')
+        if not self.origin_allowed():
+            self.json_response(403, {'error': 'Origin not allowed.'})
+            return
+        try:
+            data = {}
+            if method == 'POST':
+                size = int(self.headers.get('Content-Length', '0'))
+                if not 0 < size <= 32768:
+                    raise LobbyError(400, 'Invalid request.')
+                data = json.loads(self.rfile.read(size))
+                if not isinstance(data, dict):
+                    raise LobbyError(400, 'Invalid request.')
+            query = urllib.parse.parse_qs(url.query)
+            if method == 'GET' and parts == ['rooms']:
+                out = LOBBY.list(query.get('v', [None])[0])
+            elif method == 'POST' and parts == ['rooms']:
+                out = LOBBY.create(data)
+            elif method == 'POST' and len(parts) == 3 and parts[0] == 'rooms' and parts[2] in ('host', 'close', 'join'):
+                out = getattr(LOBBY, parts[2])(parts[1], data)
+            elif method == 'GET' and len(parts) == 4 and parts[0] == 'rooms' and parts[2] == 'join':
+                out = LOBBY.answer(parts[1], parts[3], query.get('token', [''])[0])
+            else:
+                raise LobbyError(404, 'Not found.')
+            self.json_response(200, out)
+        except LobbyError as error:
+            self.json_response(error.status, {'error': str(error)})
+        except (ValueError, UnicodeError):
+            self.json_response(400, {'error': 'Invalid request.'})
+
     def do_GET(self):
         url = urllib.parse.urlsplit(self.path)
+        if url.path.startswith('/api/lobby/'):
+            return self.lobby('GET')
         if url.path != '/api/scoreboard':
             return super().do_GET()
         try:
@@ -68,6 +105,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         """debug frames: POST /shot/<name> with a PNG body -> racer/wip/shots/<name>.png"""
+        if urllib.parse.urlsplit(self.path).path.startswith('/api/lobby/'):
+            return self.lobby('POST')
         if urllib.parse.urlsplit(self.path).path == '/api/scoreboard':
             if not self.origin_allowed():
                 self.json_response(403, {'error': 'Origin not allowed.'})

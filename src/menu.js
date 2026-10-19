@@ -11,6 +11,7 @@ import { Scoreboard } from './scoreboard.js';
 import { SHIPS, HANDLING, LIVERIES, PILOTING, PILOTING_LEVELS, shipName } from './ships.js';
 import { standardGamepad } from './input.js';
 import { SONGS } from './audio.js';
+import { Rooms } from './rooms.js';
 
 const ui = (name) => window.__feather?.audio?.ui?.(name);
 const wake = () => window.__feather?.audio?.start?.();          // audio needs a user gesture: any menu key or click
@@ -78,7 +79,7 @@ const stats = (L) => [
 ];
 
 // ("remove the free flight option": the race on the track is the game)
-const MAIN = [['race', 'Race'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['music', 'Music'], ['settings', 'Settings'], ['controls', 'Controls'], ['support', 'Support']];
+const MAIN = [['race', 'Race'], ['multi', 'Multiplayer'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['music', 'Music'], ['settings', 'Settings'], ['controls', 'Controls'], ['support', 'Support']];
 // the circuits (main.js loads the one chosen: the page reloads into it)
 export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed gas giant: a colossal broken derelict to thread, upside down through its hold, a meteorite to fly through, a glass tunnel, a loop'],
   ['forest', 'Forest moon', 'High over a jungle moon: floating islands, a river arching over the track, a colossal tree, two kilometres of caverns, a giant\'s skull, home upside down'],
@@ -92,7 +93,9 @@ const donate = (where = 'paypal') => window.open(DONATE[where] || DONATE.paypal,
 // the supporters, thanked on the Support screen (a name added here as each one donates)
 const SUPPORTERS = ['Mangooo', 'RwkY'];
 const PAUSE = [['resume', 'Resume'], ['restart', 'Restart race'], ['difficulty', 'Difficulty'], ['scoreboard', 'Global scoreboard'], ['settings', 'Settings'],
-  ['controls', 'Controls'], ['quit', 'Quit to menu']];
+  ['controls', 'Controls'], ['quit', 'Quit to menu'], ['mpleave', 'Leave the room']];
+// (an online race: no restart, no difficulty, no scoreboard - and no stopping the race: the others fly on)
+const PAUSE_SOLO = new Set(['restart', 'difficulty', 'scoreboard', 'quit']), PAUSE_MP = new Set(['mpleave']);
 // a hint along the bottom: its keys and what they do, and clickable like the key ("can only go back pressing Esc"):
 // act - one action for the whole hint, or one per key (the arrows)
 const K = (keys, what, act) => {
@@ -113,6 +116,8 @@ const HINTS = {
   ship: K(['↑', '↓'], 'Select', UD) + K(['←', '→'], 'Paint', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
   scoreboard: K(['↑', '↓'], 'Circuit', UD) + K(['←', '→'], 'Difficulty', LR) + K(['R'], 'Refresh', 'refresh') + K(['Esc'], 'Back', 'back'),
   results: K(['←', '→'], 'Select', LR) + K(['Enter'], 'Confirm', 'ok') + K(['R'], 'Race again', 'again') + K(['Esc'], 'Main menu', 'back'),
+  mpresults: K(['←', '→'], 'Select', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back to the room', 'back'),
+  multi: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
 };
 const UP = new Set(['ArrowUp', 'KeyW']), DOWN = new Set(['ArrowDown', 'KeyS']);
 const LEFT = new Set(['ArrowLeft', 'KeyA']), RIGHT = new Set(['ArrowRight', 'KeyD']);
@@ -138,6 +143,7 @@ export class Menu {
     this.diffMode = 'start';
     this.build();
     this.board = new Scoreboard(this);
+    this.rooms = h.mp ? new Rooms(this, h.mp, CIRCUITS) : null;       // the Multiplayer screen (rooms.js)
     this.setLevel(h.settings.v.ai, false);
     h.settings.onSet = (k, v) => { if (k === 'ai') { this.levelSet(v); this.board.difficultyChanged(v); } };
     h.hud.onResults = () => this.showResults();
@@ -188,6 +194,7 @@ export class Menu {
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
+        : act === 'multi' ? '<span class="m-meta">Testing</span>'
         : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
           : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}</button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely
@@ -197,7 +204,7 @@ export class Menu {
       return L ? `<span class="s-chips"><em></em>${L.names.map((n, k) => `<i data-act="paint:${id}:${n}" title="${L.labels[k]}" ` +
         `style="--a: ${L.colors[k][0]}; --b: ${L.colors[k][1]}"></i>`).join('')}</span>` : '';
     };
-    const main = MAIN.filter(([a]) => a !== 'race' || h.race);
+    const main = MAIN.filter(([a]) => (a !== 'race' || h.race) && (a !== 'multi' || h.mp));
     const pause = PAUSE.filter(([a]) => a !== 'difficulty' || h.race);
     const cards = LEVELS.map((L, i) => `<div class="d-slot" data-i="${i}" data-id="${L.id}" style="--c: var(--c-${L.id})">
       <div class="d-glow"></div>
@@ -286,6 +293,7 @@ export class Menu {
       </section>
       <section class="m-screen" data-s="results"><div class="m-slot-results"></div></section>
       <section class="m-screen" data-s="scoreboard"></section>
+      <section class="m-screen" data-s="multi"></section>
       <button class="m-back" data-act="back" tabindex="-1">Back</button>
       <footer class="m-foot"><div class="m-hints"></div>
         <div class="m-info">${km ? `Circuit ${km} km &middot; ${LAPS} laps &middot; ${TEAMS.length} ships` : ''}</div></footer>`;
@@ -311,12 +319,13 @@ export class Menu {
     if (screen === 'music') this.sel.music = this.h.audio?.song ?? 0;              // (the Music screen opens on the song playing)
     this.h.showroom?.(screen === 'ship');
     this.board?.setOpen(screen === 'scoreboard');
+    this.rooms?.setOpen(screen === 'multi');
     if (!screen) { document.getElementById('support-toast')?.classList.remove('on'); return; }   // (the last screen stays drawn while the menu fades out)
     this.el.dataset.ctx = this.ctx;
     this.el.dataset.depth = this.stack.length > 1 || (this.ctx === 'pause' && screen !== 'pause') ? 'sub' : 'top';   // (touch: a Back button)
     this.el.dataset.screen = screen;
     for (const s of this.el.querySelectorAll('.m-screen')) s.classList.toggle('active', s.dataset.s === screen);
-    this.el.querySelector('.m-hints').innerHTML = HINTS[screen] || '';
+    this.el.querySelector('.m-hints').innerHTML = HINTS[screen === 'results' && this.h.mp?.live ? 'mpresults' : screen] || '';
     if (screen === 'diff') this.enterDiff();
     if (screen === 'main') this.fitNews();
     this.refresh();
@@ -370,7 +379,7 @@ export class Menu {
 
   pause() {
     if (this.open || this.busy) return;
-    Object.assign(this, { ctx: 'pause', paused: true, stack: ['pause'] });
+    Object.assign(this, { ctx: 'pause', paused: !this.h.mp?.live, stack: ['pause'] });     // (online: the race flies on)
     this.sel.pause = 0;
     this.h.input.unlock();
     this.renderPause();
@@ -381,7 +390,7 @@ export class Menu {
   // O in the game: the settings over the paused game (Esc or O goes straight back to it)
   openSettings() {
     if (this.open || this.busy) return;
-    Object.assign(this, { ctx: 'pause', paused: true, stack: ['settings'] });
+    Object.assign(this, { ctx: 'pause', paused: !this.h.mp?.live, stack: ['settings'] });
     this.h.input.unlock();
     this.renderPause();
     this.show('settings');
@@ -400,7 +409,7 @@ export class Menu {
     const rig = this.h.rig;                        // the fly-by camera behind the table while the AI flies the cool-down lap
     if (!this.rigWas) { this.rigWas = rig.mode; rig.mode = 'cinematic'; rig.anchor = null; }
     this.h.input.unlock();
-    this.board.captureResult();
+    if (!this.h.mp?.live) this.board.captureResult();     // (an online race's times are not for the global boards)
     this.show('results');
     this.nudge('results');
   }
@@ -429,8 +438,34 @@ export class Menu {
     this.veil(() => { this.h.quit(); this.busy = false; this.showTitle(); });
   }
 
+  // an online race over (or left): the grid behind the title again, and the Multiplayer screen - the room, or the list
+  toRoom() {
+    this.busy = true;
+    this.rigWas = null;
+    this.veil(() => { this.h.mp?.toRoom(); this.h.quit(); this.busy = false; this.showTitle(); this.go('multi'); });
+  }
+
+  // a room on another circuit: the page reloads into it (multiplayer.js joins once it has)
+  reloadInto(map) {
+    this.busy = true;
+    document.getElementById('veil').classList.add('on');
+    const u = new URL(location.href);
+    u.searchParams.set('map', map);
+    setTimeout(() => location.replace(u.href), 400);
+  }
+
   // the race from the title: the menu fades, the camera swings from its shot round to the ship as the engines start
   startRace() {
+    this.blend(2.2);
+    Object.assign(this, { ctx: null, stack: [], paused: false, filming: false });
+    this.show(null);
+    this.h.startRace();
+  }
+
+  // an online race starting (the host's word): from whatever screen shows - the room, a guest's last results - the
+  // menu fades and the camera swings round to the ship as from the title
+  startOnline() {
+    this.restoreRig();
     this.blend(2.2);
     Object.assign(this, { ctx: null, stack: [], paused: false, filming: false });
     this.show(null);
@@ -446,8 +481,9 @@ export class Menu {
   // ---------------------------------------------------------------- lists
   items() {
     const s = this.screen;
+    if (s === 'multi') return this.rooms?.items() || [];
     if (s !== 'main' && s !== 'pause' && s !== 'results' && s !== 'circuit' && s !== 'ship' && s !== 'music') return [];
-    const list = [...this.el.querySelectorAll(`.m-screen[data-s="${s}"] .m-item`)];
+    const list = [...this.el.querySelectorAll(`.m-screen[data-s="${s}"] .m-item`)].filter((el) => !el.hidden);
     // a finished race not yet saved: Save time first in the row, so Enter / A saves (or goes to the name)
     const save = s === 'results' && this.el.querySelector('#results .sb-save:not(:disabled)');
     return save ? [save, ...list] : list;
@@ -490,6 +526,8 @@ export class Menu {
     const free = this.h.mode() === 'free', km = this.h.track ? `${(this.h.track.length / 1000).toFixed(1)} km ` : '';
     return {
       race: `${LAPS} laps against ${TEAMS.length - 1} rivals on the ${km}circuit`,
+      multi: this.h.mp?.active ? 'Your room: its players, their ping to the host' : 'Race other players online: open a room, or join one - in testing',
+      mpleave: this.h.mp?.host ? 'Close the room for everyone and go back to the title' : 'Leave the race and the room, back to the title',
       settings: 'Picture, effects, audio and performance',
       controls: 'Keyboard, mouse and gamepad',
       support: 'Donate to keep Need4Space flying - early supporters ($5 or more) get a free Steam key',
@@ -500,23 +538,30 @@ export class Menu {
       ...Object.fromEntries(SONGS.map((s, i) => ['song:' + i, s.line])),
       ...Object.fromEntries(CIRCUITS.map(([id, , d]) => ['map:' + id, d])),
       ...Object.fromEntries(SHIPS.map(([id, , d]) => ['ship:' + id, PILOTING[id] === 'expert' ? `${d}. The hardest ship to fly` : d])),
-      resume: free ? 'Back to free flight' : 'Back to the race',
+      resume: free ? 'Back to free flight' : this.h.mp?.live ? 'Back to the race (it never stopped)' : 'Back to the race',
       restart: free ? 'Back over the start line' : 'Back to the grid and the lights',
       difficulty: 'The rivals’ pace and racecraft, changed at once',
       quit: 'Leave for the title screen',
-    }[a] || '';
+    }[a] || (a.startsWith('mp:') && this.rooms?.describe(a)) || '';
   }
 
   renderPause() {
     const st = this.h.status(), sec = this.el.querySelector('.m-screen[data-s="pause"]'), r = st.race;
-    sec.querySelector('.p-kicker').textContent = r ? 'Race' : 'Free flight';
+    sec.querySelector('.p-kicker').textContent = r ? (this.h.mp?.live ? 'Online race' : 'Race') : 'Free flight';
+    sec.querySelector('.m-h2').textContent = this.h.mp?.live ? 'Still racing' : 'Paused';     // (online the race goes on)
     let chips = '';
     if (r) {
       chips = `<span>Lap <b>${r.lap}/${r.laps}</b></span><span>Pos <b>${r.pos}/${r.total}</b></span>` +
         (Number.isFinite(r.time) ? `<span>Time <b>${fmt(r.time)}</b></span>` : `<span>${r.state === 'countdown' ? 'Lights' : 'On the grid'}</span>`);
     }
-    if (this.h.race) chips += `<span class="lv">${LEVELS[IDS.indexOf(this.h.settings.v.ai)]?.name || ''}</span>`;
+    const online = !!this.h.mp?.live;
+    if (this.h.race) chips += online ? '<span class="lv">Online</span>' : `<span class="lv">${LEVELS[IDS.indexOf(this.h.settings.v.ai)]?.name || ''}</span>`;
     sec.querySelector('.p-status').innerHTML = chips;
+    let k = 0;
+    for (const it of sec.querySelectorAll('.m-item')) {
+      it.hidden = online ? PAUSE_SOLO.has(it.dataset.act) : PAUSE_MP.has(it.dataset.act);
+      if (!it.hidden) it.querySelector('.m-num').textContent = pad2(k++);
+    }
     const rs = sec.querySelector('[data-act="restart"] .m-name');
     if (rs) rs.textContent = r ? 'Restart race' : 'Back to start';
   }
@@ -550,7 +595,7 @@ export class Menu {
     else if (c === 'Escape' || c === 'Backspace') this.back();
     else if (c === 'KeyO') this.toggle('settings');
     else if (c === 'KeyH') this.toggle('controls');
-    else if (this.screen === 'results' && c === 'KeyR') this.act('again');
+    else if (this.screen === 'results' && c === 'KeyR' && !this.h.mp?.live) this.act('again');
     else if (this.screen === 'scoreboard' && c === 'KeyR') this.board.refresh();
     else used = false;
     if (used) e.preventDefault();
@@ -676,7 +721,7 @@ export class Menu {
     }
     if (this.stack.length > 1) { this.stack.pop(); this.show(this.stack[this.stack.length - 1]); return; }
     if (this.ctx === 'pause') this.resume();
-    else if (this.ctx === 'results') this.act('menu');
+    else if (this.ctx === 'results') this.act(this.h.mp?.live ? 'mp:room' : 'menu');
   }
 
   // O and H inside the menus: open that screen, or close it again
@@ -694,7 +739,10 @@ export class Menu {
   act(a) {
     const h = this.h;
     switch (a) {
-      case 'race': ui('select'); this.go('diff', 'start'); break;
+      case 'race': ui('select'); if (h.mp?.active) this.go('multi'); else this.go('diff', 'start'); break;   // (in a room: the room)
+      case 'multi': ui('select'); this.go('multi'); break;
+      case 'mpleave': ui('back'); h.mp?.leave(); break;
+      case 'mp:room': ui('select'); this.restoreRig(); this.toRoom(); break;
       case 'settings': case 'controls': case 'support': case 'circuit': case 'ship': case 'scoreboard': case 'music': ui('select'); this.go(a); break;
       case 'donate': case 'donate:paypal': case 'donate:revolut': ui('select'); donate(a.split(':')[1]); break;
       case 'difficulty': ui('select'); this.go('diff', this.ctx === 'results' ? 'restart' : 'apply'); break;
@@ -702,10 +750,11 @@ export class Menu {
       case 'shipfly': { const it = this.items()[this.sel.ship || 0]; if (it) this.act(it.dataset.act); break; }
       case 'resume': ui('select'); this.resume(); break;
       case 'restart': ui('select'); this.leave(() => h.restart()); break;
-      case 'again': ui('select'); this.fromResults(() => h.restart()); break;
+      case 'again': if (h.mp?.live) break; ui('select'); this.fromResults(() => h.restart()); break;
       case 'quit': case 'menu': ui('back'); this.toTitle(); break;
       case 'back': this.back(); break;
       default:
+        if (a.startsWith('mp:')) { this.rooms?.act(a); break; }
         if (a.startsWith('song:')) {                // a song: playing now (the screen stays: pick another)
           ui('select');
           h.audio?.playSong(+a.slice(5));

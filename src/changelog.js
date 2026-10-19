@@ -2,7 +2,22 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.17.0', date: '20 Oct 2026', name: 'Multiplayer (testing)',
+    notes: [
+      'Multiplayer, in testing: race other players online - create a room, or join one from the list (Multiplayer on the title screen)',
+      'Up to eight pilots a room, players only: the host starts, and the lights go out on every screen together',
+      'Everyone’s ping to the host, in the room and beside the standings in the race (Settings: Online races)',
+      'Slams and blocks between players, on both screens at once',
+      'A room on another circuit: the game loads that circuit and joins by itself',
+      'Fixed: a slam or a block pressed at high frame rates (over 120 fps) was sometimes lost',
+    ],
+  },
+  {
     version: '1.16.0', date: '19 Oct 2026', name: 'Umbra lightning',
+    brief: [
+      'Umbra lightning, a charging beam on its nose, a tougher hull',
+      'Anvil H1: its slam throws a ship further',
+    ],
     notes: [
       'Umbra V1: lightning across the gaps between its blades and hull, and a charging beam between the slits on its nose',
       'Umbra V1: boosting mends its hull faster - 3 % every half second',

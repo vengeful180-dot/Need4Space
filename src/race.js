@@ -445,6 +445,8 @@ export class Race {
     this.entries = [];
     this.events = [];
     const rnd = mulberry32(31), src = { feather: opts.rivals || player, ...(opts.sources || {}) }, pk = opts.kind || 'feather';
+    this.sources = src;                                  // (an online race's other players are cloned from these too)
+    this.mp = null;                                      // an online race (multiplayer.js): its clock, the others' states
     const worn = {};
     let team = 1;
     for (let slot = 0; slot < TEAMS.length; slot++) {
@@ -474,19 +476,35 @@ export class Race {
       e.racer.onEvent = (ev) => this.onRacerEvent(e, ev);
       this.entries.push(e);
     }
-    // each pair's contact box (the hulls' half spans and lengths; a Feather pair: 9.8 x 12.8 m)
+    this.boxes();
+    // the furthest a hull's centre gets from the middle - the widest ship's - the line, and each ship's speeds on it
+    this.lim = track.W / 2 - Math.max(...this.entries.map((e) => e.ship.halfSpan)) * 0.92;
+    this.replan();
+    this.player = this.entries[PLAYER_SLOT];
+    this.setDifficulty(this.level);
+    this.reset();
+  }
+
+  // each pair's contact box (the hulls' half spans and lengths; a Feather pair: 9.8 x 12.8 m)
+  boxes() {
     const E = this.entries, n = E.length;
     this.WID = new Float32Array(n * n); this.LEN = new Float32Array(n * n);
     for (let a = 0; a < n; a++) for (let b = 0; b < n; b++) {
       this.WID[a * n + b] = (E[a].ship.halfSpan + E[b].ship.halfSpan) * 0.951;
       this.LEN[a * n + b] = ((E[a].ship.length || 13.34) + (E[b].ship.length || 13.34)) * 0.48;
     }
-    // the furthest a hull's centre gets from the middle - the widest ship's - the line, and each ship's speeds on it
-    this.lim = track.W / 2 - Math.max(...E.map((e) => e.ship.halfSpan)) * 0.92;
-    this.replan();
-    this.player = this.entries[PLAYER_SLOT];
-    this.setDifficulty(this.level);
-    this.reset();
+    this.touch = null;                                   // (collide's per-pair records, made again at the new size)
+  }
+
+  // the ships in the race: an online race's own - the player and the others online, no rivals - or (null) the grid of
+  // rivals again. A ship left out is put away with its trails (left in the scene, they would hang there)
+  useEntries(list) {
+    const grid = (this.grid ||= this.entries), now = list || grid;
+    for (const e of [...grid, ...this.entries]) if (!now.includes(e)) { e.ship.root.visible = false; e.ship.clearTrails(); }
+    for (const e of now) e.ship.root.visible = true;
+    this.entries = now;
+    now.forEach((e, i) => (e.idx = i));
+    this.boxes();
   }
 
   wid(a, b) { return this.WID[a.idx * this.entries.length + b.idx]; }
@@ -496,6 +514,7 @@ export class Race {
   // of them is its ace (AI_LEVELS ace: the first of that ship on the grid; Feathers only: the front one)
   setDifficulty(level) {
     this.level = AI_LEVELS[level] ? level : 'hard';
+    if (this.mp) return;                                 // (an online race: no rivals, its grid the host's)
     const A = AI_LEVELS[this.level].ace, rivals = this.entries.filter((e) => !e.player);
     const ace = A && (rivals.find((e) => e.kind === A.kind) || rivals[0]);
     for (const e of this.entries) e.ace = e === ace;
@@ -592,8 +611,10 @@ export class Race {
 
   step(dt, inp, playerActive) {
     const racing = this.racing;
-    for (const e of this.entries) { e.racer.locked = !racing; e.racer.armed = racing && !e.finished && this.time >= DAMAGE.safe; }
-    if (this.state === 'grid') {
+    // (another player's ship online is hurt on its own screen: here its hull is what it last said)
+    for (const e of this.entries) { e.racer.locked = !racing; e.racer.armed = racing && !e.finished && !e.remote && this.time >= DAMAGE.safe; }
+    if (this.mp) this.mp.clock(this);                    // an online race: the lights and the race time by the room's clock
+    else if (this.state === 'grid') {
       // the rivals' engines come alive with the player's; the lights start when everyone is ready
       if (this.player.ship.engineOn) {
         for (const e of this.entries) {
@@ -621,6 +642,7 @@ export class Race {
     order?.forEach((e, k) => (e.rank = k + 1));
     for (const e of this.entries) {
       if (e.player) { if (playerActive) e.racer.step(dt, inp); continue; }
+      if (e.remote) { this.mp?.drive(e, dt); continue; }  // another player online: where its own screen says it is
       // a rubber band toward the player, only out of its sight (150 m+ away, full from 700 m): a rival far behind gets
       // a little more thrust, one far ahead (on the easier levels) a little less - never a visible surge near it
       const lead = this.player.progress - e.progress, far = smoothstep(150, 700, Math.abs(lead)), band = AI_LEVELS[this.level].band;
@@ -905,7 +927,7 @@ export class Race {
     for (const e of this.entries) {
       const d = this.gap(e.racer.s, e.lastS);
       e.lastS = e.racer.s;
-      if (!this.racing || e.finished) continue;
+      if (!this.racing || e.finished || e.remote) continue;   // (another player's laps: its own screen's - multiplayer.js)
       e.progress += d;
       const done = Math.min(LAPS, Math.floor(Math.max(0, e.progress) / L));
       while (e.laps.length < done) {

@@ -39,6 +39,7 @@ import { beginLoadJobs, finishLoadJobs, stopLoadJobs } from './load-jobs.js';
 import { Showroom } from './showroom.js';
 import { XRControls } from './xr.js';
 import { Comms } from './pilots.js';
+import { Multiplayer } from './multiplayer.js';
 
 // the map: the circuit chosen in the menu (saved), or ?map=space / forest / ice / desert / ocean / meadow (the meadow: the old test range)
 const MAP = { meadow: 'meadow', forest: 'forest', space: 'space', ice: 'ice', desert: 'desert', ocean: 'ocean', pyramid: 'pyramid' }[new URLSearchParams(location.search).get('map') || savedSettings().map] || 'space';
@@ -656,7 +657,7 @@ async function boot() {
     resize();
     fpsEl.style.display = v.fps ? '' : 'none';
     race?.setDifficulty(v.ai);                       // the rivals' AI difficulty (race.js AI_LEVELS)
-    if (racer) racer.perks = PERKS[v.ai] || PERKS.brutal;  // and the player's help by it
+    if (racer) racer.perks = race?.mp ? PERKS.normal : PERKS[v.ai] || PERKS.brutal;  // and the player's help by it (online: Normal's, for all)
     touch.setPref(v.touch);                           // the on-screen sticks: Auto (a phone or tablet) / On / Off
     comms.on = hud.pilots = v.pilots !== false;       // the rival pilots: their lines in the race, their faces in the results
     hud.slamNote = v.slamNote !== false;              // the slam charged: a notice over the bars
@@ -673,7 +674,7 @@ async function boot() {
   settings.circuit = MAP; settings.draw();             // (its bar marked: the circuit loaded)
 
   const lap = { started: false, time: 0, last: Infinity, best: Infinity, lap: 1, idx: START, progress: 0, s: 0 };
-  let autoChase = false, wasCrashed = false, t = 0;
+  let autoChase = false, wasCrashed = false, t = 0, netT = 0, slamHeld = false;
   // Warm-up behind the loading screen: everything drawn once - hidden things too, every ship at both detail levels,
   // the trails - so every shader is compiled and every buffer and texture is on the GPU before the race. The first lap
   // stuttered: ~20 shaders compiled and the ships' far detail levels uploaded the first time each came into view.
@@ -790,7 +791,8 @@ async function boot() {
   // made in the first lap - its environment map, three ships' maps and 14 shaders mid-race; held between ships too
   // Reflection bakes, texture uploads and showroom shader compilation wait until
   // the headset session ends, even when the race is paused or on the title.
-  const quiet = () => !renderer.xr.isPresenting && (!race || mode !== 'race' || race.state === 'grid' || menu.paused || (menu.open && menu.ctx === 'results'));
+  // (an online race on its grid is under way: its lights come by the room's clock, not when the ships are ready)
+  const quiet = () => !renderer.xr.isPresenting && (!race || mode !== 'race' || (race.state === 'grid' && !race.mp?.live) || menu.paused || (menu.open && menu.ctx === 'results'));
   const prepShowroom = () => {
     if (settings.v.showroom === false || showroom) return;
     if (!quiet()) { setTimeout(prepShowroom, 1000); return; }
@@ -899,7 +901,33 @@ async function boot() {
   settings.songName = audio.songName;
   settings.draw();
   settings.onAction = (k, v) => { if (k === 'song') audio.skip(v === 'prev' ? -1 : 1); };
-  const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, audio, map: MAP, shipId: SHIP, showroom: showcase,
+  // online races (multiplayer.js): the other players' ships made from the loaded ships (a kind this page has not loaded:
+  // fetched, one tier lighter, as the rivals'), the shaders warmed again after (no compile in the race)
+  const kindLoads = {};
+  const loadKind = (k) => (kindLoads[k] ||= loadShip(SHIP_URLS[k][RIVAL_TIER[Q.tier]]).then((s) => {
+    s.kind = k;
+    s.upgradeMaterials(renderer.capabilities.getMaxAnisotropy(), renderer);
+    race.sources[k] = s;
+    return s;
+  }));
+  const mp = race ? new Multiplayer({ race, scene, renderer, world, map: MAP, loadKind,
+    me: () => ({ kind: SHIP, livery: settings.v[LIVERIES[SHIP]?.key] || LIVERIES[SHIP]?.names[0] }),
+    prepare: async () => { await rewarm(); liteFiltering(renderer, [scene, world.sky]); },
+    // (an Umbra online: its boost's ripples carried with it, as the player's)
+    wave: (at, vel, k) => fx.shock(at, vel.clone().multiplyScalar(0.92), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05),
+    // the host's start: the menus away (whatever is showing - the room, a guest still on the last results), onto the grid
+    begin: () => { slow.t = 9; const go = () => (menu.busy ? setTimeout(go, 100) : menu.startOnline()); go(); },
+    // out of the room (left, or the host gone): back to the title - from a race through the dip to black - and the
+    // Multiplayer screen saying why
+    end: (why, wasLive) => {
+      menu.rooms.notice = why; menu.rooms.view = 'browse';
+      if (wasLive || menu.ctx !== 'title') menu.toRoom();
+      else { placeStart(false); menu.prepareShots(); menu.rooms.render(); menu.rooms.refresh(true); }
+    },
+    finished: () => { if (race.shown) hud.updateResults(race.results()); },
+    change: () => menu.rooms?.render() }) : null;
+  window.__feather.mp = mp;
+  const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, audio, mp, map: MAP, shipId: SHIP, showroom: showcase,
     mode: () => mode, engineOn: () => ship.engineOn, focus: () => ship.root.position,
     status: () => ({ race: race && mode === 'race' ? race.hud() : null }),
     startRace: () => { hud.hideResults(); setMode('race'); placeStart(false); resetLap(); heroOrbit(); engines(); },
@@ -925,6 +953,9 @@ async function boot() {
   window.__feather.showroom = () => showroom;
   Object.defineProperty(window.__feather, 'paused', { get: () => menu.paused, enumerable: true });
   menu.showTitle();
+  // the room this page reloaded to join (its circuit): joined now
+  const pendingRoom = mp?.pending();
+  if (pendingRoom) { menu.go('multi'); menu.rooms.joinRoom(pendingRoom); }
   const xr = new XRControls({ renderer, scene, camera, world, input, menu, hud, audio, settings,
     canEnter: () => !warming && !menu.busy,
     onEnd: () => { last = performance.now(); rig.snap(ctl); resize(); if (warmAgain) rewarm(); } });
@@ -967,7 +998,8 @@ async function boot() {
     if (inp.mute) hud.message(audio.toggleMute() ? 'Sound off' : 'Sound on', 1.2);
     if (inp.assist) { ctl.assist = !ctl.assist; hud.message(`Assist ${ctl.assist ? 'on' : 'off'}`, 1.5); }
     if (inp.invert) { input.invert = !input.invert; hud.message(`Pitch ${input.invert ? 'flight-sim (inverted)' : 'arcade'}`, 1.5); }
-    if (inp.reset) {
+    if (inp.reset && race?.mp) hud.message('An online race cannot be restarted', 1.5);
+    else if (inp.reset) {
       if (race) { setMode('race'); hud.hideResults(); }
       placeStart(ship.engineOn);
       Object.assign(lap, { started: false, time: 0, idx: START, progress: 0 });
@@ -990,15 +1022,21 @@ async function boot() {
     const movers = race ? race.entries.map((e) => e.racer) : [];
     if (!movers.includes(ctl)) movers.push(ctl);
     acc += dt;
+    // a slam pressed on a frame with no physics step (past 120 fps: one frame in three at 180) waits for the next step -
+    // it was lost, and a block with it
+    slamHeld = (slamHeld || !!inp.slam) && !menu.open && !menu.busy;
     while (acc >= FIXED) {
+      inp.slam = slamHeld;
+      slamHeld = false;
       for (const m of movers) keep(m);
       if (race && mode === 'race') race.step(FIXED, inp, true);
       else { ctl.step(FIXED, inp); race?.step(FIXED, null, false); }
       acc -= FIXED;
     }
     if (race) {
+      mp?.update();                                      // (online: the player's moves and state to the others)
       for (const e of race.events) {
-        if (mode === 'race') comms.event(e, race);
+        if (mode === 'race' && !race.mp) comms.event(e, race);     // (online: no rival pilots to talk)
         if (e.type === 'padfx') {
           const pad = track.pads[e.i];
           track.padFlash(e.i);
@@ -1071,7 +1109,7 @@ async function boot() {
           // a slam the player is in: slow motion and the slam camera across the two ("i can barely see my ship smashing
           // into the other one ... maybe use a camera trick too, to see what happens")
           const other = e.player ? e.target : e.target?.player ? e.entry : null;
-          if (other && mode === 'race' && slamCamOn) {
+          if (other && mode === 'race' && slamCamOn && !race.mp) {      // (online: no slowing the game's time)
             if (e.player) slow.start(other, true, 0.6, 0.5, 0.18);
             else slow.start(other, false, 0.45, 0.45, 0.3, 0.5, 0.45);     // (slammed: milder - it can still be blocked)
           }
@@ -1099,7 +1137,7 @@ async function boot() {
           }
           audio.bump(e.at, 45);
           if ((A.player || B.player) && mode === 'race') {
-            if (!slow.on && slamCamOn) slow.start(A.player ? B : A, A.player, 0.35, 0.45, 0.25, 0.35, 0.35);
+            if (!slow.on && slamCamOn && !race.mp) slow.start(A.player ? B : A, A.player, 0.35, 0.45, 0.25, 0.35, 0.35);
             else if (slow.on) { slow.post = 0.35; slow.kPost = 0.35; }
             slow.impact();
             audio.crash(e.at);
@@ -1130,11 +1168,13 @@ async function boot() {
         }
       }
       race.events.length = 0;
-      comms.update(dt, mode === 'race' ? race : null);
+      comms.update(dt, mode === 'race' && !race.mp ? race : null);
       if (race.state === 'finished' && !race.shown && race.time - race.finishedAt > 2) {
         race.shown = true;
-        hud.showResults(race.results(), race.score, race.total);
+        hud.showResults(race.results(), race.score, race.total, { online: !!race.mp });
       }
+      // online: the pilots in race order with their pings (Settings), four times a second
+      if ((netT -= dt) <= 0) { netT = 0.25; hud.netList(mp?.live && settings.v.netPing !== false ? mp.table() : null); }
     }
     for (const e of ctl.events) {
       if (e.type === 'crash') {
