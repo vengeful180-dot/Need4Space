@@ -22,7 +22,13 @@ export class Rooms {
     this.el.innerHTML = `<header><div class="m-kicker">Race other pilots online &middot; in testing</div><h2 class="m-h2">Multiplayer</h2></header>
       <div class="mp-body"></div><div class="m-desc"></div>`;
     this.body = this.el.querySelector('.mp-body');
-    this.body.addEventListener('input', (e) => { if (e.target.matches('.mp-name')) this.mp.name = e.target.value; });
+    this.body.addEventListener('input', (e) => {
+      if (!e.target.matches('.mp-name')) return;
+      this.mp.name = e.target.value;
+      if (this.needName && this.mp.myName) { this.needName = false; e.target.closest('.mp-namebox')?.classList.remove('need'); }
+    });
+    // (Enter in the name: done typing - back to the list's keys)
+    this.body.addEventListener('keydown', (e) => { if (e.target.matches('.mp-name') && (e.key === 'Enter' || e.key === 'NumpadEnter')) { e.preventDefault(); e.target.blur(); } });
     this.body.addEventListener('change', (e) => { if (e.target.matches('.mp-name')) { e.target.value = this.mp.name; } });
     this.render();
   }
@@ -61,34 +67,37 @@ export class Rooms {
     if (!mp.active && this.view === 'room') this.view = 'browse';
     let html = '';
     if (this.view === 'browse') {
+      // the name first (asked for before a room is made or joined), the two actions side by side, the open rooms in a
+      // panel of their own: each its name, circuit and how full
       const rooms = this.list.map((r, i) => {
         const full = r.players >= r.max, racing = r.state === 'racing';
-        const meta = `${esc(this.circuit(r.map))} &middot; ${r.players}/${r.max}${racing ? ' &middot; racing' : full ? ' &middot; full' : ''}`;
-        return `<button class="m-item mp-room${racing || full ? ' off' : ''}" data-act="mp:join:${esc(r.id)}" tabindex="-1"><span class="m-num">${pad2(i + 1)}</span>` +
-          `<span class="m-name">${esc(r.name)}</span><span class="m-meta">${meta}</span></button>`;
+        return `<button class="m-item mp-room${racing || full ? ' off' : ''}" data-act="mp:join:${esc(r.id)}" tabindex="-1"><span class="m-num">${pad2(i)}</span>` +
+          `<span class="m-name">${esc(r.name)}</span><span class="mp-where">${esc(this.circuit(r.map))}</span>` +
+          `<span class="mp-count${racing || full ? ' off' : ''}">${racing ? 'Racing' : full ? 'Full' : `${r.players}/${r.max}`}</span></button>`;
       }).join('');
-      html = `<label class="mp-namebox">Racing name <input class="mp-name" type="text" maxlength="24" autocomplete="nickname" placeholder="Pilot" value="${esc(mp.myName)}"></label>
-        <nav class="m-list mp-list">
-          <button class="m-item" data-act="mp:create" tabindex="-1"><span class="m-num">+</span><span class="m-name">Create a room</span><span class="m-meta">${esc(this.circuit(mp.h.map))}</span></button>
-          <button class="m-item" data-act="mp:refresh" tabindex="-1"><span class="m-num">&#8635;</span><span class="m-name">Refresh</span></button>
-          ${rooms}
+      html = `<label class="mp-namebox${this.needName ? ' need' : ''}"><span>Your racing name</span><input class="mp-name" type="text" maxlength="24" autocomplete="nickname" enterkeyhint="done" placeholder="Type your name" value="${esc(mp.myName)}"></label>
+        <nav class="mp-acts">
+          <button class="m-item mp-btn mp-go" data-act="mp:create" tabindex="-1"><span class="m-name">Create a room</span><span class="m-meta">${esc(this.circuit(mp.h.map))}</span></button>
+          <button class="m-item mp-btn" data-act="mp:refresh" tabindex="-1"><span class="m-name">Refresh</span></button>
         </nav>
+        <div class="mp-panel"><div class="mp-panel-h"><span>Open rooms</span><b>${this.list.length}</b></div>
+          <nav class="mp-list">${rooms || `<div class="mp-empty">${this.loading && !this.list.length ? 'Looking for rooms...' : 'No rooms open yet. Create one, then tell your friends to join it.'}</div>`}</nav></div>
         ${this.notice ? `<div class="mp-status bad">${esc(this.notice)}</div>` : ''}<div class="mp-status${this.offline ? ' bad' : ''}">${esc(this.status)}</div>`;
     } else if (this.view === 'busy') {
       html = `<div class="mp-busy"><div class="mp-spin"></div><b>${esc(this.busyTitle || 'Joining')}</b><span>${esc(this.status)}</span></div>
-        <nav class="m-list mp-list"><button class="m-item" data-act="mp:cancel" tabindex="-1"><span class="m-num">&times;</span><span class="m-name">Back</span></button></nav>`;
+        <nav class="mp-acts"><button class="m-item mp-btn" data-act="mp:cancel" tabindex="-1"><span class="m-name">Back</span></button></nav>`;
     } else {
       const room = mp.room || {}, rows = mp.table(), n = rows.length;
       const tr = rows.map((p) => `<tr class="${p.me ? 'me' : ''}"><td><span class="sw" style="background:${COLOURS[p.id % COLOURS.length]}"></span>${esc(p.name)}${p.me ? '<small>You</small>' : ''}</td>` +
         `<td>${esc(shipName(p.kind))}</td><td class="mp-ping ${p.host ? 'host' : band(p.ping)}">${p.host ? 'Host' : pingText(p.ping)}</td>` +
         `<td class="mp-ready ${p.ready ? 'on' : ''}">${p.ready ? 'Ready' : 'Getting ready'}</td></tr>`).join('');
-      const start = mp.host ? `<button class="m-item${mp.canStart() ? '' : ' off'}" data-act="mp:start" tabindex="-1"><span class="m-num">&#9654;</span><span class="m-name">Start race</span>` +
-        `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Waiting for every ship'}</span></button>` : '';
+      const start = mp.host ? `<button class="m-item mp-btn mp-go${mp.canStart() ? '' : ' off'}" data-act="mp:start" tabindex="-1"><span class="m-name">Start race</span>` +
+        `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Getting ships ready'}</span></button>` : '';
       html = `<div class="mp-head"><b>${esc(room.name || 'Room')}</b><span>${esc(this.circuit(room.map || mp.h.map))} &middot; ${n}/${room.max || 8} &middot; ${mp.host ? 'you host' : 'host: ' + esc(rows.find((p) => p.host)?.name || '-')}</span></div>
-        <table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th></tr></thead><tbody>${tr}</tbody></table>
-        <nav class="m-list mp-list">${start}
-          <button class="m-item" data-act="mp:leave" tabindex="-1"><span class="m-num">&larr;</span><span class="m-name">Leave room</span></button></nav>
-        <div class="mp-status">${esc(mp.message || '')}</div>`;
+        <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
+        <nav class="mp-acts">${start}
+          <button class="m-item mp-btn" data-act="mp:leave" tabindex="-1"><span class="m-name">Leave room</span></button></nav>
+        <div class="mp-status">${esc(mp.message || (mp.host ? 'Your room is open: friends find it in their Multiplayer list' : ''))}</div>`;
     }
     if (html !== this.html) {
       this.html = html;
@@ -117,6 +126,19 @@ export class Rooms {
     return '';
   }
 
+  // a racing name before a room is made or joined: without one, the field lit and focused (on a phone its keyboard opens)
+  named() {
+    if (this.mp.myName) return true;
+    this.needName = true;
+    this.status = 'Type your racing name first';
+    this.offline = true;
+    this.render();
+    const i = this.body.querySelector('.mp-name');
+    i?.focus();
+    i?.scrollIntoView({ block: 'center' });
+    return false;
+  }
+
   async act(a) {
     const mp = this.mp, ui = (n) => window.__feather?.audio?.ui?.(n);
     if (a === 'mp:refresh') { ui('move'); this.refresh(); return; }
@@ -125,6 +147,7 @@ export class Rooms {
     if (a === 'mp:start') { if (mp.start()) ui('select'); else ui('back'); return; }
     if (a === 'mp:create') {
       if (this.view !== 'browse') return;
+      if (!this.named()) { ui('back'); return; }
       ui('select');
       this.notice = '';
       this.view = 'busy'; this.busyTitle = 'Opening a room'; this.status = 'Asking the lobby'; this.render();
@@ -136,7 +159,7 @@ export class Rooms {
     if (a.startsWith('mp:join:')) {
       const r = this.list.find((x) => x.id === a.slice(8));
       if (!r || this.view !== 'browse') return;
-      if (r.state === 'racing' || r.players >= r.max) { ui('back'); return; }
+      if (r.state === 'racing' || r.players >= r.max || !this.named()) { ui('back'); return; }
       ui('select');
       await this.joinRoom(r);
     }

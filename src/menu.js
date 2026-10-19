@@ -79,7 +79,18 @@ const stats = (L) => [
 ];
 
 // ("remove the free flight option": the race on the track is the game)
-const MAIN = [['race', 'Race'], ['multi', 'Multiplayer'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['music', 'Music'], ['settings', 'Settings'], ['controls', 'Controls'], ['support', 'Support']];
+// ("the menu got way too big ... music could have its own space, in a corner"): the music, the controls and support
+// are in the title's corner dock (dock() below), the list keeps the six that start something
+const MAIN = [['race', 'Race'], ['multi', 'Multiplayer'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['settings', 'Settings']];
+// the music's volume steps (settings.js 'music') and the dock's icons
+const VOL = ['off', 'low', 'mid', 'high'];
+const ICON = {
+  prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h2.4v14H6zM19 5.5v13L9.5 12z"/></svg>',
+  next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.6 5H18v14h-2.4zM5 5.5v13l9.5-6.5z"/></svg>',
+  spk: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9h4l5-4v14l-5-4h-4z"/><path class="md-w" d="M15.5 8.6a4.8 4.8 0 0 1 0 6.8M18 6.2a8.2 8.2 0 0 1 0 11.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="md-x" d="M16 9.5l5 5m0-5l-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  pad: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7h9a5 5 0 0 1 4.9 6l-.8 3.6a2.4 2.4 0 0 1-4 1.2L14.4 16H9.6l-2.2 1.8a2.4 2.4 0 0 1-4-1.2L2.6 13A5 5 0 0 1 7.5 7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 10v4M5 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1"/><circle cx="18" cy="13" r="1.1"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>',
+};
 // the circuits (main.js loads the one chosen: the page reloads into it)
 export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed gas giant: a colossal broken derelict to thread, upside down through its hold, a meteorite to fly through, a glass tunnel, a loop'],
   ['forest', 'Forest moon', 'High over a jungle moon: floating islands, a river arching over the track, a colossal tree, two kilometres of caverns, a giant\'s skull, home upside down'],
@@ -105,7 +116,7 @@ const K = (keys, what, act) => {
 };
 const UD = ['up', 'down'], LR = ['left', 'right'];
 const HINTS = {
-  main: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Confirm', 'ok'),
+  main: K(['↑', '↓'], 'Select', UD) + K(['←', '→'], 'Song', LR) + K(['Enter'], 'Confirm', 'ok'),
   pause: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Resume', 'back'),
   diff: K(['←', '→'], 'Choose', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
   settings: K(['↑', '↓'], 'Option', UD) + K(['←', '→'], 'Change', LR) + K(['Esc'], 'Back', 'back'),
@@ -145,7 +156,8 @@ export class Menu {
     this.board = new Scoreboard(this);
     this.rooms = h.mp ? new Rooms(this, h.mp, CIRCUITS) : null;       // the Multiplayer screen (rooms.js)
     this.setLevel(h.settings.v.ai, false);
-    h.settings.onSet = (k, v) => { if (k === 'ai') { this.levelSet(v); this.board.difficultyChanged(v); } };
+    h.settings.onSet = (k, v) => { if (k === 'ai') { this.levelSet(v); this.board.difficultyChanged(v); } if (k === 'music') this.markVol(); };
+    this.markVol();
     h.hud.onResults = () => this.showResults();
     h.hud.onHideResults = () => { if (this.ctx === 'results' && !this.busy) this.resume(); };
     addEventListener('keydown', (e) => this.key(e), true);       // capture: before input.js sees the key
@@ -231,6 +243,7 @@ export class Menu {
         <nav class="m-list">${main.map(item).join('')}</nav>
         <div class="m-desc"></div>
         ${news}
+        ${this.dock()}
       </section>
       <section class="m-screen" data-s="diff">
         <div class="d-word" aria-hidden="true"></div>
@@ -301,6 +314,34 @@ export class Menu {
     this.el.querySelector('.m-slot-results').append(document.getElementById('results'));
     this.slots = [...this.el.querySelectorAll('.d-slot')];
     this.fadeEl = this.el.querySelector('.m-fade');
+  }
+
+  // The title's corner dock: the song playing (the Music screen's list behind it), previous / next, the music's volume
+  // and a switch for it; Controls and Support beside
+  dock() {
+    const a = this.h.audio;
+    return `<aside class="m-dock" aria-label="Music">
+      <div class="md-music">
+        <button class="md-now" data-act="music" tabindex="-1" title="All the songs"><span class="m-play md-eq"><i></i><i></i><i></i></span>` +
+          `<span class="md-t"><small>Now playing</small><b class="m-song">${a?.songName || ''}</b></span></button>
+        <button class="md-b" data-act="mus:prev" tabindex="-1" aria-label="Previous song">${ICON.prev}</button>
+        <button class="md-b" data-act="mus:next" tabindex="-1" aria-label="Next song">${ICON.next}</button>
+        <div class="md-vol"><button class="md-b md-spk" data-act="mus:mute" tabindex="-1" aria-label="Music on or off">${ICON.spk}</button>` +
+          `${VOL.slice(1).map((l, k) => `<button class="md-pip" data-act="mus:vol:${l}" tabindex="-1" aria-label="Music volume ${k + 1} of 3" style="--h: ${(0.4 + 0.3 * k).toFixed(2)}"></button>`).join('')}</div>
+      </div>
+      <div class="md-links">
+        <button class="md-link" data-act="controls" tabindex="-1">${ICON.pad}<span>Controls</span></button>
+        <button class="md-link md-heart" data-act="support" tabindex="-1">${ICON.heart}<span>Support</span></button>
+      </div>
+    </aside>`;
+  }
+
+  // the dock's volume: its steps lit to the music's level, the switch crossed when it is off
+  markVol() {
+    const d = this.el.querySelector('.m-dock'), k = Math.max(0, VOL.indexOf(this.h.settings.v.music || 'high'));
+    if (!d) return;
+    d.classList.toggle('mute', k === 0);
+    d.querySelectorAll('.md-pip').forEach((p, i) => p.classList.toggle('on', i < k));
   }
 
   // ---------------------------------------------------------------- screens
@@ -677,6 +718,7 @@ export class Menu {
     }
     if (s === 'ship' && !vert) { this.paint(d); return; }
     if (s === 'support') { this.payI = (this.payI || 0) ^ 1; this.markPay(); ui('move'); return; }
+    if (s === 'main' && !vert) { this.act(d < 0 ? 'mus:prev' : 'mus:next'); return; }
     if (s === 'controls' || (!vert && s !== 'results')) return;
     const n = this.items().length;
     if (!n) return;
@@ -753,7 +795,15 @@ export class Menu {
       case 'again': if (h.mp?.live) break; ui('select'); this.fromResults(() => h.restart()); break;
       case 'quit': case 'menu': ui('back'); this.toTitle(); break;
       case 'back': this.back(); break;
+      case 'mus:prev': case 'mus:next': ui('move'); h.audio?.skip(a === 'mus:prev' ? -1 : 1); break;
+      case 'mus:mute': {
+        const v = h.settings.v.music || 'high';
+        ui('move');
+        if (v === 'off') h.settings.set('music', this.volWas || 'mid'); else { this.volWas = v; h.settings.set('music', 'off'); }
+        break;
+      }
       default:
+        if (a.startsWith('mus:vol:')) { ui('move'); h.settings.set('music', a.slice(8)); break; }
         if (a.startsWith('mp:')) { this.rooms?.act(a); break; }
         if (a.startsWith('song:')) {                // a song: playing now (the screen stays: pick another)
           ui('select');

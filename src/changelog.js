@@ -10,6 +10,8 @@ export const UPDATES = [
       'Slams and blocks between players, on both screens at once',
       'A room on another circuit: the game loads that circuit and joins by itself',
       'Fixed: a slam or a block pressed at high frame rates (over 120 fps) was sometimes lost',
+      'A shorter title menu: the music in its own corner - the song playing, skip, volume - with Controls and Support beside it',
+      'Multiplayer screen: your racing name first, the open rooms in a panel of their own',
     ],
   },
   {
