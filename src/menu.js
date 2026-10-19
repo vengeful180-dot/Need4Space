@@ -209,7 +209,7 @@ export class Menu {
         <header><div class="m-kicker">Keep it flying</div><h2 class="m-h2">Support</h2></header>
         <div class="s-body">
           <p class="s-text">Need4Space is free to play. If you enjoy it, a donation helps keep new tracks, ships and music coming.</p>
-          <div class="s-perk"><b>Early supporters</b><span>Donate $5 or more now, in the early days, and you get a free Steam key and your name on the Supporters wall of fame.</span></div>
+          <div class="s-perk"><b>Early supporters</b><span>Donate $5 or more now, in the early days, and you get a free Steam key and your name on the Supporters wall of fame. In the payment note, write the name you want on the wall and an email to send your key to.</span></div>
           <div class="s-pay">
             <button class="m-cta s-go sel" data-act="donate:paypal" tabindex="-1"><span>Donate with PayPal</span></button>
             <button class="m-cta s-go" data-act="donate:revolut" tabindex="-1"><span>Donate on Revolut</span></button>
@@ -292,6 +292,7 @@ export class Menu {
         t.innerHTML = `<svg class="t-heart" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg><div class="t-text"><b>Enjoying Need4Space?</b>`
           + `<span>It is free to play. A small donation keeps new tracks, ships and music coming.</span>`
           + `<span class="t-perk">Donate <em>$5 or more</em> now, in the early days, and get a <em>free Steam key</em> and a place on the <em>Supporters wall of fame</em>.</span>`
+          + `<span class="t-note">In the payment note, write the name you want on the wall and an email for your key.</span>`
           + `<div class="t-btns"><button class="t-go" type="button" data-w="paypal">PayPal</button>`
           + `<button class="t-go t-alt" type="button" data-w="revolut">Revolut</button></div></div>`
           + '<button class="t-x" type="button" aria-label="Close">&times;</button>';

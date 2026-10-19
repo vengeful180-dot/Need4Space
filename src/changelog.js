@@ -11,7 +11,7 @@ export const UPDATES = [
       'Both can be switched off in Settings: Rival pilots, Slam ready notice',
       'Damaged ships pour smoke out of their breaches, lit by the sun, sooty where it leaves the hull; burning ones throw embers',
       'Support: donate with PayPal or Revolut, and a list of the supporters - thank you, Mangooo!',
-      'Early supporters: donate $5 or more now and get a free Steam key and a place on the Supporters wall of fame',
+      'Early supporters: donate $5 or more now and get a free Steam key and a place on the Supporters wall of fame - write the name you want on it and an email for your key in the payment note',
     ],
   },
   {

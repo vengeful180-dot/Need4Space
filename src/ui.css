@@ -755,6 +755,7 @@ body.touch .m-screen[data-s="ship"] .m-item:not(.sel) .s-chips { display: none; 
 .m-toast .t-text b { font-weight: 700; font-size: 1.12rem; color: #fff; letter-spacing: 0.04em; }
 .m-toast em { font-style: normal; color: var(--accent); }
 .m-toast .t-text .t-perk { margin-top: 0.35rem; color: #fff; }
+.m-toast .t-text .t-note { margin-top: 0.2rem; font-size: 0.88rem; color: #aebccb; }
 .m-toast .t-go { all: unset; cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.3rem; background: var(--accent); color: #061018;
   font: 700 0.85rem var(--ui); letter-spacing: 0.12em; text-transform: uppercase; }
 .m-toast .t-go:hover { filter: brightness(1.12); }
