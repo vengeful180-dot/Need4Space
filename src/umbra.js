@@ -494,6 +494,7 @@ export class Umbra {
     this.formK = 0;
     this.dil = 0;                                 // how far time is slowed round the engine (the boost) 0..1
     this.tl = 0;                                  // the engine's own clock, running slow with it
+    this.ta = 0;                                  // the aura's: slowed less (at a fifth its wisps read as stopped)
     this.flash = 0;
     this.burst = 1;
     this.lit = false;
@@ -515,6 +516,7 @@ export class Umbra {
     this.dil += (dT - this.dil) * (1 - Math.exp(-dt / (dT > this.dil ? 0.35 : 0.8)));
     const gamma = 1 - 0.8 * this.dil, dtl = dt * gamma;
     this.tl += dtl;
+    this.ta += dt * (1 - 0.45 * this.dil);         // (the wisps and embers: at most about half speed)
     const U = this.bhMat.uniforms, B = this.B;
     // the start: the hole forms - from a point to its full size as the reactor comes up - and at ignition the disk
     // lights in a flash, a ring of dark matter thrown out round the mouth and a ripple of bent space (onWave)
@@ -585,7 +587,7 @@ export class Umbra {
     }
     for (const m of [this.auraMat, this.emberMat]) {
       const A = m.uniforms;
-      A.time.value = this.tl;
+      A.time.value = this.ta;
       A.k.value = aura ? 0.35 + 0.65 * power + 0.4 * boost : 0;
       A.aft.value = 0.4 + Math.min(speed, 120) * 0.035 + 1.5 * boost;
     }
