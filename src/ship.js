@@ -65,16 +65,17 @@ function plumeMaterial(colour, core, inner) {
       colour: { value: colour }, core: { value: core }, inner: { value: inner ? 1 : 0 },
       tailC: { value: colour.clone().multiplyScalar(0.55).lerp(new THREE.Color(0.35, 0.2, 1.0), 0.25) } },
     vertexShader: /* glsl */`
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vAx;
       void main() {
         vUv = uv;
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+        vAx = normalize(normalMatrix * vec3(0.0, 0.0, 1.0));      // (the jet's axis, seen from the camera)
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */`
       uniform float time, power, boost, len, inner, darkFace; uniform vec3 colour, core, tailC;
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vAx;
       float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
       float vnoise(vec2 p) {
         vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
@@ -94,9 +95,11 @@ function plumeMaterial(colour, core, inner) {
         float knots = pow(0.5 + 0.5 * cos(t * len * 5.5 - time * 3.0), 6.0) * smoothstep(0.75, 0.0, t);
         float a = pow(face, 1.6) * pow(u, 1.25) * smoothstep(0.0, 0.05, t + 0.01) * turb;
         a *= 1.0 + knots * (0.35 + 1.2 * boost) * inner;
-        // (dark faces: the jet shows from about a radius behind the nozzle, clear of the face, and its hot inner cone
-        // - seen from behind it lies over the face - burns lower)
-        a *= mix(1.0, smoothstep(0.2, 1.4, t * len), darkFace) * (1.0 - 0.65 * inner * darkFace);
+        // (dark faces: seen from behind - down the jet, over the face - it shows from about a radius behind the nozzle,
+        // clear of the face, and its hot inner cone burns lower; seen from the side the jet leaves the nozzle itself: the
+        // gap there read as a flame floating off the engine)
+        float down = darkFace * smoothstep(0.45, 0.85, abs(dot(normalize(vAx), normalize(vV))));
+        a *= mix(1.0, smoothstep(0.2, 1.4, t * len), down) * (1.0 - 0.65 * inner * darkFace);
         // white-hot at the nozzle, through cyan to deep blue, violet in the thin tail
         vec3 tail = tailC;
         vec3 c = mix(colour, tail, smoothstep(0.35, 1.0, t));
