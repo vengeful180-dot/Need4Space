@@ -90,11 +90,13 @@ export class Rooms {
       const room = mp.room || {}, rows = mp.table(), n = rows.length;
       const tr = rows.map((p) => `<tr class="${p.me ? 'me' : ''}"><td><span class="sw" style="background:${COLOURS[p.id % COLOURS.length]}"></span>${esc(p.name)}${p.me ? '<small>You</small>' : ''}</td>` +
         `<td>${esc(shipName(p.kind))}</td><td class="mp-ping ${p.host ? 'host' : band(p.ping)}">${p.host ? 'Host' : pingText(p.ping)}</td>` +
-        `<td class="mp-ready ${p.ready ? 'on' : ''}">${p.ready ? 'Ready' : 'Getting ready'}</td></tr>`).join('');
+        `<td class="mp-ready ${p.ready ? 'on' : ''}">${p.ready ? 'Ready' : 'Getting ready'}</td>` +
+        // (the host: Kick on each other player - pressed once it asks, again within 3 s it removes them)
+        `<td class="mp-kick">${mp.host && !p.host ? `<button class="mp-x${this.armKick === p.id ? ' armed' : ''}" data-act="mp:kick:${p.id}" tabindex="-1" title="Remove from the room">${this.armKick === p.id ? 'Sure?' : 'Kick'}</button>` : ''}</td></tr>`).join('');
       const start = mp.host ? `<button class="m-item mp-btn mp-go${mp.canStart() ? '' : ' off'}" data-act="mp:start" tabindex="-1"><span class="m-name">Start race</span>` +
         `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Getting ships ready'}</span></button>` : '';
       html = `<div class="mp-head"><b>${esc(room.name || 'Room')}</b><span>${esc(this.circuit(room.map || mp.h.map))} &middot; ${n}/${room.max || 8} &middot; ${mp.host ? 'you host' : 'host: ' + esc(rows.find((p) => p.host)?.name || '-')}</span></div>
-        <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
+        <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
         <nav class="mp-acts">${start}
           <button class="m-item mp-btn" data-act="mp:leave" tabindex="-1"><span class="m-name">Leave room</span></button></nav>
         <div class="mp-status">${esc(mp.message || (mp.host ? 'Your room is open: friends find it in their Multiplayer list' : ''))}</div>`;
@@ -145,6 +147,14 @@ export class Rooms {
     if (a === 'mp:cancel') { ui('back'); this.view = 'browse'; this.status = ''; this.render(); this.refresh(true); return; }
     if (a === 'mp:leave') { ui('back'); mp.leave(); this.view = 'browse'; this.render(); this.refresh(true); return; }
     if (a === 'mp:start') { if (mp.start()) ui('select'); else ui('back'); return; }
+    if (a.startsWith('mp:kick:')) {
+      const id = +a.slice(8);
+      clearTimeout(this.armT);
+      if (this.armKick === id) { this.armKick = null; if (mp.kick(id)) ui('back'); }
+      else { this.armKick = id; ui('move'); this.armT = setTimeout(() => { this.armKick = null; this.render(); }, 3000); }
+      this.render();
+      return;
+    }
     if (a === 'mp:create') {
       if (this.view !== 'browse') return;
       if (!this.named()) { ui('back'); return; }

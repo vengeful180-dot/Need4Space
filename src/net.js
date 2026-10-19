@@ -193,6 +193,8 @@ export class NetHost {
       if (link.id) return;
       if (m.v !== NET_VERSION) { link.send({ t: 'bye', why: 'This room runs another version of the game. Reload the page.' }); setTimeout(() => link.close(), 500); return; }
       if (this.state !== 'open' || this.peers.size >= (this.info.max || 8) - 1) { link.send({ t: 'bye', why: this.state !== 'open' ? 'That room is racing - try again after the race.' : 'That room is full.' }); setTimeout(() => link.close(), 500); return; }
+      const no = this.on.allow?.(m);                  // (a player the host removed: not back in)
+      if (no) { link.send({ t: 'bye', why: no }); setTimeout(() => link.close(), 500); return; }
       let id = 1;
       while (this.peers.has(id)) id++;
       link.id = id;

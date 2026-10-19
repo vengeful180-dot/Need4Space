@@ -19,6 +19,7 @@ const N = 26;                         // floats in a state
 const HZ = 30;                        // states sent a second
 const JOIN = 'n4s-mp-join';           // (sessionStorage: the room to join once the page has reloaded into its circuit)
 const PILOT = 'need4space.pilot.v1';  // (the racing name: shared with the scoreboard)
+const CID = 'n4s-mp-cid';             // (this browser's own random id: a player the host removed stays out of that room)
 export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ').slice(0, 24);
 
 // where a ship is at the room's time `now`, by its state S: carried on along the track and across it at its speeds
@@ -54,6 +55,10 @@ export class Multiplayer {
     let stored = null;
     try { stored = JSON.parse(localStorage.getItem(PILOT)); } catch { /* storage blocked */ }
     this.myName = cleanName(stored?.name);
+    try { this.cid = localStorage.getItem(CID) || (localStorage.setItem(CID, crypto.randomUUID()), localStorage.getItem(CID)); } catch { /* storage blocked */ }
+    this.cid ||= crypto.randomUUID();
+    this.cids = new Map();            // (the host: each player's browser id - never sent on to the others)
+    this.banned = new Set();
   }
 
   get active() { return this.state !== 'off'; }
@@ -78,6 +83,7 @@ export class Multiplayer {
     const me = this.h.me();
     this.net = new NetHost(this.lobby, {
       join: (id, hello) => this.joined(id, hello),
+      allow: (hello) => (this.banned.has(String(hello.cid)) ? 'The host removed you from this room.' : null),
       leave: (id) => this.left(id),
       msg: (id, m) => this.hostMsg(id, m),
       state: (id, buf) => this.recvState(buf, id),
@@ -89,6 +95,8 @@ export class Multiplayer {
     } catch (e) { this.net = null; throw e; }
     this.myId = 0;
     this.players.clear();
+    this.cids.clear();
+    this.banned = new Set();
     this.players.set(0, { id: 0, name: this.name, kind: me.kind, livery: me.livery, ready: true, ping: 0, host: true });
     this.state = 'room';
     this.message = 'Waiting for players';
@@ -110,7 +118,7 @@ export class Multiplayer {
       lost: (why) => this.leave(why),
     });
     try {
-      const w = await this.net.join(room, { name: this.name, kind: me.kind, livery: me.livery }, status);
+      const w = await this.net.join(room, { name: this.name, kind: me.kind, livery: me.livery, cid: this.cid }, status);
       this.myId = w.id;
       this.room = { ...room, ...(w.room || {}) };
       this.state = 'room';
@@ -155,6 +163,7 @@ export class Multiplayer {
     const kind = HANDLING[hello.kind] ? hello.kind : 'feather', L = LIVERIES[kind];
     const livery = L && L.names.includes(hello.livery) ? hello.livery : L?.names[0];
     this.players.set(id, { id, name: cleanName(hello.name) || `Pilot ${id + 1}`, kind, livery, ready: false, ping: null, host: false });
+    this.cids.set(id, String(hello.cid || ''));
     this.note(`${this.players.get(id).name} joined`);
     this.net.send(id, { t: 'welcome', id, room: this.room, players: this.list() });
     this.sharePlayers();
@@ -164,13 +173,28 @@ export class Multiplayer {
   left(id) {
     const p = this.players.get(id);
     this.players.delete(id);
+    this.cids.delete(id);
     this.drop(id);
-    if (p) this.note(`${p.name} left`);
+    if (p) this.note(p.kicked ? `${p.name} was removed from the room` : `${p.name} left`);
     this.sharePlayers();
     this.check();
   }
 
-  list() { return [...this.players.values()].map((p) => ({ ...p })); }
+  list() { return [...this.players.values()].map(({ kicked, ...p }) => p); }
+
+  // the host removes a player: told why, the connection closed, and that browser kept out of the room while it lasts
+  kick(id) {
+    const p = this.players.get(id);
+    if (!this.host || !p || p.host || p.kicked) return false;
+    p.kicked = true;
+    const cid = this.cids.get(id);
+    if (cid) this.banned.add(cid);
+    this.net.send(id, { t: 'bye', why: 'The host removed you from the room.' });
+    setTimeout(() => this.net?.kick(id), 300);         // (the message out first)
+    this.note(`${p.name} was removed from the room`);
+    this.change();
+    return true;
+  }
 
   // the players and their pings, to everyone (every 2 s, and on any change)
   sharePlayers() {

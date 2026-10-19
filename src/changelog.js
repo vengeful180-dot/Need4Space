@@ -12,6 +12,7 @@ export const UPDATES = [
       'Fixed: a slam or a block pressed at high frame rates (over 120 fps) was sometimes lost',
       'A shorter title menu: the music in its own corner - the song playing, skip, volume - with Controls and Support beside it',
       'Multiplayer screen: your racing name first, the open rooms in a panel of their own',
+      'Multiplayer: the host can kick a player from the room (they cannot come back into it)',
     ],
   },
   {

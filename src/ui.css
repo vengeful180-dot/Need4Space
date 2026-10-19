@@ -1196,3 +1196,9 @@ body.lite .md-music { backdrop-filter: none; background: linear-gradient(115deg,
   .md-b { width: 1.9rem; height: 1.9rem; }
   .md-link { padding: 0.45rem; }
 }
+/* the host's Kick on a player's row: asks once ("Sure?"), then removes them */
+.mp-kick { width: 1%; text-align: right; }
+.mp-x { all: unset; cursor: pointer; padding: 0.3rem 0.65rem 0.26rem; font: 700 0.68rem var(--ui); letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--dim); border: 1px solid rgba(255, 255, 255, 0.16); transition: color 0.15s, border-color 0.15s, background 0.15s; }
+.mp-x:hover { color: #fff; border-color: var(--bad); }
+.mp-x.armed { color: #fff; border-color: var(--bad); background: color-mix(in srgb, var(--bad) 30%, transparent); }
