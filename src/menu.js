@@ -227,7 +227,7 @@ export class Menu {
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
-        : act === 'multi' ? '<span class="m-meta m-test"><i></i>Testing</span>'
+        : act === 'multi' ? '<span class="m-meta m-test">Testing</span>'
         : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
           : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}<span class="m-go" aria-hidden="true"></span></button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely

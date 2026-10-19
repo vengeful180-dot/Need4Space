@@ -1308,10 +1308,7 @@ body.touch #netchat .nc-line { font-size: 0.8rem; }
   transition: color 0.18s; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(6, 16, 24, 0.72); }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-item:not(.sel) .m-meta.m-lvl { color: var(--accent); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-meta.m-test { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.6rem 0.26rem; border-radius: 2rem;
-  color: #ffc14d; background: rgba(255, 193, 77, 0.1); border: 1px solid rgba(255, 193, 77, 0.4); }
-:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta.m-test { color: #ffc14d; background: rgba(6, 12, 18, 0.88); border-color: rgba(6, 12, 18, 0.88); }
-.m-test i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #ffc14d; box-shadow: 0 0 0.4rem #ffc14d; animation: now-dot 1.8s ease-in-out infinite; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:not(.sel) .m-meta.m-test { color: #ffc14d; }            /* (Testing: in amber, as the other values - no box) */
 /* the arrow: in on the chosen one, dark on its slab */
 .m-go { display: none; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-go {
