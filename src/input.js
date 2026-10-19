@@ -121,18 +121,18 @@ export class Input {
       if (p.buttons.some((x) => x.value > 0.5) || [0, 1, 2, 3].some((i) => Math.abs(p.axes[i] || 0) > 0.5)) this.pad = true;
     } else this.padPrev = [];
     s.pad = !!this.pad;
-    // touch: left stick steer / roll and pitch, right stick the throttle lever (up / down, as W / S) and the airbrakes
+    // touch: the left stick steers (roll and pitch), pushed all the way to a side that side's airbrake; Thrust held full
+    // throttle, let go none (Boost keeps it on: the thumb slides between them); Brake held the brake
     const t = this.touch?.on && this.touch.state;
     if (t) {
       s.roll += t.lx;
       s.pitch -= t.ly;                          // pushed up: as the up arrow
-      if (t.ry > 0.35 && Math.abs(t.rx) > 0.35) { s.throttleUp = 1; s.throttleDown = 1; }    // down and to a side: drift
-      else {
-        if (t.ry < -0.35) s.throttleUp = 1;
-        if (t.ry > 0.35) s.throttleDown = 1;
-        if (t.rx < -0.55) s.airL = 1;
-        if (t.rx > 0.55) s.airR = 1;
-      }
+      if (t.lx < -0.85) s.airL = 1;
+      if (t.lx > 0.85) s.airR = 1;
+      const go = t.thrust || t.boost;
+      s.throttleAxis = Math.max(s.throttleAxis ?? 0, go && !t.brake ? 1 : 0);
+      if (go) s.throttleUp = 1;                 // (free flight's own lever)
+      if (t.brake) s.throttleDown = 1;
       s.boost = s.boost || t.boost;
     }
     // the airbrakes (keys, bumpers, the touch stick): a press fires one - on while held, a second at most - spending a

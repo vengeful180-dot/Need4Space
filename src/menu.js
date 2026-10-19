@@ -52,7 +52,11 @@ const piloting = (id) => {
   const k = Math.max(0, PILOTING_LEVELS.findIndex(([l]) => l === (PILOTING[id] || 'easy'))), [, label, c] = PILOTING_LEVELS[k];
   return { k, label, c };
 };
-const diffTag = (id) => { const P = piloting(id); return `<span class="m-meta s-diff" style="--c: var(--${P.c})">${P.label}</span>`; };
+// (on its row: a column of its own - the level's four bars and its name, the same width on every row)
+const diffTag = (id) => {
+  const P = piloting(id);
+  return `<span class="s-diff" style="--c: var(--${P.c})"><span class="s-pips">${PILOTING_LEVELS.map((_, i) => `<i class="${i <= P.k ? 'on' : ''}"></i>`).join('')}</span><b>${P.label}</b></span>`;
+};
 const diffRow = (id) => {
   const P = piloting(id);
   return `<div class="d-stat s-diffrow" style="--c: var(--${P.c})"><span>Difficulty</span><b class="s-diffv">${P.label}` +
@@ -202,13 +206,13 @@ export class Menu {
     const h = this.h;
     const map = h.map || 'space', mapName = CIRCUITS.find(([id]) => id === map)?.[1] || '';
     const shipId = h.shipId || 'feather';
-    const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1"><span class="m-num">${pad2(i)}</span>` +
+    const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-num">${pad2(i)}</span>` +
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
-        : act === 'multi' ? '<span class="m-meta">Testing</span>'
+        : act === 'multi' ? '<span class="m-meta m-test"><i></i>Testing</span>'
         : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
-          : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}</button>`;
+          : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}<span class="m-go" aria-hidden="true"></span></button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely
     // see it") - its two colours, the one it wears ringed and named; a chip paints the ship, the row itself picks it
     const chips = (id) => {
@@ -263,7 +267,8 @@ export class Menu {
       </section>
       <section class="m-screen" data-s="ship">
         <header><div class="m-kicker">What to fly</div><h2 class="m-h2">Ship</h2></header>
-        <nav class="m-list">${SHIPS.map(([id, name], i) => item(['ship:' + id, name], i).replace(/<\/button>$/, diffTag(id) + chips(id) + '</button>')).join('')}</nav>
+        <nav class="m-list">${SHIPS.map(([id, name], i) => `<button class="m-item s-row" data-act="ship:${id}" tabindex="-1"><span class="m-num">${pad2(i)}</span>` +
+          `<span class="m-name">${name}</span><span class="s-now">${id === shipId ? '<i></i>Flying' : ''}</span>${diffTag(id)}${chips(id)}</button>`).join('')}</nav>
         <div class="m-desc"></div>
         <div class="d-stats s-stats"></div>
         <button class="s-fly" data-act="shipfly" tabindex="-1"><kbd>Enter</kbd><span class="s-fly-t">Confirm</span></button>
@@ -275,10 +280,11 @@ export class Menu {
       <section class="m-screen" data-s="controls">
         <header><div class="m-kicker"><span class="k-keys">Keyboard, mouse, gamepad</span><span class="k-touch">Touch</span></div><h2 class="m-h2">Controls</h2></header>
         <div class="c-touch">
-          <div class="c-row"><span class="c-keys"><kbd>Left stick</kbd></span><span>Steer (in the air: nose up / down)</span></div>
-          <div class="c-row"><span class="c-keys"><kbd>Right stick</kbd></span><span>Up: throttle - down: brake - sideways: airbrakes</span></div>
-          <div class="c-row"><span class="c-keys"><kbd>Boost</kbd></span><span>Boost (orange pads on the track kick too)</span></div>
-          <div class="c-row"><span class="c-keys"><kbd>Slam</kbd></span><span>Slam a rival beside you (lit when charged); a slam coming: tap it to block</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Left stick</kbd></span><span>Steer (in the air: nose up / down); all the way to a side: that side's airbrake</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Thrust</kbd></span><span>Hold to accelerate - anywhere on the right half of the screen</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Boost</kbd></span><span>Boost, thrust kept on: slide your thumb from Thrust onto it and back</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Slam</kbd></span><span>Slam a rival beside you (its ring fills as it charges); a slam coming: tap it to block</span></div>
+          <div class="c-row"><span class="c-keys"><kbd>Brake</kbd></span><span>Hold to brake</span></div>
           <div class="c-row"><span class="c-keys"><kbd>Cam</kbd></span><span>Camera: chase, far, canopy, fly-by, orbit</span></div>
           <div class="c-row"><span class="c-keys"><kbd>II</kbd></span><span>Pause menu</span></div>
         </div>

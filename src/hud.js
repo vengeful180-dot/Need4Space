@@ -323,6 +323,7 @@ export class HUD {
       const sc = Math.round(Math.max(0, Math.min(1, s.slamCharge)) * 100) / 100;
       if (sc !== this.sc) {
         $('slm').style.transform = `scaleX(${sc})`;
+        (this.tSlam ||= document.querySelector('.t-slam'))?.style.setProperty('--c', sc);     // (the touch Slam's ring: its charge)
         const ready = sc >= 0.999;
         if (ready !== this.slamReady) {
           $('slm').parentElement.classList.toggle('ready', ready);

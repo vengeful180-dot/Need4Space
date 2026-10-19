@@ -538,7 +538,19 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 /* the Ship screen: the ship under the selection, its stat bars (as the difficulty cards') */
 .s-stats { width: min(24rem, 100%); margin-top: 1.6rem; padding-left: 1.3rem; }
 /* how hard the ship is to fly: a tag on its row and the first line of its stats, in the race level's colour */
-.m-meta.s-diff { color: var(--c); border-color: color-mix(in srgb, var(--c) 55%, transparent); background: color-mix(in srgb, var(--c) 10%, transparent); }
+/* the Ship screen's rows: number, name, the ship flown marked, how hard it is to fly in a column of its own (the level's
+   bars and name), its paints */
+.m-item.s-row { display: grid; grid-template-columns: 1.6rem max-content max-content 1fr 8.8rem 7.6rem; column-gap: 1rem; }
+.s-row .s-diff { grid-column: 5; }
+.s-row .s-chips { grid-column: 6; }
+.s-now { display: inline-flex; align-items: center; gap: 0.45rem; font: 700 0.64rem/1 var(--ui); letter-spacing: 0.26em; text-transform: uppercase; color: var(--accent); }
+.s-now:empty { display: none; }
+.s-now i { width: 0.42rem; height: 0.42rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0.55rem var(--accent); animation: now-dot 1.8s ease-in-out infinite; }
+@keyframes now-dot { 50% { opacity: 0.45; } }
+.s-diff { display: inline-flex; align-items: center; gap: 0.65rem; font: 700 0.68rem/1 var(--ui); letter-spacing: 0.22em; text-transform: uppercase; color: var(--c); }
+.s-diff b { font-weight: 700; }
+.s-diff .s-pips i { width: 0.66rem; height: 0.42rem; }
+.m-item.s-row:not(.sel) .s-diff { opacity: 0.72; }
 .s-diffrow { margin-bottom: 0.55rem; }
 .s-diffv { display: flex; align-items: center; gap: 0.7rem; font: 700 0.86rem/1 var(--ui); letter-spacing: 0.22em; text-transform: uppercase; color: var(--c); }
 .s-pips { display: flex; gap: 4px; }
@@ -552,7 +564,7 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .s-stats .d-bar i.on { background: var(--accent); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--accent) 70%, transparent); }
 /* the paints: a chip per livery on each ship's row - its two colours split on the diagonal; the one worn ringed, lit and
    named on the row under the selection */
-.m-screen[data-s="ship"] .m-list { width: min(44rem, 100%); }
+.m-screen[data-s="ship"] .m-list { width: min(48rem, 100%); }
 /* (the Ship screen: hovering a row only lights it - a click puts the ship on the stand) */
 .m-screen[data-s="ship"] .m-item:not(.sel):hover { color: rgba(238, 242, 246, 0.82); background: rgba(255, 255, 255, 0.04); }
 /* its confirm: fly the ship on the stand (Enter does the same) */
@@ -573,7 +585,10 @@ body.touch .s-fly kbd { display: none; }
 .m-item.sel .s-chips i.on { opacity: 1; border-color: #fff; transform: scale(1.14);
   box-shadow: 0 0 0 2px var(--accent), 0 0 0.9rem color-mix(in srgb, var(--accent) 80%, transparent); }
 .s-chips i:hover { opacity: 1; transform: scale(1.2); border-color: #fff; }
-.s-chips em { display: none; margin-right: 0.2rem; font: 700 0.86rem/1 var(--ui); font-style: normal; letter-spacing: 0.2em; color: var(--accent); }
+.s-chips { position: relative; justify-content: flex-end; }
+/* (the paint worn, named under its chips on the chosen row: in the row's flow it pushed the columns over) */
+.s-chips em { display: none; position: absolute; right: 0; top: calc(100% + 0.3rem); white-space: nowrap; font: 700 0.6rem/1 var(--ui); font-style: normal;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent); }
 .m-item.sel .s-chips em { display: inline; }
 body.touch .s-chips i { width: 2.1rem; height: 2.1rem; }
 /* a phone: the paint chips on the chosen ship's row only (on every row they covered the ship in the showroom) */
@@ -971,38 +986,58 @@ body.touch #menu[data-depth="sub"] .m-back::before { content: ''; width: 0.5rem;
 
 #touch { position: fixed; inset: 0; z-index: 10; display: none; touch-action: none; -webkit-user-select: none; user-select: none; }
 body.touch[data-ui="game"] #touch { display: block; }
-.t-zone { position: absolute; top: 20%; bottom: 0; width: 50%; touch-action: none; }
-.t-zone[data-side="l"] { left: 0; }
-.t-zone[data-side="r"] { right: 0; }
-.t-stick { position: absolute; width: 30vmin; height: 30vmin; margin: -15vmin 0 0 -15vmin; border-radius: 50%; pointer-events: none;
+.t-zone { position: absolute; top: 20%; bottom: 0; left: 0; width: 50%; touch-action: none; }
+.t-stick { position: absolute; left: 30%; top: 64%; width: 30vmin; height: 30vmin; margin: -15vmin 0 0 -15vmin; border-radius: 50%; pointer-events: none;
   border: 2px solid rgba(255, 255, 255, 0.2); background: radial-gradient(circle, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02) 70%);
   opacity: 0.5; transition: opacity 0.25s; }
-.t-zone[data-side="l"] .t-stick { left: 30%; top: 64%; }
-.t-zone[data-side="r"] .t-stick { left: 44%; top: 66%; }
 .t-zone.on .t-stick { opacity: 1; transition: none; }
 .t-stick i { position: absolute; left: 50%; top: 50%; width: 12vmin; height: 12vmin; margin: -6vmin 0 0 -6vmin; border-radius: 50%;
   background: rgba(255, 255, 255, 0.2); border: 2px solid rgba(255, 255, 255, 0.45); box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.35); }
 .t-zone.on .t-stick i { background: color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent);
   box-shadow: 0 0 1.2rem color-mix(in srgb, var(--accent) 55%, transparent); }
-.t-btn { all: unset; position: absolute; display: grid; place-items: center; box-sizing: border-box; border-radius: 50%; touch-action: none;
-  font: 700 0.78rem/1 var(--ui); letter-spacing: 0.14em; text-transform: uppercase; color: #fff;
-  background: rgba(8, 12, 18, 0.45); border: 2px solid rgba(255, 255, 255, 0.28); }
-.t-btn.on { background: color-mix(in srgb, var(--accent) 55%, transparent); border-color: var(--accent); }
-/* the right thumb's arc round the phone's corner: Boost big in the corner (its ring the energy left), Slam above it
-   (lit when charged; free flight's Engines in the same place), the throttle stick's resting ring left of them */
-.t-boost { right: calc(4vmin + env(safe-area-inset-right)); bottom: calc(5vmin + env(safe-area-inset-bottom)); width: 23vmin; height: 23vmin;
-  border-color: transparent; }
-.t-boost::before { content: ''; position: absolute; inset: -2px; border-radius: 50%; padding: 0.22rem; pointer-events: none;
+/* the stick steers left / right: an arrow each side, lit at full lock (that side's airbrake) */
+.t-ar { position: absolute; top: 50%; width: 0; height: 0; margin-top: -0.6rem; border: 0.6rem solid transparent; opacity: 0.4; transition: opacity 0.12s; }
+.t-ar.l { left: -1.5rem; border-right-color: #fff; }
+.t-ar.r { right: -1.5rem; border-left-color: #fff; }
+.t-zone.lock-l .t-ar.l { opacity: 1; border-right-color: var(--boost); filter: drop-shadow(0 0 0.4rem var(--boost)); }
+.t-zone.lock-r .t-ar.r { opacity: 1; border-left-color: var(--boost); filter: drop-shadow(0 0 0.4rem var(--boost)); }
+/* the right thumb: held anywhere here, thrust (the buttons over it take their own presses) */
+.t-pad { position: absolute; top: 20%; bottom: 0; right: 0; width: 50%; touch-action: none; }
+.t-btn { all: unset; position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.1rem;
+  box-sizing: border-box; border-radius: 50%; touch-action: none; font: 700 0.6rem/1 var(--ui); letter-spacing: 0.16em; text-transform: uppercase; color: #fff;
+  background: radial-gradient(circle at 50% 35%, rgba(26, 34, 46, 0.62), rgba(6, 10, 16, 0.5)); border: 2px solid rgba(255, 255, 255, 0.26);
+  box-shadow: 0 0.35rem 1.1rem rgba(0, 0, 0, 0.35); transition: transform 0.08s, background 0.12s, box-shadow 0.12s; }
+.t-btn svg { width: 40%; height: 40%; fill: currentColor; }
+.t-btn.on { transform: scale(0.94); background: color-mix(in srgb, var(--accent) 50%, rgba(6, 10, 16, 0.4)); border-color: var(--accent); }
+/* Thrust big at the thumb's rest, Boost beside it (its ring the energy left), Slam under Boost (its ring the charge,
+   lit when ready), Brake under Thrust, smaller */
+.t-thrust { pointer-events: none; right: calc(4vmin + env(safe-area-inset-right)); bottom: calc(19vmin + env(safe-area-inset-bottom));
+  width: 26vmin; height: 26vmin; font-size: 0.66rem; border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.t-thrust svg { width: 36%; height: 36%; color: var(--accent); }
+.t-thrust.on { box-shadow: 0 0 1.6rem color-mix(in srgb, var(--accent) 60%, transparent); }
+.t-thrust.on svg { color: #fff; }
+.t-boost { right: calc(33vmin + env(safe-area-inset-right)); bottom: calc(22vmin + env(safe-area-inset-bottom)); width: 20vmin; height: 20vmin;
+  border-color: transparent; color: #fff; }
+.t-boost svg { color: var(--boost); }
+.t-boost::before, .t-slam::before { content: ''; position: absolute; inset: -2px; border-radius: 50%; padding: 0.22rem; pointer-events: none;
   background: conic-gradient(var(--boost) calc(var(--e, 1) * 1turn), rgba(255, 255, 255, 0.16) 0);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; }
-.t-boost.on { background: color-mix(in srgb, var(--boost) 60%, transparent); box-shadow: 0 0 1.4rem var(--boost); }
-.t-slam, .t-engine { display: none; right: calc(7vmin + env(safe-area-inset-right)); bottom: calc(32vmin + env(safe-area-inset-bottom));
-  width: 16vmin; height: 16vmin; font-size: 0.62rem; letter-spacing: 0.06em; }
-.t-slam { border-color: rgba(255, 138, 58, 0.35); color: rgba(255, 255, 255, 0.6); }
-.t-slam.ready { border-color: #ff8a3a; color: #fff; box-shadow: 0 0 0.9rem rgba(255, 106, 32, 0.7); }
-.t-slam.on { background: rgba(255, 138, 58, 0.55); border-color: #ff8a3a; box-shadow: 0 0 1.2rem #ff6a20; }
-#touch[data-mode="race"] .t-slam, #touch[data-mode="free"] .t-engine { display: grid; }
+.t-boost.on { background: color-mix(in srgb, var(--boost) 55%, transparent); box-shadow: 0 0 1.4rem var(--boost); }
+.t-boost.on svg { color: #fff; }
+.t-slam, .t-engine { display: none; right: calc(35vmin + env(safe-area-inset-right)); bottom: calc(3.5vmin + env(safe-area-inset-bottom));
+  width: 16vmin; height: 16vmin; font-size: 0.56rem; letter-spacing: 0.1em; }
+.t-slam { border-color: transparent; color: rgba(255, 255, 255, 0.55); }
+.t-slam::before { padding: 0.18rem; background: conic-gradient(#ff8a3a calc(var(--c, 1) * 1turn), rgba(255, 255, 255, 0.14) 0); }
+.t-slam.ready { color: #fff; box-shadow: 0 0 0.9rem rgba(255, 106, 32, 0.7); }
+.t-slam.ready svg { color: #ff8a3a; }
+.t-slam.on { background: rgba(255, 138, 58, 0.55); box-shadow: 0 0 1.2rem #ff6a20; }
+#touch[data-mode="race"] .t-slam, #touch[data-mode="free"] .t-engine { display: flex; }
+.t-brake { right: calc(10.5vmin + env(safe-area-inset-right)); bottom: calc(3.5vmin + env(safe-area-inset-bottom)); width: 13vmin; height: 13vmin;
+  font-size: 0.5rem; letter-spacing: 0.1em; color: rgba(255, 255, 255, 0.75); }
+.t-brake svg { width: 34%; height: 34%; color: #ff5a4f; }
+.t-brake.on { background: rgba(255, 70, 60, 0.5); border-color: #ff5a4f; box-shadow: 0 0 1rem rgba(255, 70, 60, 0.6); }
+.t-brake.on svg { color: #fff; }
 .t-small { top: calc(2.5vmin + env(safe-area-inset-top)); width: 12.5vmin; height: 12.5vmin; font-size: 0.6rem; letter-spacing: 0.08em; }
 .t-pause { left: calc(50% - 14.5vmin); }
 .t-cam { left: calc(50% + 2vmin); }
@@ -1225,3 +1260,55 @@ body.touch .mc-in { font-size: 16px; }
   background: rgba(4, 10, 17, 0.9); color: #fff; font: 600 1rem var(--ui); outline: none; user-select: text; -webkit-user-select: text; }
 body.touch #netchat { bottom: auto; top: 42%; width: min(22rem, 40vw); }
 body.touch #netchat .nc-line { font-size: 0.8rem; }
+
+@media (max-width: 760px) {
+  .m-item.s-row { grid-template-columns: 1.4rem max-content max-content 1fr 7.4rem 6.8rem; column-gap: 0.7rem; }
+  .s-diff { gap: 0.45rem; letter-spacing: 0.14em; }
+}
+
+/* the title's list (and pause, circuit, music): each item a button - a dark glass panel with a cut corner, its value
+   (difficulty, circuit, ship) on its right; the one chosen filled with the accent, its edge lit, a shine sweeping across
+   it as it is chosen and an arrow in; the items sliding in one after another as the screen opens */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.42rem; width: min(30rem, 100%); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item {
+  overflow: hidden; gap: 1rem; padding: 0.82rem 2.6rem 0.78rem 1.1rem; font-size: 1.32rem; color: rgba(238, 242, 246, 0.64);
+  background: linear-gradient(90deg, rgba(10, 15, 22, 0.66), rgba(10, 15, 22, 0.3));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.075);
+  clip-path: polygon(0 0, calc(100% - 0.85rem) 0, 100% 0.85rem, 100% 100%, 0 100%);
+  transition: color 0.2s, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s, box-shadow 0.25s, text-shadow 0.25s; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:hover:not(.sel) {
+  color: rgba(238, 242, 246, 0.85); background: linear-gradient(90deg, rgba(20, 27, 38, 0.72), rgba(10, 15, 22, 0.35)); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel {
+  color: #fff; transform: translateX(0.6rem);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 40%, rgba(10, 15, 22, 0.55)), color-mix(in srgb, var(--accent) 12%, rgba(10, 15, 22, 0.3)) 70%, rgba(10, 15, 22, 0.2));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent), inset 0 0 1.6rem color-mix(in srgb, var(--accent) 18%, transparent);
+  text-shadow: 0 0 1.1rem color-mix(in srgb, var(--accent) 55%, transparent); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item::before { top: 0; bottom: 0; width: 4px; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.2) 50%, transparent 65%); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel::after { animation: m-shine 0.8s cubic-bezier(0.3, 0.7, 0.2, 1); }
+@keyframes m-shine { to { transform: translateX(130%); } }
+/* (the value on the right, as small caps - no box; the difficulty in its colour; Testing a pill) */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-meta {
+  margin-left: auto; padding: 0; border: 0; background: none; font: 700 0.68rem/1 var(--ui); letter-spacing: 0.24em; color: var(--dim); text-shadow: none; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(255, 255, 255, 0.85); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-meta.m-lvl { color: var(--accent); }
+.m-list .m-meta.m-test { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.3rem 0.55rem 0.26rem; border-radius: 2rem;
+  color: #ffc14d; background: rgba(255, 193, 77, 0.1); border: 1px solid rgba(255, 193, 77, 0.38); }
+.m-list .m-item.sel .m-meta.m-test { color: #ffc14d; }
+.m-test i { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: #ffc14d; box-shadow: 0 0 0.4rem #ffc14d; animation: now-dot 1.8s ease-in-out infinite; }
+/* the arrow: in on the chosen one */
+.m-go { display: none; }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-go {
+  display: block; position: absolute; right: 1.15rem; top: 50%; margin-top: -0.28rem; width: 0.5rem; height: 0.5rem; border: solid var(--accent); border-width: 2px 2px 0 0;
+  opacity: 0; transform: translateX(-0.7rem) rotate(45deg); transition: opacity 0.2s, transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-go { opacity: 1; transform: rotate(45deg); }
+/* (in as the screen opens: one after another - backwards only, so the chosen one's own slide is not held back after) */
+:is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]).active .m-list .m-item {
+  animation: m-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms + 0.08s); }
+@keyframes m-in { from { opacity: 0; transform: translateX(-1.8rem); } }
+@media (max-height: 500px) {
+  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.24rem; }
+  :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item { padding: 0.44rem 2.2rem 0.4rem 0.9rem; font-size: 1.02rem; }
+}
