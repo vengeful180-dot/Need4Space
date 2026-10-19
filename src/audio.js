@@ -7,7 +7,7 @@
 //  - rivals: the nearest five engines, each its own pitch
 //  - the world: whooshes under gantries and light gates, echo inside the glass tunnel and the meteorite
 //  - the race: countdown beeps, GO, lap chime, finish; menu blips (ui())
-//  - music: four songs composed in music.js, exported once to assets/music (Opus / AAC) and streamed as a playlist
+//  - music: six songs composed in music.js, exported once to assets/music (Opus / AAC) and streamed as a playlist
 //    (each circuit's own order: the Pyramid Run opens on its own song); one can be picked (the menu's Music screen) or
 //    skipped (Settings: Song)
 // Starts on the first key press or click (browsers block audio before a gesture). M mutes.
@@ -18,6 +18,8 @@ export const SONGS = [
   { id: 'nebula_drift', name: 'Nebula Drift', line: '128 BPM - progressive: an offbeat bass, a saw arpeggio in threes, long lines' },
   { id: 'hyperlane', name: 'Hyperlane', line: '160 BPM - breakbeat drums, a growling reese bass, punchy stabs' },
   { id: 'sands_of_ra', name: 'Sands of Ra', line: '128 BPM - the Pyramid Run: a ney flute over a drone, an oud, a darbuka and finger cymbals' },
+  { id: 'gravity_well', name: 'Gravity Well', line: '150 BPM - dubstep: half-time drums, a wobble bass' },
+  { id: 'pixel_rush', name: 'Pixel Rush', line: '160 BPM - chiptune: pulse waves, a triangle bass, noise drums' },
 ];
 import { TRACK_W } from './track.js';
 

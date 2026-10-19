@@ -1,10 +1,15 @@
-// The race music: four original tracks composed here and rendered into buffers (OfflineAudioContext, on the audio
+// The race music: six original tracks composed here and rendered into buffers (OfflineAudioContext, on the audio
 // thread) - no samples, no licensed music. They play as a playlist, one after another.
 //  1. Ring Runner  - 144 BPM, A minor (Am F C G): four-to-the-floor, claps, a rolling 16th bass, a square arpeggio
 //  2. Nebula Drift - 128 BPM, D minor (Dm Bb F C): progressive, an offbeat bass, a saw arpeggio in threes, long lines
 //  3. Hyperlane    - 160 BPM, E minor (Em C G D): breakbeat drums, a sustained detuned "reese" bass, punchy stabs
 //  4. Sands of Ra  - 128 BPM, D Hijaz (D Eb Cm D7): the Pyramid Run's - a drone and a breathy flute (a ney) opening
 //     it, an oud's plucked riff, a darbuka playing the maqsum over the kick, finger cymbals in the drop
+//  5. Gravity Well - 150 BPM, F minor (Fm Db Bbm C): dubstep - half-time drums, a snare and clap on the third beat, a
+//     reese in the groove, then the drop's wobble bass (a distorted growl, its filter pulsing in time: eighths,
+//     sixteenths, triplets), a sub dropping out of the build into it
+//  6. Pixel Rush   - 160 BPM, E minor (Em C D B): chiptune - a pulse-wave lead with its echo, chords as fast 12.5 %
+//     pulse arpeggios, a stepped triangle bass bouncing in octaves, noise drums, a 4-bit edge on it all
 // Each is 64 bars: intro (0-8), groove (8-24), build (24-32), drop (32-48), breakdown (48-56), rebuild (56-64), its
 // last bars fading out into the next one's intro. Supersaw pads, a lead in the drop, risers and crashes at the section
 // changes; the pads, bass and arp duck under every kick.
@@ -96,6 +101,46 @@ const SONGS = [
     hatV: [0.22, 0.08, 0.4, 0.1, 0.22, 0.08, 0.4, 0.12, 0.22, 0.08, 0.4, 0.1, 0.25, 0.1, 0.45, 0.14],
     padCut: 1.1, padLevel: 0.95, leadCut: 1,
   },
+  {
+    // dubstep: the drop is the wobble's (wobble.pats: 2-bar rounds of [16th, length in 16ths, semitones over the
+    // chord's root an octave up, filter cycles a beat])
+    name: 'Gravity Well', bpm: 150, gain: 0.6,
+    chords: [[53, 56, 60, 65], [49, 53, 56, 61], [46, 49, 53, 58], [48, 52, 55, 60]], roots: [29, 25, 22, 24],
+    lead: [
+      [0, 1, 72], [1, 1, 75], [2, 2, 77], [4, 1, 80], [5, 1, 79], [6, 2, 75],
+      [8, 1, 73], [9, 1, 77], [10, 2, 80], [12, 2, 82], [14, 2, 80],
+      [16, 1, 77], [17, 1, 80], [18, 2, 82], [20, 1, 80], [21, 1, 77], [22, 2, 73],
+      [24, 2, 76], [26, 1, 79], [27, 1, 76], [28, 3, 72], [31, 1, 79],
+    ],
+    leadRounds: [[16, 0.42, 1400], [48, 0.8, 2200]],
+    bass: 'R-------------R-', sustain: true, bassCut: 190, bassDetune: 26, bassQ: 2,
+    arp: [0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3, 2, 1, 0, 1], arpWave: 'triangle', arpLevel: 0.06,
+    kick: [0, 10], back: 'snareclap', backSteps: [8], open: [14],
+    hatV: [0.4, 0.14, 0.28, 0.14, 0.4, 0.14, 0.28, 0.18, 0.4, 0.14, 0.28, 0.14, 0.45, 0.18, 0.32, 0.22],
+    wobble: { on: [[32, 48], [56, 64]], pats: [
+      [[0, 6, 0, 1], [6, 2, 0, 4], [8, 4, 12, 2], [12, 4, 0, 3], [16, 3, 0, 2], [19, 3, 7, 2], [22, 2, 10, 4], [24, 8, 0, 1.5]],
+      [[0, 4, 0, 4], [4, 4, 0, 2], [8, 2, 12, 4], [10, 2, 12, 4], [12, 4, 0, 6], [16, 6, 0, 2], [22, 2, 3, 4], [24, 4, 0, 3], [28, 4, -2, 8]],
+    ], pick: (bar) => (bar >= 40 && bar < 48 ? 1 : 0) },
+    subdrop: [32, 56],
+    padCut: 0.75, padLevel: 0.85, leadCut: 1,
+  },
+  {
+    // chiptune (chip): pulse and stepped-triangle waves, noise drums, no pads
+    name: 'Pixel Rush', bpm: 160, gain: 0.7, chip: true,
+    chords: [[52, 55, 59, 64], [48, 52, 55, 60], [50, 54, 57, 62], [47, 51, 54, 59]], roots: [28, 24, 26, 23],
+    lead: [
+      [0, 0.5, 76], [0.5, 0.5, 79], [1, 1, 83], [2, 0.5, 81], [2.5, 0.5, 79], [3, 1, 78], [4, 1.5, 79], [5.5, 0.5, 76], [6, 2, 71],
+      [8, 0.5, 72], [8.5, 0.5, 76], [9, 1, 79], [10, 1, 84], [11, 1, 83], [12, 1.5, 79], [13.5, 0.5, 76], [14, 2, 72],
+      [16, 0.5, 74], [16.5, 0.5, 78], [17, 1, 81], [18, 0.5, 86], [18.5, 0.5, 84], [19, 1, 81], [20, 1, 78], [21, 1, 81], [22, 2, 74],
+      [24, 0.5, 75], [24.5, 0.5, 78], [25, 1, 83], [26, 1, 81], [27, 1, 78], [28, 2, 75], [30, 1, 78], [31, 1, 81],
+    ],
+    leadRounds: [[16, 0.55, 1], [32, 1, 1], [40, 1, 1], [48, 0.7, 1]],
+    bass: 'R-O-R-O-R-O-ROFO', sustain: false, bassCut: 0, bassDetune: 0, bassQ: 1,
+    arp: [0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3], arpWave: 'square', arpLevel: 0.06,
+    kick: [0, 4, 8, 12], back: 'snare', backSteps: [4, 12], open: [],
+    hatV: [0.5, 0, 0.3, 0, 0.5, 0, 0.3, 0, 0.5, 0, 0.3, 0, 0.5, 0, 0.3, 0.2],
+    padCut: 1, padLevel: 0, introPad: 1.2, leadCut: 1,
+  },
 ];
 export const SONG_COUNT = SONGS.length;
 export const SONG_NAMES = SONGS.map((s) => s.name);
@@ -123,6 +168,21 @@ function noiseBuffer(sr) {
   return (shared.noise = b);
 }
 
+// the chip waves: a pulse of each duty, the stepped (4-bit) triangle - harmonics of one cycle of the shape, made once
+const WAVES = {};
+function waveTable(key, fn, N = 64) {
+  if (WAVES[key]) return WAVES[key];
+  const real = new Float32Array(N), imag = new Float32Array(N), M = 2048;
+  for (let n = 1; n < N; n++) {
+    let a = 0, b = 0;
+    for (let i = 0; i < M; i++) { const x = fn(i / M), ph = 2 * Math.PI * n * i / M; a += x * Math.cos(ph); b += x * Math.sin(ph); }
+    real[n] = (2 * a) / M; imag[n] = (2 * b) / M;
+  }
+  return (WAVES[key] = [real, imag]);
+}
+const pulse = (d) => waveTable('pulse' + d, (p) => (p < d ? 1 : -1));
+const stepTri = () => waveTable('tri', (p) => { const k = Math.floor(p * 32); return (k < 16 ? k : 31 - k) / 7.5 - 1; });
+
 // the graph building is shared out: one segment at a time, a bar at a time, the game's frames running in between
 let building = Promise.resolve();
 const breathe = () => new Promise((res) => setTimeout(res, 0));
@@ -143,7 +203,8 @@ async function buildAndRender(si, k, sr, built) {
   const pre = Math.round((segStart - w0) * sr), len = Math.round(SEG_DUR * sr);
   const c = new OfflineAudioContext(2, pre + len, sr);
   // only what starts inside the window, in its own time (seconds from the window's start)
-  const at = (t) => (t >= w0 - 1e-6 && t < w1 ? t - w0 : null);
+  // (never below 0: at some tempos the window's start and a step's time differ by a rounding error - -4e-15 s, refused)
+  const at = (t) => (t >= w0 - 1e-6 && t < w1 ? Math.max(0, t - w0) : null);
   await breathe();
   const noise = noiseBuffer(sr);
   const gain = (v, ...to) => { const g = c.createGain(); g.gain.value = v; for (const t of to) g.connect(t); return g; };
@@ -325,6 +386,96 @@ async function buildAndRender(si, k, sr, built) {
     }
   };
 
+  // ---- the chiptune's voices: the waves, the 4-bit edge (the amplitude stepped to 17 levels), the drums out of noise and
+  // a falling square
+  const wave = (key) => { const [re, im] = key === 'tri' ? stepTri() : pulse(key); return c.createPeriodicWave(re, im); };
+  const chipW = S.chip ? { p50: wave(0.5), p25: wave(0.25), p125: wave(0.125), tri: wave('tri') } : null;
+  const crush = () => {
+    const ws = c.createWaveShaper(), n = 4096, cv = new Float32Array(n);
+    for (let i = 0; i < n; i++) cv[i] = Math.round((i / (n - 1) * 2 - 1) * 8) / 8;
+    ws.curve = cv;
+    return ws;
+  };
+  const chipKick = (t) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.setPeriodicWave(chipW.p50);
+    o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.09);
+    g.gain.setValueAtTime(0.7, t); g.gain.setTargetAtTime(0, t + 0.04, 0.035);
+    o.connect(g).connect(drums); o.start(t); o.stop(t + 0.3);
+    duck.gain.setTargetAtTime(0.55, t, 0.004); duck.gain.setTargetAtTime(1, t + 0.03, 0.06);
+  };
+  const chipNoise = (t, dur, type, f, lv, tc) => {
+    const n = noiseAt(t, dur), fl = filter(type, f, 0.7), g = c.createGain();
+    g.gain.setValueAtTime(lv, t); g.gain.setTargetAtTime(0, t + 0.002, tc);
+    n.connect(fl).connect(g).connect(drums);
+    return g;
+  };
+  const chipSnare = (t, v) => {
+    chipNoise(t, 0.2, 'bandpass', 2300, 0.42 * v, 0.045).connect(gain(0.15, revSend));
+    const o = c.createOscillator(), g = c.createGain();
+    o.setPeriodicWave(chipW.p50); o.frequency.setValueAtTime(320, t); o.frequency.exponentialRampToValueAtTime(170, t + 0.05);
+    g.gain.setValueAtTime(0.2 * v, t); g.gain.setTargetAtTime(0, t + 0.01, 0.02);
+    o.connect(g).connect(drums); o.start(t); o.stop(t + 0.15);
+  };
+  // the wobble: two detuned saws and a square an octave down, driven hard, through a resonant low-pass whose cut-off
+  // swings `rate` times a beat from its trough (its curve worked out per note: always in time), a clean sub under it
+  const driveCurve = new Float32Array(2048);
+  for (let i = 0; i < 2048; i++) { const x = i / 2047 * 2 - 1; driveCurve[i] = Math.tanh(x * 3.2) / Math.tanh(3.2); }
+  const wobBus = gain(0.3, duck);
+  const wobNote = (t, m, d, rate, v) => {
+    const f = c.createBiquadFilter(), a = c.createGain(), N = Math.max(16, Math.round(d * 220)), cv = new Float32Array(N);
+    f.type = 'lowpass'; f.Q.value = 9;
+    for (let i = 0; i < N; i++) cv[i] = 85 * Math.pow(34, 0.5 - 0.5 * Math.cos((2 * Math.PI * rate * (i / (N - 1)) * d) / BEAT));
+    f.frequency.setValueCurveAtTime(cv, t, d);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(v, t + 0.006); a.gain.setValueAtTime(v, t + d - 0.02); a.gain.linearRampToValueAtTime(0, t + d);
+    const pre = c.createGain(); pre.gain.value = 0.7;
+    for (const [type, mult, dt, lv] of [['sawtooth', 1, -18, 0.5], ['sawtooth', 1, 18, 0.5], ['square', 0.5, 0, 0.45]]) {
+      const o = c.createOscillator();
+      o.type = type; o.frequency.value = hz(m) * mult; o.detune.value = dt;
+      o.connect(gain(lv, pre)); o.start(t); o.stop(t + d + 0.05);
+    }
+    const dr = c.createWaveShaper(); dr.curve = driveCurve;          // (each note its own: one shared fed every filter)
+    pre.connect(dr); dr.connect(f);
+    f.connect(a).connect(wobBus);
+    const so = c.createOscillator(), sg = c.createGain();
+    so.frequency.value = hz(m - 12);
+    sg.gain.setValueAtTime(0, t); sg.gain.linearRampToValueAtTime(0.55 * v, t + 0.008); sg.gain.setValueAtTime(0.55 * v, t + d - 0.02); sg.gain.linearRampToValueAtTime(0, t + d);
+    so.connect(sg).connect(bassOut); so.start(t); so.stop(t + d + 0.05);
+  };
+  // the sub drop into the drop: a sine falling an octave and more, fading
+  const subdrop = (t) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(30, t + 1.6);
+    g.gain.setValueAtTime(0.55, t); g.gain.setTargetAtTime(0, t + 0.6, 0.45);
+    o.connect(g).connect(out); o.start(t); o.stop(t + 2.6);
+  };
+  // the chip's notes: the triangle bass (a gate, no filter), the arpeggio (two chord tones a sixteenth, 12.5 % pulse)
+  // and the lead (25 % pulse, a quick slide, a delayed vibrato; its echo through the delay)
+  const chipBus = S.chip ? gain(1, duck) : null;
+  if (chipBus) { const cr = crush(); cr.connect(chipBus); chipBus.crush = cr; }
+  const triNote = (t, m, d, v) => {
+    const o = c.createOscillator(), a = c.createGain();
+    o.setPeriodicWave(chipW.tri); o.frequency.value = hz(m);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.5 * v, t + 0.003); a.gain.setValueAtTime(0.5 * v, t + d * 0.85); a.gain.linearRampToValueAtTime(0, t + d * 0.95);
+    o.connect(a).connect(bassOut); o.start(t); o.stop(t + d + 0.05);
+  };
+  const chipArpNote = (t, m, v) => {
+    const o = c.createOscillator(), a = c.createGain();
+    o.setPeriodicWave(chipW.p125); o.frequency.value = hz(m);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(S.arpLevel * 1.4 * v, t + 0.002); a.gain.setTargetAtTime(0, t + S16 * 0.4, 0.02);
+    o.connect(a).connect(chipBus.crush); o.start(t); o.stop(t + S16);
+    a.connect(gain(0.05, dlSend));
+  };
+  const chipLead = (t, m, from, d, v) => {
+    const o = c.createOscillator(), a = c.createGain(), lfo = c.createOscillator(), vg = c.createGain();
+    o.setPeriodicWave(chipW.p25);
+    o.frequency.setValueAtTime(hz(from), t); o.frequency.setTargetAtTime(hz(m), t, 0.01);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.19 * v, t + 0.004); a.gain.setTargetAtTime(0.14 * v, t + 0.03, 0.08); a.gain.setTargetAtTime(0, t + d * 0.9, 0.02);
+    lfo.frequency.value = 6.2; vg.gain.setValueAtTime(0, t); vg.gain.setTargetAtTime(22, t + Math.min(0.25, d * 0.5), 0.06); lfo.connect(vg); vg.connect(o.detune);
+    o.connect(a); a.connect(chipBus.crush); a.connect(gain(0.6, dlSend));
+    o.start(t); o.stop(t + d + 0.2); lfo.start(t); lfo.stop(t + d + 0.2);
+  };
+
   const kicks = new Set(S.kick), backs = new Set(S.backSteps), opens = new Set(S.open);
   // a held bass note lasts to the next one in the bar (or the bar's end)
   const bassLen = (st) => { let n = 1; while (st + n < 16 && S.bass[st + n] === '-') n++; return n; };
@@ -337,18 +488,32 @@ async function buildAndRender(si, k, sr, built) {
     for (let st = 0; st < 16; st++) {
       const t = at(T0 + st * S16);
       if (t === null) continue;
-      if (kicks.has(st) && within(bar, KICK)) kick(t);
-      if (backs.has(st) && within(bar, BACK)) { if (S.back === 'snare') snare(t, 1); else clap(t); }
-      if (within(bar, HATS) && !(bar >= 30 && bar < 32) && S.hatV[st] > 0) hat(t, S.hatV[st]);
+      if (kicks.has(st) && within(bar, KICK)) { if (S.chip) chipKick(t); else kick(t); }
+      if (backs.has(st) && within(bar, BACK)) {
+        if (S.chip) chipSnare(t, 1);
+        else if (S.back === 'snareclap') { snare(t, 1.25); clap(t, 0.8); }
+        else if (S.back === 'snare') snare(t, 1); else clap(t);
+      }
+      if (within(bar, HATS) && !(bar >= 30 && bar < 32) && S.hatV[st] > 0) {
+        if (S.chip) chipNoise(t, 0.05, 'highpass', 9000, 0.13 * S.hatV[st], 0.012); else hat(t, S.hatV[st]);
+      }
       if (opens.has(st) && within(bar, OPEN)) hat(t, 0.8, true);
-      if (within(bar, BASS_ON)) {
+      if (S.wobble && within(bar, S.wobble.on)) { /* (the drop's bass: the wobble's, below) */ }
+      else if (S.chip && within(bar, BASS_ON)) {
+        const q = S.bass[st];
+        if (q !== '-') triNote(t, root + 12 + (q === 'O' ? 12 : q === 'F' ? 7 : 0), S16 * 2, st % 4 === 0 ? 1 : 0.8);
+      } else if (within(bar, BASS_ON)) {
         const q = S.bass[st];
         if (q !== '-') bassNote(t, root + (q === 'O' ? 12 : q === 'F' ? 7 : 0), S.sustain ? bassLen(st) * S16 : S16,
           q === 'R' && st % 4 === 1 ? 0.95 : 0.75 + (S.sustain ? 0.1 : 0), S.bassCut * Math.pow(4.2, build + st / 16 / 8));
       }
       if (within(bar, ARP_ON)) {
         if (S.riff) oudNote(t, S.riff[bar % 2][st], (st % 4 === 0 ? 1 : 0.68) * (bar < 8 ? Math.min(1, (bar - 4 + st / 16) / 3) : 1));
-        else {
+        else if (S.chip) {
+          // two chord tones a sixteenth (32nds): the chord rolled up and round, an octave higher in the drop
+          const up = bar >= 32 && bar < 48 ? 24 : 12, fade = bar < 8 ? Math.min(1, (bar - 4 + st / 16) / 3) : 1;
+          for (const h of [0, 1]) chipArpNote(t + h * S16 / 2, chord[(st * 2 + h) % 4] + up, (st % 4 === 0 && !h ? 1 : 0.75) * fade);
+        } else {
           const m = chord[S.arp[st]] + 12 + (bar % 2 === 1 && st >= 12 ? 12 : 0);
           arpNote(t, m, st % 4 === 0 ? 1 : 0.7, bar < 8 ? 600 * Math.pow(5.5, (bar - 4 + st / 16) / 4) : bar >= 32 ? 3600 : 3000);
         }
@@ -360,17 +525,24 @@ async function buildAndRender(si, k, sr, built) {
       }
       if (S.zills && within(bar, S.zills.on) && S.zills.steps.includes(st)) zill(t, st === 14 ? 1 : 0.75);
     }
+    // the drop's wobble: its 2-bar round from each even bar
+    if (S.wobble && within(bar, S.wobble.on) && bar % 2 === 0) for (const [s0, n, off, rate] of S.wobble.pats[S.wobble.pick(bar)]) {
+      const tw = at(T0 + s0 * S16);
+      if (tw !== null) wobNote(tw, root + 12 + off, n * S16, rate, s0 % 8 === 0 ? 1 : 0.85);
+    }
     await breathe();
-    // pads: a chord every two bars, slow attack and release, darker in the groove, open in the breakdown
-    const t0 = at(T0);
-    if (bar % 2 === 0 && t0 !== null) {
+    // pads: a chord every two bars, slow attack and release, darker in the groove, open in the breakdown (the chip song's:
+    // the chord held in pulse waves, in the intro only)
+    const t0 = at(T0), padLevel = S.padLevel || (bar < 8 ? S.introPad || 0 : 0);
+    if (bar % 2 === 0 && t0 !== null && padLevel > 0) {
       const dur = 2 * BAR, cut = S.padCut * (bar < 8 ? 450 * Math.pow(5, bar / 8) : bar >= 48 && bar < 56 ? 3000 : bar >= 32 && bar < 48 ? 2200 : 1500);
-      const pf = filter('lowpass', cut, 0.6), pa = c.createGain(), lvl = S.padLevel * (bar >= 48 && bar < 56 ? 0.16 : bar < 8 ? 0.22 : 0.09);
+      const pf = filter('lowpass', cut, 0.6), pa = c.createGain(), lvl = padLevel * (bar >= 48 && bar < 56 ? 0.16 : bar < 8 ? 0.22 : 0.09);
       pa.gain.setValueAtTime(0, t0); pa.gain.setTargetAtTime(lvl, t0, 0.18); pa.gain.setTargetAtTime(0, t0 + dur - 0.05, 0.25);
       pf.connect(pa); pa.connect(duck); pa.connect(gain(0.5, revSend));
-      for (const m of [...chord, root + 24]) for (const dt of [-11, 0, 11]) {
+      for (const m of [...chord, root + 24]) for (const dt of S.chip ? [-4, 4] : [-11, 0, 11]) {
         const o = c.createOscillator();
-        o.type = 'sawtooth'; o.frequency.value = hz(m); o.detune.value = dt + (hash(T0 + m * 0.37 + dt) - 0.5) * 4;
+        if (S.chip) o.setPeriodicWave(chipW.p50); else o.type = 'sawtooth';
+        o.frequency.value = hz(m); o.detune.value = dt + (hash(T0 + m * 0.37 + dt) - 0.5) * 4;
         o.connect(gain(0.16, pf)); o.start(t0); o.stop(t0 + dur + 1.6);
       }
     }
@@ -393,7 +565,7 @@ async function buildAndRender(si, k, sr, built) {
     }
   }
   // the lead: two rounds in the drop, one softer and darker in the breakdown
-  const voice = S.leadType === 'ney' ? neyNote : leadNote;
+  const voice = S.leadType === 'ney' ? neyNote : S.chip ? chipLead : leadNote;
   for (const [start, v, cut, oct = 0] of S.leadRounds || [[32, 1, 2800], [40, 1, 3200], [48, 0.6, 1500]]) {
     await breathe();
     S.lead.forEach(([b, n, m], i) => {
@@ -405,8 +577,9 @@ async function buildAndRender(si, k, sr, built) {
   if (S.darbuka) for (let s = 0; s < 32; s++) { const t = at(30 * BAR + s * S16); if (t !== null) tek(t, 0.35 + 0.55 * (s / 32), s % 2 ? 2600 : 3200); }
   // snare rolls into the drop and back into the groove, risers, crashes, a downlifter into the breakdown
   for (const [bar, steps, v0] of [[28, 2, 0.35], [29, 2, 0.45], [30, 1, 0.55], [31, 0.5, 0.7], [62, 1, 0.5], [63, 0.5, 0.7]]) {
-    for (let s = 0; s < 16; s += steps) { const t = at(bar * BAR + s * S16); if (t !== null) snare(t, v0 + (s / 16) * 0.3); }
+    for (let s = 0; s < 16; s += steps) { const t = at(bar * BAR + s * S16); if (t !== null) (S.chip ? chipSnare : snare)(t, v0 + (s / 16) * 0.3); }
   }
+  for (const b of S.subdrop || []) { const t = at(b * BAR); if (t !== null) subdrop(t); }
   for (const [b, n, f0, f1, g0, g1] of [[4, 4, 300, 6000, 0, 0.16], [28, 4, 250, 7500, 0, 0.2], [60, 4, 250, 7500, 0, 0.2], [48, 2, 6000, 200, 0.18, 0]]) {
     const t = at(b * BAR);
     if (t !== null) sweep(t, n * BAR, f0, f1, g0, g1);
