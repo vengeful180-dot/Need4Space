@@ -28,13 +28,15 @@ export class Rooms {
       this.mp.name = e.target.value;
       if (this.needName && this.mp.myName) { this.needName = false; e.target.closest('.mp-namebox')?.classList.remove('need'); }
     });
-    // (Enter in the name: done typing - back to the list's keys; in the chat: the line sent, the box kept for the next)
-    this.body.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter' && e.key !== 'NumpadEnter') return;
-      if (e.target.matches('.mp-name')) { e.preventDefault(); e.target.blur(); }
-      else if (e.target.matches('.mc-in')) { e.preventDefault(); if (this.mp.say(e.target.value)) e.target.value = ''; }
+    // Enter in the name: done typing; in the chat: the line sent, the box kept for the next. Both are forms - the menu
+    // holds every key while it is open (its keydown never reached a listener here: the chat could not send), and a
+    // form's submit still comes, a phone's Send / Done key too
+    this.body.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (e.target.matches('.mp-nameform')) e.target.querySelector('.mp-name')?.blur();
+      else if (e.target.matches('.mp-chat')) { const i = e.target.querySelector('.mc-in'); if (i && this.mp.say(i.value)) i.value = ''; }
     });
-    this.body.addEventListener('change', (e) => { if (e.target.matches('.mp-name')) { e.target.value = this.mp.name; } });
+    this.body.addEventListener('change', (e) => { if (e.target.matches('.mp-name')) e.target.value = this.mp.myName; });
     this.render();
   }
 
@@ -80,7 +82,7 @@ export class Rooms {
           `<span class="m-name">${esc(r.name)}</span><span class="mp-where">${esc(this.circuit(r.map))}</span>` +
           `<span class="mp-count${racing || full ? ' off' : ''}">${racing ? 'Racing' : full ? 'Full' : `${r.players}/${r.max}`}</span></button>`;
       }).join('');
-      html = `<label class="mp-namebox${this.needName ? ' need' : ''}"><span>Your racing name</span><input class="mp-name" type="text" maxlength="24" autocomplete="nickname" enterkeyhint="done" placeholder="Type your name" value="${esc(mp.myName)}"></label>
+      html = `<form class="mp-nameform" action="#"><label class="mp-namebox${this.needName ? ' need' : ''}"><span>Your racing name</span><input class="mp-name" type="text" maxlength="24" autocomplete="nickname" enterkeyhint="done" placeholder="Type your name" value="${esc(mp.myName)}"></label></form>
         <nav class="mp-acts">
           <button class="m-item mp-btn mp-go" data-act="mp:create" tabindex="-1"><span class="m-name">Create a room</span><span class="m-meta">${esc(this.circuit(mp.h.map))}</span></button>
           <button class="m-item mp-btn" data-act="mp:refresh" tabindex="-1"><span class="m-name">Refresh</span></button>
@@ -102,7 +104,7 @@ export class Rooms {
         `<span class="m-meta">${n < 2 ? 'Needs a second player' : mp.canStart() ? `${n} players` : 'Getting ships ready'}</span></button>` : '';
       html = `<div class="mp-head"><b>${esc(room.name || 'Room')}</b><span>${esc(this.circuit(room.map || mp.h.map))} &middot; ${n}/${room.max || 8} &middot; ${mp.host ? 'you host' : 'host: ' + esc(rows.find((p) => p.host)?.name || '-')}</span></div>
         <div class="mp-panel"><table class="mp-players"><thead><tr><th>Pilot</th><th>Ship</th><th>Ping</th><th></th><th></th></tr></thead><tbody>${tr}</tbody></table></div>
-        ${this.chatOn ? `<div class="mp-chat"><div class="mc-log"></div><input class="mc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Chat - Enter to send"></div>` : ''}
+        ${this.chatOn ? `<form class="mp-chat" action="#"><div class="mc-log"></div><input class="mc-in" type="text" maxlength="120" autocomplete="off" enterkeyhint="send" placeholder="Chat - Enter to send"></form>` : ''}
         <nav class="mp-acts">${start}
           <button class="m-item mp-btn" data-act="mp:leave" tabindex="-1"><span class="m-name">Leave room</span></button></nav>
         <div class="mp-status">${esc(mp.message || (mp.host ? 'Your room is open: friends find it in their Multiplayer list' : ''))}</div>`;
