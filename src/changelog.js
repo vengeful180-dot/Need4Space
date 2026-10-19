@@ -2,7 +2,21 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.16.0', date: '19 Oct 2026', name: 'Umbra lightning',
+    notes: [
+      'Umbra V1: lightning across the gaps between its blades and hull, and a charging beam between the slits on its nose',
+      'Umbra V1: boosting mends its hull faster - 3 % every half second',
+      'Umbra V1: its paint and panels show in the race - the violet rim no longer floods the blades',
+      'Anvil H1: its slam throws a ship 35 % harder and further',
+      'Ship screen: the Umbra’s engine lights no longer stay dark when it is the ship you fly',
+    ],
+  },
+  {
     version: '1.15.0', date: '19 Oct 2026', name: 'Sands of Ra',
+    brief: [
+      'New song Sands of Ra, a Music screen and song skip',
+      'Ship screen: each ship’s difficulty and its own rules',
+    ],
     notes: [
       'New song: Sands of Ra - a ney flute, an oud and a darbuka over the beat. The Pyramid Run opens on it',
       'Music in the main menu: see what is playing and pick any song',

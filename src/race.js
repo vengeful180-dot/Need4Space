@@ -696,7 +696,8 @@ export class Race {
       return;
     }
     const mass = clamp((A.handling.mass || 1) / (V.handling.mass || 1), 0.4, 2.2);
-    V.vx = out * Math.min(ATTACK.throw * mass, ATTACK.cap);
+    const hard = A.handling.slamThrow || 1;            // (the Anvil's: thrown harder, further)
+    V.vx = out * Math.min(ATTACK.throw * mass * hard, ATTACK.cap * hard);
     V.knocked = ATTACK.knock * Math.min(1.5, mass);
     const kick = out * ATTACK.slamYaw * Math.min(1.5, mass);
     V.psi += kick; V.yawKick += kick;

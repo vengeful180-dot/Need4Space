@@ -1203,9 +1203,11 @@ export class Ship {
     }
     // the hull atlas's size as loaded: a ship with liveries fetches its other paints' maps in the same size
     this.atlasW = this.mats.RacerBaked?.map?.image?.width || 0;
-    this.glowBase = {};
-    // engine glows 0.6x the export's: at full strength they bloomed into white blobs
-    for (const n of [...GLOWS, ...AVIONICS]) if (this.mats[n]) this.glowBase[n] = this.mats[n].emissiveIntensity * (GLOWS.includes(n) ? 0.6 : 1);
+    // engine glows 0.6x the export's: at full strength they bloomed into white blobs. (A copy takes its source's: its
+    // cloned materials held the glow as the source's engine had left it - idle in the menu, the showroom's Umbra's veins
+    // dark on the stand)
+    this.glowBase = base?.glowBase ? { ...base.glowBase } : {};
+    for (const n of [...GLOWS, ...AVIONICS]) if (this.mats[n] && !(n in this.glowBase)) this.glowBase[n] = this.mats[n].emissiveIntensity * (GLOWS.includes(n) ? 0.6 : 1);
     // the GLB's own paint (the first livery), kept apart from the material a livery swaps: a copy of a ship already in
     // another paint (the showroom's copy of a green Feather) cloned the green maps and took them for its own - "switch
     // back to normal skin ... it still shows the green one"
@@ -1229,12 +1231,14 @@ export class Ship {
     if (this.mats.EngineCore) this.mats.EngineCore.emissive.copy(this.engineColor).lerp(white, 0.6);
     // the pulse engine: every stage its own material (each fires on its own), in the engine's colour; the core's dome
     // whiter. The balls ride their anchors; the headlamp's middle is where the headlight's beam starts (main.js)
-    for (const p of this.pulses) {
+    // (a copy - the showroom's of the ship flown - takes each stage's strength from its source: its material, cloned,
+    // held whatever the pulse had left in it, the menu's idle glow, and the Umbra's drum stayed dark on the stand)
+    this.pulses.forEach((p, i) => {
       p.mat = p.node.material = p.node.material.clone();
       p.mat.emissive.copy(this.engineColor);
       if (p.stage < 0) p.mat.emissive.lerp(white, 0.6);
-      p.base = p.mat.emissiveIntensity * 0.6;
-    }
+      p.base = base?.pulses?.[i]?.base ?? p.mat.emissiveIntensity * 0.6;
+    });
     for (const b of balls) {
       const ob = this.orbits.find((q) => q.node === b.node.parent);
       if (ob) ob.balls.push({ ...b, rest: b.node.position.clone() });
@@ -1747,8 +1751,12 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
           .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
   // (another livery's pinstripes: the baked violet read as their brightness, in that livery's own light)
   if (umbraGlow.w > 0.5) totalEmissiveRadiance = umbraGlow.rgb * max(totalEmissiveRadiance.r, max(totalEmissiveRadiance.g, totalEmissiveRadiance.b));
+  // (the silhouette only, and the paint showing through it: as fr^6 a blade seen along it - the chase camera's low
+  // angle, a fly-by - glowed flat violet edge to edge on the boost and its panels were gone)
   { float fr = 1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0);
-    float f3 = fr * fr * fr; totalEmissiveRadiance += umbraRim * f3 * f3 * 1.6; }`);      // (the silhouette only: broad grazing faces stay dark)
+    float f3 = fr * fr * fr, f12 = f3 * f3 * f3 * f3;
+    float paint = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+    totalEmissiveRadiance += umbraRim * f12 * 1.7 * (0.35 + 0.65 * clamp(paint / 0.1, 0.0, 1.8)); }`);
       }
     };
     m.customProgramCacheKey = () => (rg ? 'feather-hull-rg-sharp' : 'feather-hull-sharp') + (this.umbraU ? '-umbra' : '');
@@ -1950,7 +1958,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     const lamp = Ship.brakeLights !== false ? smoothstep(0.08, 0.6, ctrl.brakeLight ?? brake) : 0;
     if (this.orbits.length || this.pulses.length || this.lamps.length) this.updatePulse(dt, thr1, boost1, lamp, ctrl.speed || 0);
     if (this.floaters.length) this.updateFloaters(dt, thr1, boost1, ctrl);
-    if (this.umbra) this.umbra.update(dt, this.power, thr1, boost1, ctrl.speed || 0, Ship.umbraAura !== false, Ship.umbraTime !== false, lamp);
+    if (this.umbra) this.umbra.update(dt, this.power, thr1, boost1, ctrl.speed || 0, Ship.umbraAura !== false, Ship.umbraTime !== false, lamp, Ship.umbraArcs !== false);
     if (this.kind && LIVERIES[this.kind]) {        // the player's and the showroom's ships wear the chosen livery (a rival its own)
       const want = this.livery || Ship.liveries?.[this.kind] || LIVERIES[this.kind].names[0];
       if (want !== this.liveryShown) this.applyLivery(want);

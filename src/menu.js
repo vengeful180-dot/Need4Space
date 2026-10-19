@@ -62,8 +62,9 @@ const diffRow = (id) => {
 const traits = (H) => {
   const t = [];
   if (H.slam === false) t.push('Cannot slam, nor block a slam');
+  if (H.slamThrow > 1) t.push(`Its slam throws a ship ${Math.round((H.slamThrow - 1) * 100)} % harder and further`);
   if (H.slamSlow) t.push(`A slam at it only slows it (${Math.round(H.slamSlow * 100)} % of its speed) - no damage, no push`);
-  if (H.boostHeal) t.push(`Boosting mends its hull: ${+(H.boostHeal * 100).toFixed(1)} % of it a second`);
+  if (H.boostHeal) t.push(`Boosting mends its hull: ${+(H.boostHeal * 100).toFixed(1)} % of it every ${H.boostHealEvery === 0.5 ? 'half second' : `${H.boostHealEvery || 1} s`}`);
   return t.length ? `<ul class="s-traits">${t.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 };
 const statRows = (list) => list.map(([n, v]) => `<div class="d-stat"><span>${n}</span><b class="d-bar">${

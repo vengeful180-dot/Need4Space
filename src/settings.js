@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, slamNote: true, umbraAura: true, umbraTime: true, pyrRuins: true, pyrTomb: true };
+  pilots: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -71,6 +71,7 @@ const ROWS = [
   ['sandstorm', 'Sandstorm', [[true, 'On'], [false, 'Off']]],
   ['lensWater', 'Water on the lens', [[true, 'On'], [false, 'Off']]],
   ['umbraAura', 'Umbra: dark aura and dark-matter boost', [[true, 'On'], [false, 'Off']]],
+  ['umbraArcs', 'Umbra: lightning between the blades and the hull', [[true, 'On'], [false, 'Off']]],
   ['umbraTime', 'Umbra: time slowed round the engine on the boost', [[true, 'On'], [false, 'Off']]],
   ['pyrRuins', 'Ruins on the planet', [[true, 'On'], [false, 'Off']]],
   ['pyrTomb', "The tunnel's columns, monoliths and sandfalls", [[true, 'On'], [false, 'Off']]],
@@ -94,7 +95,7 @@ const ROWS = [
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
   ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'airPitch', 'music', 'song', 'sfx', 'touch']],
-  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraTime']],
+  ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraArcs', 'umbraTime']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],
   ['forest', 'Forest moon', ['caveFx']],

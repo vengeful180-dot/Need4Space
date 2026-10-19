@@ -616,6 +616,7 @@ async function boot() {
     Ship.liveries = { feather: v.featherLivery || 'classic', rocket: v.cometLivery || 'titanium', heavy: v.heavyLivery || 'hazard', umbra: v.umbraLivery || 'umbra' };
     Ship.pulseRings = v.pulseRings !== false;
     Ship.umbraAura = v.umbraAura !== false;             // the Umbra's dark aura
+    Ship.umbraArcs = v.umbraArcs !== false;             // the Umbra's lightning across its blades' gaps
     Ship.umbraTime = v.umbraTime !== false;             // and its slowed time on the boost
     Ship.sharpEdges = v.sharpEdges !== false;
     blurOn = v.blur;

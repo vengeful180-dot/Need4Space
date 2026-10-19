@@ -8,6 +8,9 @@
 // All of it in the ship's own frame and animated on the GPU from one clock: no per-frame buffers.
 import * as THREE from 'three';
 
+const ARC_BOLTS = 3, ARC_N = 20, ARC_NB = 9;      // lightning bolts per blade's gap, points per bolt, per branch
+const CHARGE_N = 18, CHARGE_S = 48;                // points along the nose's charging beam, along each of its strands
+
 const _d = new THREE.Vector3(), _white = new THREE.Color(1, 1, 1);
 
 // a 3-D value noise (cheap, smooth, periodic-free): the disk's streaks and the wisps' billows
@@ -267,6 +270,56 @@ function fieldMaterial() {
   });
 }
 
+// Lightning across each blade's gap: ribbons turned to face the camera (position: the bolt's point; tang: its way on;
+// side -1..1 across it; wid its half width; bright its strike's), a thin white-hot core in a glow of the field's colour
+// - additive, bright enough for the bloom to halo it
+function arcMaterial() {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor,
+    uniforms: { col: { value: new THREE.Color(0.5, 0.2, 1.0) }, k: { value: 0 } },
+    vertexShader: /* glsl */`
+      attribute vec3 tang; attribute float side, wid, bright;
+      varying float vSide, vBright;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vec3 tv = (modelViewMatrix * vec4(tang, 0.0)).xyz;
+        vec3 across = normalize(cross(normalize(tv + vec3(1e-5)), normalize(-mv.xyz)));
+        mv.xyz += across * side * wid;
+        vSide = side; vBright = bright;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform vec3 col; uniform float k; varying float vSide, vBright;
+      void main() {
+        float d = abs(vSide);
+        float core = exp(-d * d * 60.0), glow = exp(-d * d * 5.0) * (1.0 - d);
+        vec3 c = mix(col, vec3(1.0), 0.85 * core) * (3.2 * core + 0.9 * glow);
+        gl_FragColor = vec4(c * vBright * k, 1.0);
+      }`,
+  });
+}
+
+// ribbons for arcMaterial: polylines of the given point counts, two vertices a point (side -1, 1), drawn as strips
+function ribbonMesh(counts, mat) {
+  const nPts = counts.reduce((a, b) => a + b, 0), geo = new THREE.BufferGeometry();
+  const side = new Float32Array(nPts * 2), idx = [];
+  for (let i = 0; i < nPts; i++) { side[i * 2] = -1; side[i * 2 + 1] = 1; }
+  let o = 0;
+  for (const n of counts) {
+    for (let i = 0; i < n - 1; i++) { const a = (o + i) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    o += n;
+  }
+  for (const [k, n] of [['position', 3], ['tang', 3], ['wid', 1], ['bright', 1]]) {
+    geo.setAttribute(k, new THREE.BufferAttribute(new Float32Array(nPts * 2 * n), n).setUsage(THREE.DynamicDrawUsage));
+  }
+  geo.setAttribute('side', new THREE.BufferAttribute(side, 1));
+  geo.setIndex(idx);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.frustumCulled = false; mesh.renderOrder = 4;
+  return mesh;
+}
+
 // Dark matter out of the hole: on the boost, jets of it streaming aft out of the mouth - dark billows (smoke-black with
 // a violet sheen, drawn over what is behind) spiralling round the axis and opening out, violet sparks whirling through
 // them (additive, the second material over the same buffers); at ignition a ring of it thrown out round the mouth
@@ -461,6 +514,26 @@ export class Umbra {
       ship.visual.add(g);                         // (the model is in the visual frame; never in the model: copies clone it)
       return { f, g, gap };
     });
+    // the lightning across each gap (in the field's frame: x along the pad, y 0 at the pad .. 1 at the shoe - scaled to
+    // the gap with the sheets - z across): bolts of ARC_N points struck from the pad to the shoe, each with a branch
+    this.arcMat = arcMaterial();
+    const arcSet = (g, n, o) => {
+      const mesh = ribbonMesh(Array.from({ length: n }, () => [ARC_N, ARC_NB]).flat(), this.arcMat);
+      g.add(mesh);
+      return { mesh, bolts: Array.from({ length: n }, () => ({ life: 0, x0: 0, x1: 0, z0: 0, z1: 0, b: 0, seed: 0, jit: 0 })), ...o };
+    };
+    this.arcs = this.fields.map(({ g }) => arcSet(g, ARC_BOLTS, { spread: 0.78, drift: 0.35, amp: 0.09, branch: 0.36 }));
+    // the charging beam between the two glowing slits on the nose's prongs' inner faces (ship-local, measured off the
+    // model's glow parts: their inner edges at x -0.225 and 0.225, y -0.78, from z -6.46 to -5.63): a beam straight
+    // across at their middle, two strands of light winding round it, its heart swelling - charging up and releasing
+    this.nose = new THREE.Group();                // (shown and hidden with the hull)
+    ship.visual.add(this.nose);
+    this.chargeCore = ribbonMesh([CHARGE_N], this.arcMat);
+    this.chargeSpiral = ribbonMesh([CHARGE_S, CHARGE_S], this.arcMat);
+    this.chargeHeart = ribbonMesh([3], this.arcMat);
+    this.nose.add(this.chargeCore, this.chargeSpiral, this.chargeHeart);
+    this.chargeT = 0; this.chargeRot = 0;
+    this.arcRnd = Math.random;
     // the dark matter
     const ND = 220, dg = new THREE.InstancedBufferGeometry(), dq = new THREE.PlaneGeometry(1, 1);
     dg.index = dq.index;
@@ -504,7 +577,7 @@ export class Umbra {
   }
 
   // power: the reactor 0..1; thr, boost 0..1; speed m/s; aura, time: the settings
-  update(dt, power, thr, boost, speed, aura = true, time = true, brake = 0) {
+  update(dt, power, thr, boost, speed, aura = true, time = true, brake = 0, arcs = true) {
     this.t += dt;
     // the brake (the brake lights' signal, 0 with the setting off): the infall turned round - in at once, out over a
     // quarter second
@@ -516,7 +589,7 @@ export class Umbra {
     this.dil += (dT - this.dil) * (1 - Math.exp(-dt / (dT > this.dil ? 0.35 : 0.8)));
     const gamma = 1 - 0.8 * this.dil, dtl = dt * gamma;
     this.tl += dtl;
-    this.ta += dt * (1 - 0.45 * this.dil);         // (the wisps and embers: at most about half speed)
+    this.ta += dt * (0.6 - 0.18 * this.dil);       // (the wisps and embers: 0.6 of the world's pace, ~0.4 on the boost)
     const U = this.bhMat.uniforms, B = this.B;
     // the start: the hole forms - from a point to its full size as the reactor comes up - and at ignition the disk
     // lights in a flash, a ring of dark matter thrown out round the mouth and a ripple of bent space (onWave)
@@ -568,13 +641,14 @@ export class Umbra {
     O.swirl.value = 1.0;
     I.rate.value = 1;
     I.swirl.value = 2.0 * boost;
-    this.fieldMat.uniforms.time.value = this.t;
+    this.fieldMat.uniforms.time.value = this.t * 0.45;   // (its bands and flicker at under half the pace: they ran too fast)
     this.fieldMat.uniforms.k.value = 0.35 + 0.65 * power + 0.6 * boost;
     for (const { f, g, gap } of this.fields) {      // (from the pad to the shoe wherever the blade has floated to)
       const off = _d.subVectors(f.node.position, f.base).dot(f.n);
       g.position.copy(f.base).addScaledVector(f.n, -gap);
       g.scale.y = Math.max(0.05, gap + off);
     }
+    this.updateArcs(dt, arcs ? power : 0, thr, boost);
     // the livery's glowing pinstripes (the hull's emissive map): a low glow parked, breathing with the engine's beat
     // running, bright on the boost
     const hull = this.ship.mats.RacerBaked;
@@ -591,6 +665,120 @@ export class Umbra {
       A.k.value = aura ? 0.35 + 0.65 * power + 0.4 * boost : 0;
       A.aft.value = 0.4 + Math.min(speed, 120) * 0.035 + 1.5 * boost;
     }
+  }
+
+  // the lightning: each bolt struck for a tenth to a third of a second, then again somewhere else along the pad - more
+  // of them, brighter and longer with the throttle and the boost; its kinks thrown anew every ~1/16 s (the crackle), each
+  // with a branch forking off part way and dying out
+  updateArcs(dt, power, thr, boost) {
+    const R = this.arcRnd, live = power > 0.05;
+    this.arcMat.uniforms.col.value.copy(this.fieldCol);
+    this.arcMat.uniforms.k.value = power * (0.55 + 0.45 * thr + 0.9 * boost);
+    const rate = 0.25 + 0.5 * thr + 0.9 * boost;   // the share of the bolts alight at a time
+    for (const { mesh, bolts, spread, drift, amp: amp0, branch, zr = 0.05, flare: fl = 1.4, w: ws = 1, br: bs = 1 } of this.arcs) {
+      mesh.visible = live;
+      if (!live) continue;
+      const G = mesh.geometry, P = G.attributes.position.array, T = G.attributes.tang.array;
+      const W = G.attributes.wid.array, Bv = G.attributes.bright.array;
+      const sy = Math.max(0.05, mesh.parent.scale.y);   // (the gap's length: y is drawn in it)
+      let o = 0;
+      for (const b of bolts) {
+        b.life -= dt; b.jit -= dt;
+        if (b.life <= 0) {                           // a new strike - or a dark spell, by the rate
+          const on = R() < rate;
+          b.life = on ? 0.1 + 0.25 * R() + 0.15 * boost * R() : 0.06 + 0.18 * R();
+          b.b = on ? 0.55 + 0.6 * R() + (R() < 0.12 ? 0.8 : 0) : 0;
+          b.x0 = (R() * 2 - 1) * spread; b.x1 = Math.max(-spread - 0.07, Math.min(spread + 0.07, b.x0 + (R() * 2 - 1) * drift));
+          b.z0 = (R() * 2 - 1) * zr; b.z1 = (R() * 2 - 1) * zr;
+          b.jit = 0;
+        }
+        if (b.jit <= 0) { b.seed = R() * 1000; b.jit = 1 / 16; }
+        const fade = Math.min(1, b.life / 0.06) * b.b;
+        // the main bolt: from the pad's point to the shoe's, kinked across x and z (most at the middle)
+        const amp = amp0 * (1 + 0.55 * boost), h = (i, k) => { const s = Math.sin((b.seed + i * 12.9898 + k * 78.233) * 43758.5453); return (s - Math.floor(s)) * 2 - 1; };
+        const pts = [];
+        for (let i = 0; i < ARC_N; i++) {
+          const t = i / (ARC_N - 1), env = Math.sin(Math.PI * t) ** 0.7;
+          const big = (k) => h(Math.floor(i / 3), k) * amp, fine = (k) => h(i, k + 10) * amp * 0.35;
+          pts.push([b.x0 + (b.x1 - b.x0) * t + (big(1) + fine(1)) * env, t, b.z0 + (b.z1 - b.z0) * t + (big(2) + fine(2)) * 0.6 * env]);
+        }
+        // the branch: off the main bolt part way, out sideways and down the gap a little, thinning to nothing
+        const at = 2 + Math.floor((ARC_N - 5) * ((h(7, 3) + 1) / 2)), dir = h(8, 4) < 0 ? -1 : 1, bp = [];
+        for (let i = 0; i < ARC_NB; i++) {
+          const t = i / (ARC_NB - 1), base = pts[at];
+          bp.push([base[0] + dir * t * branch + h(i, 5) * branch * 0.17 * t, base[1] + t * 0.24 * (h(9, 6) + 1.2), base[2] + h(i, 7) * branch * 0.17 * t]);
+        }
+        for (const [list, w0, br] of [[pts, 0.055, 1], [bp, 0.035, 0.65]]) {
+          for (let i = 0; i < list.length; i++) {
+            const p = list[i], q = list[Math.min(list.length - 1, i + 1)], r0 = list[Math.max(0, i - 1)];
+            const tx = q[0] - r0[0], ty = (q[1] - r0[1]) * sy, tz = q[2] - r0[2];
+            const u = i / (list.length - 1), flare = list === bp ? 0 : fl * (Math.exp(-u * u * 120) + Math.exp(-(1 - u) * (1 - u) * 120));
+            const end = list === bp ? 1 - u : 1 + flare;
+            for (let s = 0; s < 2; s++) {
+              const v = (o + i) * 2 + s;
+              P[v * 3] = p[0]; P[v * 3 + 1] = p[1]; P[v * 3 + 2] = p[2];
+              T[v * 3] = tx; T[v * 3 + 1] = ty / sy; T[v * 3 + 2] = tz;
+              W[v] = ws * w0 * (0.6 + 0.4 * end) * (1 + 0.4 * boost);
+              Bv[v] = bs * fade * br * Math.min(1 + 0.85 * fl, end) * (0.8 + 0.4 * (h(3, 9) + 1) / 2);
+            }
+          }
+          o += list.length;
+        }
+      }
+      for (const k of ['position', 'tang', 'wid', 'bright']) G.attributes[k].needsUpdate = true;
+    }
+    this.updateCharge(dt, power, thr, boost);
+  }
+
+  // the charging beam: a cycle of charge (1.8 s cruising, 1.1 s on the boost) - the strands winding in tighter and
+  // turning faster, the beam and its heart swelling and brightening - then the release: a flash, and again. On the
+  // world's clock (the nose is far from the bent time round the engine)
+  updateCharge(dt, power, thr, boost) {
+    const live = power > 0.05;
+    for (const m of [this.chargeCore, this.chargeSpiral, this.chargeHeart]) m.visible = live;
+    if (!live) return;
+    this.chargeT += dt / (1.8 - 0.7 * boost);
+    const c = this.chargeT % 1, ch = c * c * (3 - 2 * c), flash = Math.exp(-c / 0.05) + 0.35 * Math.exp(-c / 0.25);
+    this.chargeRot += dt * Math.PI * 2 * (0.5 + 0.9 * ch) * (1 + 0.6 * boost);
+    // (from inside one slit to inside the other - their glow lies 0.225 to 0.31 out on the faces: ended at the edges
+    // it left a gap; the hull hides what is inside it)
+    const t = this.t, X0 = -0.31, X1 = 0.31, Y = -0.782, Z = -6.048;
+    const put = (mesh, list) => {                   // list: [x, y, z, tx, ty, tz, half width, brightness] a point
+      const G = mesh.geometry, P = G.attributes.position.array, T = G.attributes.tang.array, W = G.attributes.wid.array, B = G.attributes.bright.array;
+      list.forEach((q, i) => {
+        for (let k = 0; k < 2; k++) {
+          const v = i * 2 + k;
+          P[v * 3] = q[0]; P[v * 3 + 1] = q[1]; P[v * 3 + 2] = q[2];
+          T[v * 3] = q[3]; T[v * 3 + 1] = q[4]; T[v * 3 + 2] = q[5];
+          W[v] = q[6]; B[v] = q[7];
+        }
+      });
+      for (const k of ['position', 'tang', 'wid', 'bright']) G.attributes[k].needsUpdate = true;
+    };
+    // the beam: straight across, its light running along it, hotter where it meets the slits
+    const core = [];
+    for (let i = 0; i < CHARGE_N; i++) {
+      const u = i / (CHARGE_N - 1), run = 0.65 + 0.35 * Math.sin(u * 14 - t * 5.0), end = Math.exp(-u * u * 80) + Math.exp(-(1 - u) * (1 - u) * 80);
+      core.push([X0 + (X1 - X0) * u, Y, Z, 1, 0, 0, (0.014 + 0.02 * ch + 0.035 * flash) * (1 + 0.8 * end), (0.45 + 0.75 * ch + 2.2 * flash) * run * (1 + 1.2 * end)]);
+    }
+    put(this.chargeCore, core);
+    // the strands: two helices round it, half a turn apart, pinched in to the beam at the slits, tightening with the
+    // charge; pulses of light running round them
+    const sp = [], r = 0.052 - 0.028 * ch, turns = 3.0;
+    for (let k = 0; k < 2; k++) {
+      for (let i = 0; i < CHARGE_S; i++) {
+        const u = i / (CHARGE_S - 1), env = Math.sqrt(Math.sin(Math.PI * u)), a = u * turns * Math.PI * 2 + this.chargeRot + k * Math.PI;
+        const x = X0 + (X1 - X0) * u, y = Y + r * env * Math.cos(a), z = Z + r * env * Math.sin(a);
+        // its way on: along the beam and round it
+        const da = turns * Math.PI * 2 * (X1 - X0) / (X1 - X0);
+        const tx = X1 - X0, ty = -r * env * Math.sin(a) * da, tz = r * env * Math.cos(a) * da;
+        sp.push([x, y, z, tx, ty, tz, 0.0055 + 0.004 * ch + 0.006 * flash, (0.3 + 0.7 * ch + 1.4 * flash) * (0.55 + 0.45 * Math.sin(u * 18 - t * 4.0 + k * 3.1)) * env]);
+      }
+    }
+    put(this.chargeSpiral, sp);
+    // the heart: a short bright swell at the beam's middle
+    const hw = 0.02 + 0.03 * ch + 0.07 * flash, hb = 0.6 + 1.1 * ch + 3.0 * flash;
+    put(this.chargeHeart, [[-0.03, Y, Z, 1, 0, 0, hw * 0.6, hb * 0.5], [0, Y, Z, 1, 0, 0, hw, hb], [0.03, Y, Z, 1, 0, 0, hw * 0.6, hb * 0.5]]);
   }
 
   // the livery's light (UMBRA_GLOW): the field, its boost, the aura and the embers, the dark matter, the rim, the glowing
@@ -632,11 +820,12 @@ export class Umbra {
   show(v) {
     this.group.visible = this.aura.visible = this.embers.visible = v;      // (the dark matter rides in the group)
     for (const q of this.fields) q.g.visible = v;
+    if (this.nose) this.nose.visible = v;
   }
 
   // where time runs slow, for the post pass (post.js EngineHeatPass): the centre just aft of the mouth, its reach (m)
   // and how slow; reported whenever it can be (k 0 too: the pass keeps its record of the frames going)
   timeSource(cb) { cb(this.group.localToWorld(_d.set(0, 0, 1.2)), 3.5, this.dil * 0.7); }
 
-  objects() { return [this.hole, this.inflow, this.outflow, this.aura, this.embers, ...this.darkMatter, ...this.fields.flatMap((q) => q.g.children)]; }
+  objects() { return [this.hole, this.inflow, this.outflow, this.aura, this.embers, ...this.darkMatter, ...this.fields.flatMap((q) => q.g.children), ...(this.nose ? this.nose.children : [])]; }
 }
