@@ -76,10 +76,25 @@
         "points": 52,
         "recordedAt": "2026-10-14T10:20:59.745Z",
         "runId": "9890f660-e75b-4006-98dc-72aaeb9a3e95"
+      },
+      {
+        "map": "forest",
+        "difficulty": "easy",
+        "name": "Jimbo",
+        "totalMs": 159583,
+        "bestLapMs": 52758,
+        "lapsMs": [
+          53550,
+          52758,
+          53275
+        ],
+        "points": 45,
+        "recordedAt": "2026-10-19T01:29:52.665Z",
+        "runId": "b3afb438-e8ca-40e4-870d-6bc72fbdf784"
       }
     ]
   },
-  "updatedAt": "2026-10-18T20:28:05.386Z",
+  "updatedAt": "2026-10-19T01:29:52.665Z",
   "submissions": {
     "forest:easy": {
       "9890f660-e75b-4006-98dc-72aaeb9a3e95": "Mangooo",
@@ -88,7 +103,8 @@
       "87de200d-6db8-4751-9e5c-98adf7eff2f1": "RequirePants",
       "0ad9c4b8-a02b-40ac-8e5f-dadaa1bab956": "RequirePants",
       "8fcdd0f3-e747-49c2-aca4-d29680ee701d": "human",
-      "4656a11d-e9eb-4742-b426-bee0cf24ab9d": "ag"
+      "4656a11d-e9eb-4742-b426-bee0cf24ab9d": "ag",
+      "b3afb438-e8ca-40e4-870d-6bc72fbdf784": "Jimbo"
     }
   }
 }
