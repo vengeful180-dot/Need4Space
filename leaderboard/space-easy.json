@@ -214,6 +214,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Jimbo",
+        "totalMs": 279658,
+        "bestLapMs": 90683,
+        "lapsMs": [
+          96175,
+          92800,
+          90683
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-19T01:25:35.761Z",
+        "runId": "a59479ac-bed2-4172-ade3-9fca69c91d4e"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "RootBear",
         "totalMs": 279783,
         "bestLapMs": 88200,
@@ -378,7 +393,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-19T01:20:24.459Z",
+  "updatedAt": "2026-10-19T01:25:35.761Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -409,7 +424,8 @@
       "08da4ac0-5254-4eef-adef-228d3ef69a16": "Booger",
       "1cbafa8b-f91b-4e2d-a66f-92664373431c": "human",
       "4bc8dc8d-ce82-476e-8078-f799f7de167f": "Adrian_Prime",
-      "534579d7-4334-4e99-bccc-db4769c10b66": "Logan"
+      "534579d7-4334-4e99-bccc-db4769c10b66": "Logan",
+      "a59479ac-bed2-4172-ade3-9fca69c91d4e": "Jimbo"
     }
   }
 }
