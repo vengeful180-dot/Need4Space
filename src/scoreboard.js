@@ -1,6 +1,6 @@
 import { LAPS } from './race.js';
 
-const MAPS = [['space', 'Space'], ['forest', 'Forest'], ['ice', 'Ice'], ['desert', 'Desert'], ['ocean', 'Ocean']];
+const MAPS = [['space', 'Space'], ['forest', 'Forest'], ['ice', 'Ice'], ['desert', 'Desert'], ['ocean', 'Ocean'], ['pyramid', 'Pyramid']];
 const LEVELS = [['easy', 'Easy'], ['normal', 'Normal'], ['hard', 'Hard'], ['brutal', 'Brutal']];
 const PROFILE = 'need4space.pilot.v1', PENDING = 'need4space.pending-time.v1', SAVED = 'need4space.saved-runs.v1';
 const load = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };

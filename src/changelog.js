@@ -7,6 +7,7 @@ export const UPDATES = [
       'New ship: the Umbra V1 - a black-hole engine, floating blades, time slowing round it on the boost',
       'The fastest ship and the most fragile: no slam, no block. Three paints',
       'New circuit: the Pyramid Run - twice the top speed, a desert planet of ruins, down a colossal pyramid and through its torch-lit root',
+      'The Pyramid Run on the global scoreboard',
       'Every ship rated on slam power on the Ship screen',
       'Thank you, RwkY, our newest supporter!',
     ],

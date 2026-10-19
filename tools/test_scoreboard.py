@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import urllib.error
 import uuid
 
@@ -49,6 +50,12 @@ class ConflictStore(ScoreStore):
 
 class ScoreboardChecks(unittest.TestCase):
     def setUp(self):
+        environment = patch.dict('os.environ', {'NEED4SPACE_SCOREBOARD_REPO': '', 'NEED4SPACE_SCOREBOARD_TOKEN': ''})
+        environment.start()
+        self.addCleanup(environment.stop)
+        network = patch('urllib.request.urlopen', side_effect=AssertionError('Scoreboard tests must not access the network.'))
+        network.start()
+        self.addCleanup(network.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / 'scores.json'
         self.store = ScoreStore(self.path)
@@ -123,12 +130,17 @@ class ScoreboardChecks(unittest.TestCase):
         self.assertEqual(replay['totalPlayers'], 1)
 
     def test_boards_are_separate_and_persist_after_restart(self):
-        for map_id in ('space', 'forest', 'ice', 'desert', 'ocean'):
-            for level in ('easy', 'normal', 'hard', 'brutal'):
+        maps = ('space', 'forest', 'ice', 'desert', 'ocean', 'pyramid')
+        levels = ('easy', 'normal', 'hard', 'brutal')
+        for map_id in maps:
+            for level in levels:
                 self.store.submit(result(0, map_id=map_id, difficulty=level))
         fresh = ScoreStore(self.path)
-        self.assertEqual(len(json.loads(self.path.read_text())['boards']), 20)
-        self.assertEqual(fresh.read('desert', 'brutal')['entries'][0]['name'], 'Pilot 0')
+        self.assertEqual(len(json.loads(self.path.read_text())['boards']), 24)
+        for map_id in maps:
+            for level in levels:
+                with self.subTest(map=map_id, difficulty=level):
+                    self.assertEqual(fresh.read(map_id, level)['entries'][0]['name'], 'Pilot 0')
 
     def test_parallel_saves_do_not_lose_players(self):
         with ThreadPoolExecutor(max_workers=12) as pool:
