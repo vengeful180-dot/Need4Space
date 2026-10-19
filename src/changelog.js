@@ -2,6 +2,15 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.15.0', date: '19 Oct 2026', name: 'Sands of Ra',
+    notes: [
+      'New song: Sands of Ra - a ney flute, an oud and a darbuka over the beat. The Pyramid Run opens on it',
+      'Music in the main menu: see what is playing and pick any song',
+      'Settings: Song - skip to the next one or back, in a race too',
+      'Umbra V1: a softer pull off the line and out of the corners - still the fastest ship',
+    ],
+  },
+  {
     version: '1.14.0', date: '19 Oct 2026', name: 'Umbra and the Pyramid Run',
     notes: [
       'New ship: the Umbra V1 - a black-hole engine, floating blades, time slowing round it on the boost',

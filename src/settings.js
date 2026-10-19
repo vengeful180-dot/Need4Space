@@ -45,6 +45,8 @@ const ROWS = [
   ['airPitch', 'Nose control in the air', [[true, 'On'], [false, 'Off']]],
   ['pilots', 'Rival pilots (their faces and what they say)', [[true, 'On'], [false, 'Off']]],
   ['music', 'Music', [['off', 'Off'], ['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
+  // (not a setting: the song playing, skipped - main.js onAction)
+  ['song', 'Song', [['prev', 'Previous'], ['next', 'Next song']]],
   ['sfx', 'Sound effects', [['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
   ['touch', 'Touch controls', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']]],
   ['tonemap', 'Tone mapping', [['punchy', 'AgX Punchy'], ['agx', 'AgX Medium'], ['aces', 'ACES']]],
@@ -91,7 +93,7 @@ const ROWS = [
 // the Settings screen's sections: each a bar that opens and closes (General open on arrival), each circuit's own
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
-  ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'airPitch', 'music', 'sfx', 'touch']],
+  ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'airPitch', 'music', 'song', 'sfx', 'touch']],
   ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraTime']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],
@@ -157,6 +159,7 @@ export class Settings {
   }
 
   set(k, val) {
+    if (k === 'song') { this.onAction?.(k, val); return; }       // (an action, nothing kept)
     if (k === 'quality') { if (!PRESETS[val]) return; Object.assign(this.v, PRESETS[val]); }   // (Custom is only shown)
     this.v[k] = val;
     this.v.quality = presetOf(this.v);
@@ -210,6 +213,7 @@ export class Settings {
   cycle(d, wrap = false) {
     const it = ITEMS[this.focus];
     if (!it.row) return wrap ? this.fold(it.id) : this.fold(it.id, d > 0);
+    if (it.row[0] === 'song') { this.set('song', d < 0 ? 'prev' : 'next'); return true; }
     const [k, , all] = it.row, opts = all.filter(([val]) => val !== 'custom'), n = opts.length;
     const i = opts.findIndex(([val]) => val === this.v[k]);
     let j = i + d;
@@ -232,7 +236,7 @@ export class Settings {
           `${it.id === (this.circuit || this.v.map) ? '<em class="s-cur">Current circuit</em>' : ''}</span><b class="s-n">${n}</b></div>`;
       }
       const [k, label, all] = it.row, opts = all.filter(([val]) => val !== 'custom' || this.v.quality === 'custom');
-      return `<div class="srow${focus}" data-r="${i}" data-sec="${it.id}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower for smoother racing; higher for sharper scenery. Saved in this browser.</small>' : ''}</span><div class="seg">${opts.map(([val, t]) =>
+      return `<div class="srow${focus}" data-r="${i}" data-sec="${it.id}"><span>${label}${k === 'xrScale' ? '<small class="s-help">Lower for smoother racing; higher for sharper scenery. Saved in this browser.</small>' : ''}${k === 'song' && this.songName ? `<small class="s-help">Now playing: ${this.songName}</small>` : ''}</span><div class="seg">${opts.map(([val, t]) =>
         `<button tabindex="-1" data-k="${k}" data-v='${JSON.stringify(val)}'${k === 'ai' ? ` data-lv="${val}"` : ''} class="${this.v[k] === val ? 'on' : ''}">${t}</button>`)
         .join('')}</div></div>`;
     }).join('') +

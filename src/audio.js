@@ -7,11 +7,18 @@
 //  - rivals: the nearest five engines, each its own pitch
 //  - the world: whooshes under gantries and light gates, echo inside the glass tunnel and the meteorite
 //  - the race: countdown beeps, GO, lap chime, finish; menu blips (ui())
-//  - music: three songs composed in music.js, exported once to assets/music (Opus / AAC) and streamed as a playlist
+//  - music: four songs composed in music.js, exported once to assets/music (Opus / AAC) and streamed as a playlist
+//    (each circuit's own order: the Pyramid Run opens on its own song); one can be picked (the menu's Music screen) or
+//    skipped (Settings: Song)
 // Starts on the first key press or click (browsers block audio before a gesture). M mutes.
 import * as THREE from 'three';
-// the songs (music.js composes them; profile.js exportMusic() + ffmpeg made the files)
-const SONGS = ['ring_runner', 'nebula_drift', 'hyperlane'];
+// the songs (music.js composes them; profile.js exportMusic() + ffmpeg made the files): the file, the name, a line
+export const SONGS = [
+  { id: 'ring_runner', name: 'Ring Runner', line: '144 BPM - four on the floor, claps, a rolling bass and a square arpeggio' },
+  { id: 'nebula_drift', name: 'Nebula Drift', line: '128 BPM - progressive: an offbeat bass, a saw arpeggio in threes, long lines' },
+  { id: 'hyperlane', name: 'Hyperlane', line: '160 BPM - breakbeat drums, a growling reese bass, punchy stabs' },
+  { id: 'sands_of_ra', name: 'Sands of Ra', line: '128 BPM - the Pyramid Run: a ney flute over a drone, an oud, a darbuka and finger cymbals' },
+];
 import { TRACK_W } from './track.js';
 
 const MUSIC_LV = { off: 0, low: 0.3, mid: 0.5, high: 0.72 };     // (+2 dB on the first levels: "a bit louder")
@@ -40,6 +47,8 @@ export class GameAudio {
     this.muted = false;
     this.levels = { music: 'mid', sfx: 'high' };
     this.decks = null; this.song = 0; this.deck = 0; this.musicIn = null;
+    this.order = SONGS.map((_, i) => i);             // the playlist (setMap: each circuit's)
+    this.onSong = null;                              // (i) when another song starts (the menu's and Settings' "now playing")
     this.L = new THREE.Vector3(); this.camPrev = new THREE.Vector3(); this.camVel = new THREE.Vector3(); this.hasPrev = false;
     this.lastCount = 0; this.passDone = -1; this.env = 'open'; this.airTime = 0; this.frame = {};
     this.gates = {};
@@ -312,22 +321,56 @@ export class GameAudio {
     this.decks = [0, 1].map(() => { const el = new Audio(); el.preload = 'auto'; return el; });
     this.decks.forEach((el, k) => el.addEventListener('ended', () => this.nextSong(k)));
     this.load(0, this.song);
-    this.load(1, (this.song + 1) % SONGS.length);
+    this.load(1, this.after(this.song));
   }
+
+  // the circuit's playlist: the Pyramid Run opens on Sands of Ra, the rest in their order after it; elsewhere it comes last
+  setMap(map) {
+    const own = SONGS.findIndex((s) => s.id === 'sands_of_ra');
+    this.order = map === 'pyramid' ? [own, ...SONGS.map((_, i) => i).filter((i) => i !== own)] : SONGS.map((_, i) => i);
+    if (!this.decks) this.song = this.order[0];
+  }
+  after(song, d = 1) { const n = this.order.length, i = Math.max(0, this.order.indexOf(song)); return this.order[(i + d + n) % n]; }
+  get songName() { return SONGS[this.song]?.name || ''; }
 
   load(deck, song) {
     const el = this.decks[deck];
-    el.src = `assets/music/${SONGS[song]}.${this.ext}`;
+    el.src = `assets/music/${SONGS[song].id}.${this.ext}`;
+    el.dataset.song = song;
     el.load();
   }
 
   nextSong(deck) {
     if (deck !== this.deck) return;
-    this.song = (this.song + 1) % SONGS.length;
+    this.song = this.after(this.song);
     this.deck ^= 1;
     this.decks[this.deck].play().catch((e) => console.warn('music:', e));
-    this.load(deck, (this.song + 1) % SONGS.length);                  // the one after, into the deck just freed
+    this.load(deck, this.after(this.song));                          // the one after, into the deck just freed
+    this.onSong?.(this.song);
   }
+
+  // song i now: into the idle deck (already there if it is the next one), the one playing stopped, a quick fade in;
+  // before the sound has started (no key pressed yet) only chosen - it plays first
+  playSong(i) {
+    if (!SONGS[i]) return;
+    if (!this.decks) { this.song = i; this.onSong?.(i); return; }
+    if (i === this.song) return;
+    const cur = this.decks[this.deck], idle = this.deck ^ 1;
+    if (+this.decks[idle].dataset.song !== i) this.load(idle, i);
+    cur.pause();
+    this.deck = idle; this.song = i;
+    const el = this.decks[idle];
+    el.currentTime = 0;
+    if (this.ctx) {
+      if (this.musicDirect) { this.musicFade = performance.now() - 2000 + 400; this.musicVolume(); }
+      else { const t = this.ctx.currentTime; this.musicIn.gain.cancelScheduledValues(t); this.musicIn.gain.setValueAtTime(0, t); this.musicIn.gain.setTargetAtTime(1, t + 0.05, 0.12); }
+      el.play().catch((e) => console.warn('music:', e));
+    }
+    this.load(idle ^ 1, this.after(i));                              // the one after it, into the deck just freed
+    this.onSong?.(i);
+  }
+  // the next song in the playlist (d -1: the one before)
+  skip(d = 1) { this.playSong(this.after(this.song, d)); }
 
   // ---------------------------------------------------------------- per frame
   update(dt, { camera, ship, ctl, race, track, mode, inp, world }) {

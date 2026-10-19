@@ -26,10 +26,11 @@ export const HANDLING = {
   rocket: { thrust: 1, boost: 0.9, drag: 0.92, turn: 1.05, impact: 1.5, health: 80, ram: 0.6, airbrakes: 1, mass: 0.8, slamCool: 10 },   // (clean flying laps 2-4 % under the Feather's)
   // the Anvil: a little slower off the line and in the turns, more on the boost, and knocks cost it a third less
   heavy: { thrust: 0.97, boost: 1.12, drag: 1, turn: 0.94, impact: 0.65, health: 150, ram: 1.6, airbrakes: 2, mass: 1.7, slamCool: 10 },
-  // the Umbra: the fastest there is - the top speed, the pull, the boost - and a glass hull: under half the Feather's,
-  // every knock costing it nearly twice the speed, light enough to be thrown far, a feeble ram; and no slam at all -
-  // it can neither throw one nor answer one (slam: false)
-  umbra: { thrust: 1.08, boost: 1.12, drag: 0.9, turn: 1.02, impact: 1.9, health: 45, ram: 0.5, airbrakes: 1, mass: 0.8, slamCool: 10, slam: false },
+  // the Umbra: the fastest there is - the top speed, the boost - and a glass hull: under half the Feather's, every knock
+  // costing it nearly twice the speed, light enough to be thrown far, a feeble ram; and no slam at all - it can neither
+  // throw one nor answer one (slam: false). (Its pull eased from 1.08: clean flying laps 6.4 % under the Feather's,
+  // were 8.7 % - the Comet's 4.3 %; a human pays for its glass in the corners and the slams, the AI's clean laps do not)
+  umbra: { thrust: 1, boost: 1.12, drag: 0.9, turn: 1.02, impact: 1.9, health: 45, ram: 0.5, airbrakes: 1, mass: 0.8, slamCool: 10, slam: false },
 };
 
 // the rivals' ships, by grid slot (the player's slot, 4, is skipped): two Comets near the front (passing is hard: from

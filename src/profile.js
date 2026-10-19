@@ -260,10 +260,11 @@ export async function shotsAt(prefix, list, w = 640, h = 360) {
 // The music, exported: each song of music.js rendered whole and saved as 16-bit WAV through the dev server
 // (racer/wip/shots/music_<name>.png - the PNG name is the server's; it is a WAV), then encoded with ffmpeg to
 // assets/music/<name>.ogg (Opus) and .m4a (AAC). The game streams those files instead of synthesising at runtime.
-export async function exportMusic() {
+export async function exportMusic(only = null) {
   const m = await import('./music.js');
   const done = [];
   for (let si = 0; si < m.SONG_COUNT; si++) {
+    if (only && !only.includes(si)) continue;
     const segs = [];
     for (let k = 0; k < m.SEGMENTS; k++) segs.push(await m.renderSegment(si, k));
     const sr = segs[0].sampleRate, n = segs.reduce((a, b) => a + b.length, 0);

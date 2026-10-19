@@ -290,6 +290,7 @@ async function boot() {
   const comms = new Comms(document.getElementById('hud'));      // the rival pilots' faces and lines (the setting)
   comms.map = MAP;                                     // (their talk about the circuit)
   const audio = new GameAudio();
+  audio.setMap(MAP);                                   // (the circuit's playlist: the Pyramid Run opens on its own song)
 
   // post: sky + scene (HDR, 4x MSAA in the first pass only) + NaN guard -> AO -> deck reflections -> bloom -> streaks
   // -> speed blur -> Blender's AgX (or ACES); the chain's own targets are plain (no samples, no depth)
@@ -893,7 +894,11 @@ async function boot() {
   };
   const heroOrbit = () => { rig.mode = 'orbit'; Object.assign(rig.orbit, { yaw: 2.35, pitch: 0.16, dist: 22 }); rig.anchor = null; rig.idle = 0; };
   let pilot = null;                                      // past the flag the rivals' AI flies the player's cool-down lap
-  const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, map: MAP, shipId: SHIP, showroom: showcase,
+  // the song playing, shown in Settings (Song) and the menu (Music); Settings' Previous / Next song skip
+  settings.songName = audio.songName;
+  settings.draw();
+  settings.onAction = (k, v) => { if (k === 'song') audio.skip(v === 'prev' ? -1 : 1); };
+  const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, audio, map: MAP, shipId: SHIP, showroom: showcase,
     mode: () => mode, engineOn: () => ship.engineOn, focus: () => ship.root.position,
     status: () => ({ race: race && mode === 'race' ? race.hud() : null }),
     startRace: () => { hud.hideResults(); setMode('race'); placeStart(false); resetLap(); heroOrbit(); engines(); },
@@ -914,6 +919,8 @@ async function boot() {
       rig.mode = 'orbit';
     } });
   window.__feather.menu = menu;
+  audio.onSong = () => { settings.songName = audio.songName; if (settings.open) settings.draw(); menu.markSong(); };
+  menu.markSong();
   window.__feather.showroom = () => showroom;
   Object.defineProperty(window.__feather, 'paused', { get: () => menu.paused, enumerable: true });
   menu.showTitle();

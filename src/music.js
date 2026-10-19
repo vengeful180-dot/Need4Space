@@ -1,8 +1,10 @@
-// The race music: three original tracks composed here and rendered into buffers (OfflineAudioContext, on the audio
+// The race music: four original tracks composed here and rendered into buffers (OfflineAudioContext, on the audio
 // thread) - no samples, no licensed music. They play as a playlist, one after another.
 //  1. Ring Runner  - 144 BPM, A minor (Am F C G): four-to-the-floor, claps, a rolling 16th bass, a square arpeggio
 //  2. Nebula Drift - 128 BPM, D minor (Dm Bb F C): progressive, an offbeat bass, a saw arpeggio in threes, long lines
 //  3. Hyperlane    - 160 BPM, E minor (Em C G D): breakbeat drums, a sustained detuned "reese" bass, punchy stabs
+//  4. Sands of Ra  - 128 BPM, D Hijaz (D Eb Cm D7): the Pyramid Run's - a drone and a breathy flute (a ney) opening
+//     it, an oud's plucked riff, a darbuka playing the maqsum over the kick, finger cymbals in the drop
 // Each is 64 bars: intro (0-8), groove (8-24), build (24-32), drop (32-48), breakdown (48-56), rebuild (56-64), its
 // last bars fading out into the next one's intro. Supersaw pads, a lead in the drop, risers and crashes at the section
 // changes; the pads, bass and arp duck under every kick.
@@ -69,6 +71,30 @@ const SONGS = [
     kick: [0, 10], back: 'snare', backSteps: [4, 12], open: [14],
     hatV: [0.6, 0.15, 0.5, 0.2, 0.6, 0.15, 0.5, 0.25, 0.6, 0.15, 0.5, 0.2, 0.6, 0.2, 0.55, 0.3],
     padCut: 0.8, padLevel: 0.9, leadCut: 1.15,
+  },
+  {
+    // D Hijaz (D Eb F# G A Bb C): the augmented second Eb - F# is the sound of it
+    name: 'Sands of Ra', bpm: 128, gain: 0.66,
+    chords: [[50, 54, 57, 62], [51, 55, 58, 63], [48, 51, 55, 60], [50, 54, 57, 60]], roots: [38, 39, 36, 38],
+    lead: [
+      [0, 0.5, 74], [0.5, 0.5, 75], [1, 1.5, 78], [2.5, 0.5, 79], [3, 1, 81], [4, 0.5, 82], [4.5, 0.5, 81], [5, 1, 79], [6, 2, 78],
+      [8, 0.5, 79], [8.5, 0.5, 81], [9, 1, 82], [10, 1, 84], [11, 1, 82], [12, 1.5, 81], [13.5, 0.5, 79], [14, 2, 81],
+      [16, 0.5, 81], [16.5, 0.5, 82], [17, 1, 84], [18, 1, 86], [19, 0.5, 84], [19.5, 0.5, 82], [20, 1, 81], [21, 1, 79], [22, 2, 78],
+      [24, 0.5, 79], [24.5, 0.5, 78], [25, 1, 75], [26, 1, 78], [27, 1, 75], [28, 3, 74], [31, 1, 72],
+    ],
+    // the flute: an octave down and soft over the drone in the intro, then the drop's two rounds and the breakdown's
+    leadType: 'ney', leadLevel: 1.9, leadRounds: [[0, 0.55, 1500, -12], [32, 1, 3000, 0], [40, 1, 3400, 0], [48, 0.65, 1800, 0]],
+    bass: '-RRO-RRR-ROR-RRF', sustain: false, bassCut: 340, bassDetune: 10, bassQ: 5,
+    arp: [0, 1, 2, 3, 2, 1, 0, 1, 0, 1, 2, 3, 3, 2, 1, 2], arpWave: 'sawtooth', arpLevel: 0.11,
+    // the oud's riff, in D whatever the chord (the mode is the music, the chords only colour it): turning round the
+    // tonic, then climbing to the fifth and falling back
+    riff: [[62, 63, 66, 63, 62, 63, 66, 67, 69, 67, 66, 63, 62, 63, 66, 63], [69, 70, 69, 67, 66, 67, 66, 63, 62, 63, 66, 67, 66, 63, 62, 60]],
+    darbuka: { main: 'D-T-k-T-D-k-T-kk', sparse: 'D-------D---k---', on: [[4, 30], [32, 48], [56, 64]], sparseOn: [[48, 56]] },
+    zills: { steps: [2, 6, 10, 14], on: [[16, 30], [32, 48], [60, 64]] },
+    drone: { notes: [38, 45, 50], on: [[0, 8], [48, 56]] },
+    kick: [0, 4, 8, 12], back: 'clap', backSteps: [4, 12], open: [6, 14],
+    hatV: [0.22, 0.08, 0.4, 0.1, 0.22, 0.08, 0.4, 0.12, 0.22, 0.08, 0.4, 0.1, 0.25, 0.1, 0.45, 0.14],
+    padCut: 1.1, padLevel: 0.95, leadCut: 1,
   },
 ];
 export const SONG_COUNT = SONGS.length;
@@ -219,7 +245,7 @@ async function buildAndRender(si, k, sr, built) {
     o.connect(f).connect(a).connect(arpBus); o.start(t); o.stop(t + 0.4);
   };
   // lead: two saws, a little glide from the note before, vibrato after the attack
-  const leadBus = gain(1, gain(0.13, out));
+  const leadBus = gain(1, gain(0.13 * (S.leadLevel || 1), out));
   leadBus.connect(gain(0.08, dlSend)); leadBus.connect(gain(0.1, revSend));
   const leadNote = (t, m, from, d, v, cut) => {
     const f = filter('lowpass', cut * 1.6, 1.2), a = c.createGain(), lfo = c.createOscillator(), vg = c.createGain();
@@ -234,6 +260,69 @@ async function buildAndRender(si, k, sr, built) {
     }
     lfo.start(t); lfo.stop(t + d + 0.35);
     f.connect(a).connect(leadBus);
+  };
+  // the ney: a breathy reed flute - a triangle and sines (its octave faint), a slow glide from the note before, a wide
+  // vibrato after the attack, and the breath: noise band-passed round the note, strongest as it is blown
+  const neyNote = (t, m, from, d, v, cut) => {
+    const f = filter('lowpass', cut * 1.3, 0.7), a = c.createGain(), lfo = c.createOscillator(), vg = c.createGain();
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(0.8 * v, t + 0.05); a.gain.setTargetAtTime(0.62 * v, t + 0.09, 0.25); a.gain.setTargetAtTime(0, t + d * 0.92, 0.06);
+    lfo.frequency.value = 5.2; vg.gain.setValueAtTime(0, t); vg.gain.setTargetAtTime(20, t + 0.2, 0.18); lfo.connect(vg);
+    for (const [type, mult, lv] of [['triangle', 1, 0.9], ['sine', 1, 0.55], ['sine', 2, 0.14]]) {
+      const o = c.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(hz(from) * mult, t); o.frequency.setTargetAtTime(hz(m) * mult, t, 0.04);
+      vg.connect(o.detune); o.connect(gain(lv, f)); o.start(t); o.stop(t + d + 0.4);
+    }
+    const n = noiseAt(t, d + 0.3), bp = filter('bandpass', hz(m) * 2, 2.2), bg = c.createGain();
+    bg.gain.setValueAtTime(0, t); bg.gain.linearRampToValueAtTime(0.5 * v, t + 0.025); bg.gain.setTargetAtTime(0.12 * v, t + 0.07, 0.12); bg.gain.setTargetAtTime(0, t + d * 0.9, 0.05);
+    n.connect(bp).connect(bg).connect(f);
+    lfo.start(t); lfo.stop(t + d + 0.4);
+    f.connect(a).connect(leadBus);
+  };
+  // the oud: a plucked string - detuned saws and a square through a filter snapping shut, the pitch settling from a
+  // touch sharp, the pick's click; a little right of centre
+  const oudPan = c.createStereoPanner(); oudPan.pan.value = 0.22; oudPan.connect(arpBus);
+  const oudNote = (t, m, v) => {
+    const f = filter('lowpass', 4200, 2), a = c.createGain();
+    f.frequency.setValueAtTime(4200, t); f.frequency.setTargetAtTime(850, t + 0.004, 0.06);
+    a.gain.setValueAtTime(0, t); a.gain.linearRampToValueAtTime(v, t + 0.0015); a.gain.setTargetAtTime(0, t + 0.004, 0.11);
+    for (const [type, dt, lv] of [['sawtooth', -6, 0.5], ['sawtooth', 6, 0.5], ['square', 0, 0.3]]) {
+      const o = c.createOscillator();
+      o.type = type; o.detune.value = dt;
+      o.frequency.setValueAtTime(hz(m) * 1.012, t); o.frequency.setTargetAtTime(hz(m), t, 0.01);
+      o.connect(gain(lv, f)); o.start(t); o.stop(t + 0.6);
+    }
+    const n = noiseAt(t, 0.015), bp = filter('bandpass', 3000, 1.5), cg = c.createGain();
+    cg.gain.setValueAtTime(0.25 * v, t); cg.gain.setTargetAtTime(0, t + 0.001, 0.004);
+    n.connect(bp).connect(cg).connect(f);
+    f.connect(a).connect(oudPan);
+  };
+  // the darbuka, a little left: the doum (the low, open stroke at the drum's middle), the tek (the high one at its rim)
+  // and the ka (a softer tek with the other hand)
+  const darbPan = c.createStereoPanner(); darbPan.pan.value = -0.2; darbPan.connect(drums); darbPan.connect(gain(0.18, revSend));
+  const doum = (t, v) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(88, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.62 * v, t + 0.003); g.gain.setTargetAtTime(0, t + 0.02, 0.09);
+    o.connect(g).connect(darbPan); o.start(t); o.stop(t + 0.6);
+  };
+  const tek = (t, v, f0 = 3200) => {
+    const n = noiseAt(t, 0.08), bp = filter('bandpass', f0, 1.4), g = c.createGain();
+    g.gain.setValueAtTime(0.5 * v, t); g.gain.setTargetAtTime(0, t + 0.001, 0.012);
+    n.connect(bp).connect(g).connect(darbPan);
+    const o = c.createOscillator(), og = c.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f0 * 0.245, t);
+    og.gain.setValueAtTime(0.22 * v, t); og.gain.setTargetAtTime(0, t + 0.001, 0.02);
+    o.connect(og).connect(darbPan); o.start(t); o.stop(t + 0.15);
+  };
+  // finger cymbals: three inharmonic partials ringing, right
+  const zillPan = c.createStereoPanner(); zillPan.pan.value = 0.35; zillPan.connect(drums); zillPan.connect(gain(0.3, revSend));
+  const zill = (t, v) => {
+    for (const [f0, lv] of [[2730, 1], [4180, 0.6], [5960, 0.35]]) {
+      const o = c.createOscillator(), g = c.createGain();
+      o.frequency.value = f0; g.gain.setValueAtTime(0.05 * v * lv, t); g.gain.setTargetAtTime(0, t + 0.002, 0.12);
+      o.connect(g).connect(zillPan); o.start(t); o.stop(t + 0.8);
+    }
   };
 
   const kicks = new Set(S.kick), backs = new Set(S.backSteps), opens = new Set(S.open);
@@ -258,9 +347,18 @@ async function buildAndRender(si, k, sr, built) {
           q === 'R' && st % 4 === 1 ? 0.95 : 0.75 + (S.sustain ? 0.1 : 0), S.bassCut * Math.pow(4.2, build + st / 16 / 8));
       }
       if (within(bar, ARP_ON)) {
-        const m = chord[S.arp[st]] + 12 + (bar % 2 === 1 && st >= 12 ? 12 : 0);
-        arpNote(t, m, st % 4 === 0 ? 1 : 0.7, bar < 8 ? 600 * Math.pow(5.5, (bar - 4 + st / 16) / 4) : bar >= 32 ? 3600 : 3000);
+        if (S.riff) oudNote(t, S.riff[bar % 2][st], (st % 4 === 0 ? 1 : 0.68) * (bar < 8 ? Math.min(1, (bar - 4 + st / 16) / 3) : 1));
+        else {
+          const m = chord[S.arp[st]] + 12 + (bar % 2 === 1 && st >= 12 ? 12 : 0);
+          arpNote(t, m, st % 4 === 0 ? 1 : 0.7, bar < 8 ? 600 * Math.pow(5.5, (bar - 4 + st / 16) / 4) : bar >= 32 ? 3600 : 3000);
+        }
       }
+      if (S.darbuka) {
+        const pat = within(bar, S.darbuka.on) && !(bar >= 30 && bar < 32) ? S.darbuka.main : within(bar, S.darbuka.sparseOn) ? S.darbuka.sparse : null;
+        const q = pat?.[st], tt = t + (hash(T0 + st * 0.13) - 0.5) * 0.006, vel = bar < 8 ? 0.75 : 1;
+        if (q === 'D') doum(tt, vel); else if (q === 'T') tek(tt, (st === 12 ? 0.95 : 0.8) * vel); else if (q === 'k') tek(tt, 0.42 * vel, 2600);
+      }
+      if (S.zills && within(bar, S.zills.on) && S.zills.steps.includes(st)) zill(t, st === 14 ? 1 : 0.75);
     }
     await breathe();
     // pads: a chord every two bars, slow attack and release, darker in the groove, open in the breakdown
@@ -276,6 +374,17 @@ async function buildAndRender(si, k, sr, built) {
         o.connect(gain(0.16, pf)); o.start(t0); o.stop(t0 + dur + 1.6);
       }
     }
+    // the drone: the tonic and its fifth held low, a voice every two bars, opening slowly
+    if (S.drone && bar % 2 === 0 && t0 !== null && within(bar, S.drone.on)) {
+      const dur = 2 * BAR, df = filter('lowpass', 420 + 260 * ((bar % 8) / 8), 0.8), da = c.createGain();
+      da.gain.setValueAtTime(0, t0); da.gain.setTargetAtTime(0.11, t0, 0.3); da.gain.setTargetAtTime(0, t0 + dur - 0.05, 0.3);
+      df.connect(da); da.connect(out); da.connect(gain(0.45, revSend));
+      for (const m of S.drone.notes) for (const dt of [-6, 6]) {
+        const o = c.createOscillator();
+        o.type = 'sawtooth'; o.frequency.value = hz(m); o.detune.value = dt;
+        o.connect(gain(0.2, df)); o.start(t0); o.stop(t0 + dur + 1.8);
+      }
+    }
     // the breakdown's sub: whole bars of the root under the pads
     if (bar >= 48 && bar < 56 && t0 !== null) {
       const o = c.createOscillator(), g = c.createGain();
@@ -284,13 +393,16 @@ async function buildAndRender(si, k, sr, built) {
     }
   }
   // the lead: two rounds in the drop, one softer and darker in the breakdown
-  for (const [start, v, cut] of [[32, 1, 2800], [40, 1, 3200], [48, 0.6, 1500]]) {
+  const voice = S.leadType === 'ney' ? neyNote : leadNote;
+  for (const [start, v, cut, oct = 0] of S.leadRounds || [[32, 1, 2800], [40, 1, 3200], [48, 0.6, 1500]]) {
     await breathe();
     S.lead.forEach(([b, n, m], i) => {
       const t = at(start * BAR + b * BEAT);
-      if (t !== null) leadNote(t, m, S.lead[(i + S.lead.length - 1) % S.lead.length][2], n * BEAT, v, cut * S.leadCut);
+      if (t !== null) voice(t, m + oct, S.lead[(i + S.lead.length - 1) % S.lead.length][2] + oct, n * BEAT, v, cut * S.leadCut);
     });
   }
+  // the darbuka's roll into the drop (teks in 16ths, louder to the end)
+  if (S.darbuka) for (let s = 0; s < 32; s++) { const t = at(30 * BAR + s * S16); if (t !== null) tek(t, 0.35 + 0.55 * (s / 32), s % 2 ? 2600 : 3200); }
   // snare rolls into the drop and back into the groove, risers, crashes, a downlifter into the breakdown
   for (const [bar, steps, v0] of [[28, 2, 0.35], [29, 2, 0.45], [30, 1, 0.55], [31, 0.5, 0.7], [62, 1, 0.5], [63, 0.5, 0.7]]) {
     for (let s = 0; s < 16; s += steps) { const t = at(bar * BAR + s * S16); if (t !== null) snare(t, v0 + (s / 16) * 0.3); }

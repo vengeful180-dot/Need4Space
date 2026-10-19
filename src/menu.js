@@ -10,6 +10,7 @@ import { UPDATES, VERSION } from './changelog.js';
 import { Scoreboard } from './scoreboard.js';
 import { SHIPS, HANDLING, LIVERIES, shipName } from './ships.js';
 import { standardGamepad } from './input.js';
+import { SONGS } from './audio.js';
 
 const ui = (name) => window.__feather?.audio?.ui?.(name);
 const wake = () => window.__feather?.audio?.start?.();          // audio needs a user gesture: any menu key or click
@@ -56,7 +57,7 @@ const stats = (L) => [
 ];
 
 // ("remove the free flight option": the race on the track is the game)
-const MAIN = [['race', 'Race'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['settings', 'Settings'], ['controls', 'Controls'], ['support', 'Support']];
+const MAIN = [['race', 'Race'], ['circuit', 'Circuit'], ['ship', 'Ship'], ['scoreboard', 'Global scoreboard'], ['music', 'Music'], ['settings', 'Settings'], ['controls', 'Controls'], ['support', 'Support']];
 // the circuits (main.js loads the one chosen: the page reloads into it)
 export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed gas giant: a colossal broken derelict to thread, upside down through its hold, a meteorite to fly through, a glass tunnel, a loop'],
   ['forest', 'Forest moon', 'High over a jungle moon: floating islands, a river arching over the track, a colossal tree, two kilometres of caverns, a giant\'s skull, home upside down'],
@@ -87,6 +88,7 @@ const HINTS = {
   controls: K(['Esc'], 'Back', 'back'),
   support: K(['←', '→'], 'PayPal / Revolut', LR) + K(['Enter'], 'Donate', 'ok') + K(['Esc'], 'Back', 'back'),
   circuit: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Fly it', 'ok') + K(['Esc'], 'Back', 'back'),
+  music: K(['↑', '↓'], 'Select', UD) + K(['Enter'], 'Play', 'ok') + K(['Esc'], 'Back', 'back'),
   ship: K(['↑', '↓'], 'Select', UD) + K(['←', '→'], 'Paint', LR) + K(['Enter'], 'Confirm', 'ok') + K(['Esc'], 'Back', 'back'),
   scoreboard: K(['↑', '↓'], 'Circuit', UD) + K(['←', '→'], 'Difficulty', LR) + K(['R'], 'Refresh', 'refresh') + K(['Esc'], 'Back', 'back'),
   results: K(['←', '→'], 'Select', LR) + K(['Enter'], 'Confirm', 'ok') + K(['R'], 'Race again', 'again') + K(['Esc'], 'Main menu', 'back'),
@@ -136,6 +138,16 @@ export class Menu {
 
   get open() { return !!this.screen; }
 
+  // the song playing: its name on the main list's Music, its row marked on the Music screen
+  markSong() {
+    const a = this.h.audio;
+    if (!a) return;
+    const m = this.el.querySelector('.m-song');
+    if (m) m.textContent = a.songName;
+    for (const b of this.el.querySelectorAll('[data-act^="song:"]')) b.classList.toggle('now', +b.dataset.act.slice(5) === a.song);
+    if (this.screen === 'music' || this.screen === 'main') this.refresh();
+  }
+
   // What's new kept whole under the screen's middle (ui.css max-height): what does not fit goes from the bottom - the
   // update before's lines, then its heading, then the latest's last notes (two always stay) - never a line cut in half
   fitNews() {
@@ -154,6 +166,8 @@ export class Menu {
     const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1"><span class="m-num">${pad2(i)}</span>` +
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
+        : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
+        : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
           : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}</button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely
     // see it") - its two colours, the one it wears ringed and named; a chip paints the ship, the row itself picks it
@@ -199,6 +213,11 @@ export class Menu {
       <section class="m-screen" data-s="circuit">
         <header><div class="m-kicker">Where to race</div><h2 class="m-h2">Circuit</h2></header>
         <nav class="m-list">${CIRCUITS.map(([id, name]) => ['map:' + id, name]).map(item).join('')}</nav>
+        <div class="m-desc"></div>
+      </section>
+      <section class="m-screen" data-s="music">
+        <header><div class="m-kicker">The soundtrack</div><h2 class="m-h2">Music</h2></header>
+        <nav class="m-list">${SONGS.map((s, i) => item(['song:' + i, s.name], i)).join('')}</nav>
         <div class="m-desc"></div>
       </section>
       <section class="m-screen" data-s="ship">
@@ -268,6 +287,7 @@ export class Menu {
     this.h.settings.el.classList.toggle('hidden', screen !== 'settings');
     // (the Ship screen opens on the ship being flown)
     if (screen === 'ship' && this.sel.ship == null) this.sel.ship = Math.max(0, SHIPS.findIndex(([id]) => id === (this.h.shipId || 'feather')));
+    if (screen === 'music') this.sel.music = this.h.audio?.song ?? 0;              // (the Music screen opens on the song playing)
     this.h.showroom?.(screen === 'ship');
     this.board?.setOpen(screen === 'scoreboard');
     if (!screen) { document.getElementById('support-toast')?.classList.remove('on'); return; }   // (the last screen stays drawn while the menu fades out)
@@ -405,7 +425,7 @@ export class Menu {
   // ---------------------------------------------------------------- lists
   items() {
     const s = this.screen;
-    if (s !== 'main' && s !== 'pause' && s !== 'results' && s !== 'circuit' && s !== 'ship') return [];
+    if (s !== 'main' && s !== 'pause' && s !== 'results' && s !== 'circuit' && s !== 'ship' && s !== 'music') return [];
     const list = [...this.el.querySelectorAll(`.m-screen[data-s="${s}"] .m-item`)];
     // a finished race not yet saved: Save time first in the row, so Enter / A saves (or goes to the name)
     const save = s === 'results' && this.el.querySelector('#results .sb-save:not(:disabled)');
@@ -455,6 +475,8 @@ export class Menu {
       circuit: 'Space, the forest moon, the ice, desert or ocean planet, or the Pyramid Run',
       ship: 'The Feather S1, the Comet R1, the Anvil H1 or the Umbra V1 - look them over in the showroom',
       scoreboard: 'The global top 10 for each circuit and difficulty',
+      music: `Now playing: ${this.h.audio?.songName || '-'} - pick another, or skip one in Settings`,
+      ...Object.fromEntries(SONGS.map((s, i) => ['song:' + i, s.line])),
       ...Object.fromEntries(CIRCUITS.map(([id, , d]) => ['map:' + id, d])),
       ...Object.fromEntries(SHIPS.map(([id, , d]) => ['ship:' + id, d])),
       resume: free ? 'Back to free flight' : 'Back to the race',
@@ -652,7 +674,7 @@ export class Menu {
     const h = this.h;
     switch (a) {
       case 'race': ui('select'); this.go('diff', 'start'); break;
-      case 'settings': case 'controls': case 'support': case 'circuit': case 'ship': case 'scoreboard': ui('select'); this.go(a); break;
+      case 'settings': case 'controls': case 'support': case 'circuit': case 'ship': case 'scoreboard': case 'music': ui('select'); this.go(a); break;
       case 'donate': case 'donate:paypal': case 'donate:revolut': ui('select'); donate(a.split(':')[1]); break;
       case 'difficulty': ui('select'); this.go('diff', this.ctx === 'results' ? 'restart' : 'apply'); break;
       case 'confirm': this.confirmDiff(); break;
@@ -663,6 +685,11 @@ export class Menu {
       case 'quit': case 'menu': ui('back'); this.toTitle(); break;
       case 'back': this.back(); break;
       default:
+        if (a.startsWith('song:')) {                // a song: playing now (the screen stays: pick another)
+          ui('select');
+          h.audio?.playSong(+a.slice(5));
+          break;
+        }
         if (a.startsWith('map:')) {                 // another circuit: saved, and the page reloads into it
           const id = a.slice(4);
           ui('select');
@@ -812,7 +839,7 @@ export class Menu {
     cam.up.copy(this.up);
     cam.lookAt(v.look);
     // the subject right of centre, clear of the menu on the left (the difficulty cards sit in the middle)
-    const side = this.screen === 'main' || this.screen === 'settings' || this.screen === 'controls' || this.screen === 'support' || this.screen === 'circuit' || this.screen === 'ship' ? 1 : 0;
+    const side = this.screen === 'main' || this.screen === 'settings' || this.screen === 'controls' || this.screen === 'support' || this.screen === 'circuit' || this.screen === 'ship' || this.screen === 'music' ? 1 : 0;
     this.offK = (this.offK ?? side) + (side - (this.offK ?? side)) * (1 - Math.exp(-3 * dt));
     cam.rotateY(THREE.MathUtils.degToRad(v.fov * cam.aspect * 0.16 * this.offK));
     cam.fov = v.fov;

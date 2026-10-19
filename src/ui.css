@@ -725,6 +725,14 @@ body.touch .m-screen[data-s="ship"] .m-item:not(.sel) .s-chips { display: none; 
   .m-item { font-size: 1.2rem; }
 }
 
+/* the Music screen: the song playing marked, a small equalizer beating beside it */
+.m-item:not(.now) .m-play { display: none; }
+.m-play { display: inline-flex; align-items: flex-end; gap: 0.18rem; }
+.m-play i { display: inline-block; width: 3px; height: 0.75em; margin-bottom: 0.12em; background: currentColor; transform-origin: bottom; animation: m-eq 0.9s ease-in-out infinite; }
+.m-play i:nth-child(2) { animation-delay: -0.3s; }
+.m-play i:nth-child(3) { animation-delay: -0.6s; margin-right: 0.45rem; }
+@keyframes m-eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+
 /* support: the donation screen and the note that offers it */
 .s-body { max-width: 34rem; margin-top: 1.8rem; }
 .s-text { margin: 0 0 1.8rem; font: 500 1.15rem/1.55 var(--ui); letter-spacing: 0.03em; color: var(--dim); }
