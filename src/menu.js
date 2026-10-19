@@ -57,6 +57,15 @@ const diffRow = (id) => {
   return `<div class="d-stat s-diffrow" style="--c: var(--${P.c})"><span>Difficulty</span><b class="s-diffv">${P.label}` +
     `<span class="s-pips">${PILOTING_LEVELS.map((_, i) => `<i class="${i <= P.k ? 'on' : ''}"></i>`).join('')}</span></b></div>`;
 };
+// a ship's own rules, under its bars (from ships.js HANDLING): what the empty Slam bar means, what a slam does to it,
+// what its boost gives back
+const traits = (H) => {
+  const t = [];
+  if (H.slam === false) t.push('Cannot slam, nor block a slam');
+  if (H.slamSlow) t.push(`A slam at it only slows it (${Math.round(H.slamSlow * 100)} % of its speed) - no damage, no push`);
+  if (H.boostHeal) t.push(`Boosting mends its hull: ${+(H.boostHeal * 100).toFixed(1)} % of it a second`);
+  return t.length ? `<ul class="s-traits">${t.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
+};
 const statRows = (list) => list.map(([n, v]) => `<div class="d-stat"><span>${n}</span><b class="d-bar">${
   Array.from({ length: 10 }, (_, k) => `<i class="${k < v ? 'on' : ''}" style="--k:${k}"></i>`).join('')}</b></div>`).join('');
 const stats = (L) => [
@@ -453,7 +462,7 @@ export class Menu {
       const id = items[i].dataset.act.slice(5);
       this.h.showroom?.(true, id);
       const st = this.el.querySelector('.s-stats');
-      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = diffRow(id) + statRows(shipStats(HANDLING[id] || HANDLING.feather)); retrigger(st, 'swap'); }
+      if (st && st.dataset.id !== id) { st.dataset.id = id; st.innerHTML = diffRow(id) + statRows(shipStats(HANDLING[id] || HANDLING.feather)) + traits(HANDLING[id] || HANDLING.feather); retrigger(st, 'swap'); }
       // the confirm button: fly the ship on the stand (the one flown already: just back to the menu)
       const fly = this.el.querySelector('.s-fly-t'), now = id === (this.h.shipId || 'feather');
       const label = now ? `Keep the ${shipName(id)}` : `Fly the ${shipName(id)}`;

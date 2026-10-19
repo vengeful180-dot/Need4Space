@@ -2065,6 +2065,9 @@ export class TrackRacer {
     this.driftS += ((this.drift ? 1 : 0) - this.driftS) * damp(5, dt);
     const wantBoost = inp.boost && this.boostEnergy > 0.02 && ship.ready && !(this.ghost > 0);   // (no boost while a wreck)
     this.boosting += ((wantBoost ? 1 : 0) - this.boosting) * damp(6, dt);
+    // a ship the boost mends (ships.js boostHeal: the Umbra): that share of its hull back each second it boosts
+    const heal = this.handling.boostHeal;
+    if (heal && wantBoost && this.health < this.maxHealth) this.health = Math.min(this.maxHealth, this.health + this.maxHealth * heal * dt);
     // the boost spends the energy; under full it recharges, over full (a drift's top-up) it bleeds back once the
     // drifting is over
     const E = this.boostEnergy;

@@ -11,6 +11,9 @@ export const UPDATES = [
       'Umbra V1: its aura keeps drifting on the boost - slowed with time round the engine, no longer standing still',
       'Ship screen: how hard each ship is to fly - Feather Easy, Anvil Medium, Comet Hard, Umbra Expert',
       'Smoother reflections on the ships glass: the thin line of light on a canopy no longer flickers',
+      'Umbra V1: a slam no longer throws it or hurts it - its field takes the blow and it only loses some speed',
+      'Umbra V1: boosting mends its hull - 1 % of it back for every second on the boost',
+      'Ship screen: each ship’s own rules under its stats - what a slam does to the Umbra, what its boost gives back',
     ],
   },
   {

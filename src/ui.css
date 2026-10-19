@@ -543,6 +543,10 @@ body.lite .m-news { backdrop-filter: none; background: linear-gradient(115deg, r
 .s-pips { display: flex; gap: 4px; }
 .s-pips i { width: 0.9rem; height: 0.55rem; background: rgba(255, 255, 255, 0.1); transform: skewX(-20deg); }
 .s-pips i.on { background: var(--c); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--c) 70%, transparent); }
+/* the ship's own rules under its bars */
+.s-traits { margin: 0.9rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.32rem; }
+.s-traits li { position: relative; padding-left: 0.95rem; font: 600 0.86rem/1.3 var(--ui); letter-spacing: 0.03em; color: var(--soft); }
+.s-traits li::before { content: ''; position: absolute; left: 0; top: 0.55em; width: 0.38rem; height: 2px; background: var(--accent); }
 .s-stats.swap { animation: fade-in 0.3s ease both; }
 .s-stats .d-bar i.on { background: var(--accent); box-shadow: 0 0 0.45rem color-mix(in srgb, var(--accent) 70%, transparent); }
 /* the paints: a chip per livery on each ship's row - its two colours split on the diagonal; the one worn ringed, lit and

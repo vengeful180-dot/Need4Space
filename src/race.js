@@ -680,6 +680,21 @@ export class Race {
   // window: clash.)
   slam(att, vic) {
     const A = att.racer, V = vic.racer, out = Math.sign(V.x - A.x) || A.lunge?.dir || 1;
+    // a hull a slam cannot move (ships.js slamSlow: the Umbra's field takes the blow): not thrown, not knocked loose, not
+    // hurt - it only loses that share of its speed; the attacker stops dead where it hit and gets no hull back for it
+    if (V.handling.slamSlow) {
+      V.slow = (V.slow || 0) + V.vs * V.handling.slamSlow;
+      A.vx = 0; A.lunge = null;
+      if (att.player) A.safe = Math.max(A.safe || 0, ATTACK.selfSafe);
+      if (vic.underAttack?.by === att) vic.underAttack.done = true;
+      this.stats.attacks = (this.stats.attacks || 0) + 1;
+      if (att.player || vic.player) this.player.clean = false;
+      const at = A.pos.clone().add(V.pos).multiplyScalar(0.5);
+      vic.ship.hit(new THREE.Vector3(out, 0, 0), 0.6, vic.ship.root.worldToLocal(at.clone()));
+      this.events.push({ type: 'attack', at, attacker: att, victim: vic, slam: false, absorbed: true, mass: 1,
+        dir: V.pos.clone().sub(A.pos).projectOnPlane(this.track.frame(A.s).T).normalize() });
+      return;
+    }
     const mass = clamp((A.handling.mass || 1) / (V.handling.mass || 1), 0.4, 2.2);
     V.vx = out * Math.min(ATTACK.throw * mass, ATTACK.cap);
     V.knocked = ATTACK.knock * Math.min(1.5, mass);
@@ -812,8 +827,9 @@ export class Race {
           // a slam landing (the dash homing on the other): that hull holds where it hit, the other takes the push
           const atkA = A.lunge?.target === E[b], atkB = B.lunge?.target === E[a];
           atk = atkA === atkB ? 0 : atkA ? 1 : -1;
-          if (atk > 0) B.x += sx * push * 2;
-          else if (atk < 0) A.x -= sx * push * 2;
+          // (a hull a slam cannot move holds its line: the attacker takes the push)
+          if (atk > 0) { if (B.handling.slamSlow) A.x -= sx * push * 2; else B.x += sx * push * 2; }
+          else if (atk < 0) { if (A.handling.slamSlow) B.x += sx * push * 2; else A.x -= sx * push * 2; }
           else { A.x -= sx * push; B.x += sx * push; }
           // never through a wall: the one pinned there stays, the other takes the whole separation
           if (Math.abs(A.x) > limA) { B.x += sx * (Math.abs(A.x) - limA); A.x = Math.sign(A.x) * limA; }
