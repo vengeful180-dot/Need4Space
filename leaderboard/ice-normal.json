@@ -31,15 +31,31 @@
         "points": 57,
         "recordedAt": "2026-10-14T13:55:16.540Z",
         "runId": "899138c7-8ea1-4359-a0e4-594be337caa5"
+      },
+      {
+        "map": "ice",
+        "difficulty": "normal",
+        "name": "Wilbis",
+        "totalMs": 146675,
+        "bestLapMs": 47400,
+        "lapsMs": [
+          51158,
+          48117,
+          47400
+        ],
+        "points": 49,
+        "recordedAt": "2026-10-20T20:56:23.320Z",
+        "runId": "3bbdd21b-b559-4973-ab90-11c375a89a93"
       }
     ]
   },
-  "updatedAt": "2026-10-14T13:55:16.540Z",
+  "updatedAt": "2026-10-20T20:56:23.320Z",
   "submissions": {
     "ice:normal": {
       "legacy:145692:50625:47042:48025:48": "V3ngeful",
       "legacy:141767:49500:47742:44525:64": "V3ngeful",
-      "899138c7-8ea1-4359-a0e4-594be337caa5": "Spermy"
+      "899138c7-8ea1-4359-a0e4-594be337caa5": "Spermy",
+      "3bbdd21b-b559-4973-ab90-11c375a89a93": "Wilbis"
     }
   }
 }
