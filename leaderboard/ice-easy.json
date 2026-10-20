@@ -45,17 +45,33 @@
         "points": 58,
         "recordedAt": "2026-10-18T19:19:34.305Z",
         "runId": "1dc564c4-a242-4460-b59a-9216a745834b"
+      },
+      {
+        "map": "ice",
+        "difficulty": "easy",
+        "name": "Wilbis",
+        "totalMs": 148517,
+        "bestLapMs": 48383,
+        "lapsMs": [
+          51517,
+          48617,
+          48383
+        ],
+        "points": 64,
+        "recordedAt": "2026-10-20T20:47:11.786Z",
+        "runId": "746354c6-37cb-4c88-b627-040d24a1695e"
       }
     ]
   },
-  "updatedAt": "2026-10-18T19:19:34.305Z",
+  "updatedAt": "2026-10-20T20:47:11.786Z",
   "submissions": {
     "ice:easy": {
       "legacy:140400:48567:45875:45958:72": "V3ngeful",
       "9ffc0da7-e3c7-4cf3-bae9-ed7fe7fd6888": "V3ngeful",
       "9abf69d9-6f3d-4f86-9c8b-8c6126aefd4c": "human",
       "36771d7c-a940-4a4e-b5c9-bbaf2f45bf22": "human",
-      "1dc564c4-a242-4460-b59a-9216a745834b": "RwkY"
+      "1dc564c4-a242-4460-b59a-9216a745834b": "RwkY",
+      "746354c6-37cb-4c88-b627-040d24a1695e": "Wilbis"
     }
   }
 }
