@@ -760,6 +760,7 @@ export class GameAudio {
   }
   // into the tunnel or the meteorite: the pressure of the air closing in
   whoomp() {
+    if (!this.ctx) return;
     const t = this.ctx.currentTime, o = this.out(null, 0, 0.5);
     this.tone(t, 0.9, o, { f: 55, f1: 32, v: 0.8, tau: 0.25, attack: 0.04 });
     this.burst(t, 0.8, o, { type: 'lowpass', f: 1500, f1: 150, v: 0.5, buf: this.pink });
