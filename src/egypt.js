@@ -59,7 +59,7 @@ attribute vec2 eg; varying vec2 vEg; varying vec3 vRW; varying vec3 vRN; varying
 uniform vec3 egC; uniform float egR;
 varying vec2 vEg; varying vec3 vRW; varying vec3 vRN; varying vec3 vBake;
 ${EG_N}
-float egSand = 0.0, egGold = 0.0;
+float egSand = 0.0, egGold = 0.0, egSky = 1.0;
 vec3 egAmb = vec3(0.0);`)
       .replace('#include <map_fragment>', `#include <map_fragment>
   {
@@ -107,6 +107,7 @@ vec3 egAmb = vec3(0.0);`)
       float lie = smoothstep(0.45, 0.78, faceUp + (w2 - 0.5) * 0.45);
       float drift = smoothstep(9.0 + 10.0 * w1, 0.0, hgt) * (0.65 + 0.35 * w2);
       egSand = max(max(lie, drift), step(2.5, kind));                             // (3: a drift heaped against it)
+      egSky = kind > 2.5 ? 0.35 : 1.0;          // (a drift lit as the dunes are: with the stone's sky it stood out pale)
       c = mix(c, c * vec3(1.12, 1.06, 0.98), smoothstep(30.0, 0.0, hgt) * 0.5);
       // the light on whatever the sun misses: the sky (thick, dusty, bright) from above, the sunlit sand from below;
       // out in space only a little from the planet and the stars
@@ -118,7 +119,7 @@ vec3 egAmb = vec3(0.0);`)
   }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(mix(0.9, 0.35, egGold), 0.97, egSand);')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = egGold * 0.85;')
-      .replace('#include <lights_fragment_end>', 'irradiance += egAmb;\n#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse += vBake * BRDF_Lambert( material.diffuseColor );'
+      .replace('#include <lights_fragment_end>', 'irradiance = (irradiance + egAmb) * egSky;\n  iblIrradiance *= egSky;\n#include <lights_fragment_end>\n  reflectedLight.indirectDiffuse += vBake * BRDF_Lambert( material.diffuseColor );'
         // (a live lamp's shadow on baked light: it takes away at most 80 % of what the bake put there - the bake is per
         // vertex, its lamp's per pixel: next to a fire it took more than there was, a black wedge down the column under
         // each bracket - and no shine: the bake has none)
@@ -192,8 +193,12 @@ function rubble(P, n, r, s, rnd, y = 0) {
 }
 
 // a drift of sand heaped against a wall: a flattened half dome, rx by rz, h high
-export function drift(P, x, z, rx, rz, h, rot = 0) {
-  P.add(new THREE.SphereGeometry(1, 12, 5, 0, Math.PI * 2, 0, Math.PI / 2), at(x, -h * 0.15, z, 0, rot, 0, rx, h, rz), 3);
+// A drift of sand heaped against a work: a paraboloid mound, its sides meeting the sand at 20 - 30 deg and running on
+// under it (a flattened half-sphere, sunk with its work, showed only its flat top - meeting the sand nearly tangent,
+// the two flickered where they crossed); lifted by the work's own sink so as much of it shows as was meant
+const MOUND = new THREE.LatheGeometry([1.4, 1.2, 1, 0.75, 0.45, 0].map((r) => new THREE.Vector2(r, 1 - r * r)), 12);
+export function drift(P, x, z, rx, rz, h, rot = 0, lift = 0) {
+  P.add(MOUND.clone(), at(x, lift - h * 0.15, z, 0, rot, 0, rx, h, rz), 3);
 }
 
 // A papyrus column of height H (radius ~H/11): base, shaft, bands, bell capital, abacus. broken 0..1: snapped there
@@ -440,7 +445,7 @@ export function buildRuins(tr, o) {
         // sand drifted against it: a few heaps round its foot
         for (let d = 0; d < 2 + Math.floor(rnd() * 3); d++) {
           const a = rnd() * 6.283, rr = r * (0.25 + rnd() * 0.35);
-          drift(P, Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, rr, rr * (0.6 + rnd() * 0.6), sz * (0.05 + rnd() * 0.07), rnd() * 6.283);
+          drift(P, Math.cos(a) * r * 0.55, Math.sin(a) * r * 0.55, rr, rr * (0.6 + rnd() * 0.6), sz * (0.05 + rnd() * 0.07), rnd() * 6.283, sz * 0.015 + 1);
         }
         put(P.merged(), Mw, near, r, P); return true;
       }

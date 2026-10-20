@@ -1102,8 +1102,9 @@ export class PyramidWorld {
     const atlas = new THREE.WebGLRenderTarget(cols * T, rows * T, { format: THREE.RGFormat, type: THREE.UnsignedByteType,
       depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false });
     atlas.scissorTest = true;
-    // the casters: stand-ins sharing their geometry (the road's ribbons, its walls and girders, the pyramid, the blocks;
-    // the ruins on their own)
+    // the casters: stand-ins sharing their geometry (the road's deck and walls, the pyramid, the blocks; the ruins on
+    // their own). Not the gantries, lamps and girders: at this low sun each threw a thin line tens of metres over the
+    // sand, sweeping past as the road went by - it read as a fault
     const dm = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), groups = [new THREE.Scene(), new THREE.Scene()];
     const add = (m, g) => {
       if (!m?.geometry) return;
@@ -1114,8 +1115,7 @@ export class PyramidWorld {
       groups[g].add(q);
     };
     const P = tr.parts || {};
-    for (const m of [P.deck, P.under, ...(P.walls || []), ...(P.girders || []), ...(P.gantries || []), ...(P.lamps || []),
-      ...(P.towers || []), ...(P.trims || []), ...(P.lips || []), ...this.pyramid, this.blocks[0], this.blocks[2], this.blocks[3]]) add(m, 0);
+    for (const m of [P.deck, P.under, ...(P.walls || []), ...this.pyramid, this.blocks[0], this.blocks[2], this.blocks[3]]) add(m, 0);
     for (const m of this.ruins?.meshes || []) add(m, 1);
     const depths = [0, 1].map(() => {
       const rt = new THREE.WebGLRenderTarget(T, T);
