@@ -158,25 +158,106 @@ class Plume {
     this.scale = scale;
   }
 
-  update(t, power, thrust, boost) {
-    const L = this.r * this.scale * (1.4 + 8 * thrust + 5 * boost);
-    this.heat = power > 0.01 ? power * (0.3 + 0.45 * thrust + 0.6 * boost) : 0;     // (the heat shimmer behind it)
-    const w = 1 + 0.2 * thrust + 0.15 * boost;
+  // hy: the hyper boost (HYPER) - the jet two and a half times as long, wider, hotter, its knots blazing; core: how far
+  // down it the white-hot core then runs (a rocket's column further)
+  update(t, power, thrust, boost, hy = 0) {
+    const L = this.r * this.scale * (1.4 + 8 * thrust + 5 * boost) * (1 + 1.5 * hy);
+    this.heat = power > 0.01 ? power * (0.3 + 0.45 * thrust + 0.6 * boost) * (1 + 1.2 * hy) : 0;     // (the heat shimmer behind it)
+    const w = (1 + 0.2 * thrust + 0.15 * boost) * (1 + 0.45 * hy), wi = 1 + 0.3 * hy;
     this.outer.scale.set(w, w, L);
-    this.inner.scale.set(1, 1, L * (0.42 + 0.15 * boost));
+    this.inner.scale.set(wi, wi, L * (0.42 + 0.15 * boost + (this.core ?? 0.2) * hy));
     for (const m of [this.outer, this.inner]) {
       const u = m.material.uniforms;
       u.time.value = t;
-      u.power.value = power * (0.55 + 0.9 * thrust);
-      u.boost.value = boost;
+      u.power.value = power * (0.55 + 0.9 * thrust) * (1 + 0.6 * hy);
+      u.boost.value = boost + hy;
       u.len.value = L / this.r;
       m.visible = power > 0.01;
     }
-    const h = this.r * (this.haloK ?? 1) * (2.2 + 1.6 * thrust + 1.2 * boost);
+    const h = this.r * (this.haloK ?? 1) * (2.2 + 1.6 * thrust + 1.2 * boost) * (1 + 0.8 * hy);
     this.halo.scale.set(h, h, 1);
-    this.haloA = Math.min(0.7, power * (0.2 + 0.35 * thrust + 0.3 * boost));
+    this.haloA = Math.min(0.7 + 0.2 * hy, power * (0.2 + 0.35 * thrust + 0.3 * boost) * (1 + hy));
     this.halo.visible = power > 0.01 && DARK_FACE.value < 1;
   }
+}
+
+// The hyper boost (Settings hyperBoost; on speed circuits only - main.js sets Ship.hyperOK): boosting past 3000 km/h
+// (v0 - v1 m/s: 2950 - 3050 km/h) the engines go into overdrive, each ship its own way - every jet longer and hotter
+// (Plume), the Feather wrapped in a vapour cone, the Comet's rocket jets a chain of white-hot shock diamonds, the
+// Anvil's pulses whole detonation waves, the Umbra's singularity overdriven (umbra.js); a sonic boom as it breaks
+// through (Ship.onBoom: a ripple of bent space left where it was) - and the chase camera falls back (camera.js)
+const HYPER = { v0: 819, v1: 847 };
+
+// The Comet's hyper boost: down each rocket jet a chain of white-hot shock diamonds standing in the exhaust - a rocket
+// at full chat - flickering, smaller and dimmer down the column
+class HyperKnots {
+  constructor(parent, plume, eng, n = 6) {
+    this.plume = plume;
+    this.knots = Array.from({ length: n }, (_, i) => {
+      const sp = new THREE.Sprite(glowSprite());
+      sp.material.color.copy(eng).lerp(new THREE.Color(1, 1, 1), 0.78 - 0.07 * i);
+      sp.renderOrder = 3;
+      sp.visible = false;
+      parent.add(sp);
+      return { sp, i };
+    });
+  }
+
+  update(t, power, hy) {
+    const P = this.plume.outer.position, R = this.plume.r, on = hy > 0.01 && power > 0.01;
+    for (const { sp, i } of this.knots) {
+      sp.visible = on;
+      if (!on) continue;
+      const fl = 0.85 + 0.15 * Math.sin(t * 47 + i * 2.1);
+      sp.position.set(P.x, P.y, P.z + R * (1.4 + 2.4 * i) * (0.7 + 0.5 * hy));
+      const s = R * (1.6 - 0.15 * i) * (0.5 + 0.6 * hy) * fl;
+      sp.scale.set(s, s, 1);
+      sp.material.opacity = power * hy * (1 - 0.14 * i) * fl;
+    }
+  }
+
+  objects() { return this.knots.map((q) => q.sp); }
+}
+
+// The Feather's hyper boost: a vapour cone - the air round it, past what it can take, condensing into a white shock
+// cone from just ahead of the cockpit back past the tail, its front a ring of mist a third of the way down, streaming
+// off behind; brightest where it is seen edge-on. Always drawn (discarded at once when off: hidden, its program would
+// compile the first time it showed, mid-race)
+function vapourMaterial() {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { k: { value: 0 }, time: { value: 0 }, col: { value: new THREE.Color(0.8, 0.86, 0.95) } },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    vertexShader: /* glsl */`
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main() {
+        vUv = uv;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */`
+      uniform float k, time; uniform vec3 col;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
+      float vnoise(vec2 p) {
+        vec2 i = floor(p), f = fract(p), u = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+      }
+      void main() {
+        if (k < 0.002) discard;
+        float a = clamp(1.0 - vUv.y, 0.0, 1.0);                         // 0 at the cone's nose, 1 at its open end
+        float edge = 1.0 - clamp(abs(dot(normalize(vN), normalize(vV))), 0.0, 1.0);
+        float front = smoothstep(0.16, 0.34, a) * (1.0 - smoothstep(0.42, 1.0, a));
+        // (wrapped round it: x in whole turns, so the noise meets itself at the seam)
+        vec2 q = vec2(vUv.x * 36.0, a * 7.0 - time * 16.0);
+        float n = vnoise(q) * 0.6 + vnoise(q * 2.4 + vec2(5.0, 1.7)) * 0.4;
+        float mist = smoothstep(0.3, 0.85, n) * (0.55 + 0.45 * smoothstep(0.34, 0.2, abs(a - 0.3) * 1.6));
+        float alpha = k * front * (0.12 + 0.88 * pow(edge, 1.6)) * mist;
+        gl_FragColor = vec4(col * alpha * 0.85, 1.0);
+      }`,
+  });
+  m.customProgramCacheKey = () => 'vapour-cone';
+  return m;
 }
 
 // The Anvil's pulse exhaust, on each muzzle: every pulse of its engines fires a ring of plasma out of the muzzle - a
@@ -236,22 +317,23 @@ class PulseExhaust {
     r.age = 0;
   }
 
-  update(dt, power, thrust, boost, kick) {
+  // hy: the hyper boost - each pulse a detonation wave, twice the size, shot back two and a half times as fast
+  update(dt, power, thrust, boost, kick, hy = 0) {
     const R = this.plume.r;
     for (const q of this.rings) {
       q.age += dt;
       const u = Math.min(1, q.age / PULSE_LIFE), U = q.mesh.material.uniforms;
-      const vel = 18 + 30 * boost;                   // m/s back out of the muzzle
+      const vel = (18 + 30 * boost) * (1 + 1.5 * hy);  // m/s back out of the muzzle
       q.mesh.position.z = this.z0 + vel * q.age * (1 - 0.35 * u);
-      const s = R * (1.55 + 2.2 * Math.sqrt(u)) * (1 + 0.25 * boost);
+      const s = R * (1.55 + 2.2 * Math.sqrt(u)) * (1 + 0.25 * boost) * (1 + hy);
       q.mesh.scale.set(s, s, 1);
       U.u.value = u;
-      U.a.value = q.age < PULSE_LIFE ? power * (1 - u) * (1 - u) * (0.55 + 0.45 * thrust + 0.6 * boost) : 0;
+      U.a.value = q.age < PULSE_LIFE ? power * (1 - u) * (1 - u) * (0.55 + 0.45 * thrust + 0.6 * boost) * (1 + 0.6 * hy) : 0;
     }
-    const stretch = 1 + 0.6 * boost + 0.3 * thrust;
+    const stretch = (1 + 0.6 * boost + 0.3 * thrust) * (1 + 0.8 * hy);
     for (const d of this.diamonds) {
       d.sp.position.z = this.z0 + d.d * stretch;
-      const sc = R * d.k * (0.9 + 0.5 * thrust + 0.5 * boost) * (1 + 0.35 * kick);
+      const sc = R * d.k * (0.9 + 0.5 * thrust + 0.5 * boost) * (1 + 0.35 * kick) * (1 + 0.5 * hy);
       d.sp.scale.set(sc, sc, 1);
       d.sp.material.opacity = power * d.k * (0.18 + 0.3 * thrust + 0.45 * boost + 0.7 * kick);
       d.sp.visible = power > 0.01;
@@ -1309,8 +1391,12 @@ export class Ship {
       const m = typeof o.userData.plume === 'string' ? JSON.parse(o.userData.plume) : o.userData.plume;
       const p = new Plume(this.visual, new THREE.Vector3().setFromMatrixPosition(o.matrixWorld), m.r, 1, this.engineColor);
       p.haloK = m.halo ?? 1;
+      p.core = 0.5;                                     // (a rocket's white-hot core runs most of the way down)
       this.plumes.push(p);
     }
+    // the hyper boost's own pieces (HYPER): the rocket's shock-diamond chains; the Feather's vapour cone below
+    this.hyper = 0;
+    this.hyperKnots = marks.length ? this.plumes.map((p) => new HyperKnots(this.visual, p, this.engineColor)) : [];
     for (const [name, scale] of marks.length ? [] : [['ExhaustGlow_R', 1], ['ExhaustGlow_L', 1], ['TailGlow', 1.4]]) {
       const b = nozzle(name);
       if (!b) { console.warn('no exhaust', name); continue; }
@@ -1346,6 +1432,14 @@ export class Ship {
     this.shield.visible = false;
     this.shield.renderOrder = 4;
     this.visual.add(this.shield);
+    // the Feather's vapour cone (HYPER): from just ahead of its middle back past the tail, wider than the wings
+    this.vapour = null;
+    if (!marks.length && !this.pulses.length && !bhNode) {
+      const L = this.length || 13.3, R = (this.halfSpan || 5) * 1.25;
+      this.vapour = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.22, R, L * 0.75, 64, 8, true).rotateX(-Math.PI / 2).translate(0, 0.2, L * 0.2), vapourMaterial());
+      this.vapour.renderOrder = 4;
+      this.visual.add(this.vapour);
+    }
     this.boostKick = 0;
     this.accelKick = 0;
     this.prevAccel = 0;
@@ -1919,6 +2013,12 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     // throttle, the speed and the boost - the rocket's nozzle rotor. Never past 7.5 deg a frame: beyond half its 20 deg
     // tooth spacing the 18 teeth strobe and the spin reads backwards, so how fast it can look depends on the frame rate)
     const thr1 = clamp(thr, 0, 1), boost1 = clamp(boost + this.boostKick, 0, 1), sp = smoothstep(30, 340, ctrl.speed || 0);
+    // the hyper boost (HYPER): in over 0.3 s, out over 0.7; breaking through, the boom
+    const hyT = Ship.hyperOK ? clamp(boost, 0, 1) * this.spin * smoothstep(HYPER.v0, HYPER.v1, ctrl.speed || 0) : 0;
+    this.hyper += (hyT - this.hyper) * (1 - Math.exp(-dt / (hyT > this.hyper ? 0.3 : 0.7)));
+    if (hyT > 0.6 && !this.hyperIn) { this.hyperIn = true; Ship.onBoom?.(this.root.getWorldPosition(this._boomAt || (this._boomAt = new THREE.Vector3()))); }
+    else if (hyT < 0.1) this.hyperIn = false;
+    const hy = this.hyper;
     for (const r of this.rotors) {
       if (r.spool) {
         const target = Ship.nozzleMotion === false ? 0 : this.spin * (r.idle + 0.35 * thr1 + 1.1 * sp + 0.8 * boost1);
@@ -1961,7 +2061,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     const lamp = Ship.brakeLights !== false ? smoothstep(0.08, 0.6, ctrl.brakeLight ?? brake) : 0;
     if (this.orbits.length || this.pulses.length || this.lamps.length) this.updatePulse(dt, thr1, boost1, lamp, ctrl.speed || 0);
     if (this.floaters.length) this.updateFloaters(dt, thr1, boost1, ctrl);
-    if (this.umbra) this.umbra.update(dt, this.power, thr1, boost1, ctrl.speed || 0, Ship.umbraAura !== false, Ship.umbraTime !== false, lamp, Ship.umbraArcs !== false);
+    if (this.umbra) this.umbra.update(dt, this.power, thr1, boost1, ctrl.speed || 0, Ship.umbraAura !== false, Ship.umbraTime !== false, lamp, Ship.umbraArcs !== false, hy);
     if (this.kind && LIVERIES[this.kind]) {        // the player's and the showroom's ships wear the chosen livery (a rival its own)
       const want = this.livery || Ship.liveries?.[this.kind] || LIVERIES[this.kind].names[0];
       if (want !== this.liveryShown) this.applyLivery(want);
@@ -1980,7 +2080,13 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     }
     // differential thrust: in a turn the outer engine works harder (plumes[0] is the right nacelle, [1] the left)
     const st = clamp(ctrl.steer || 0, -1, 1);
-    this.plumes.forEach((p, k) => p.update(this.t, this.spin, thrust * (k === 0 ? 1 - 0.4 * st : k === 1 ? 1 + 0.4 * st : 1), Math.min(1, boost + kick)));
+    this.plumes.forEach((p, k) => p.update(this.t, this.spin, thrust * (k === 0 ? 1 - 0.4 * st : k === 1 ? 1 + 0.4 * st : 1), Math.min(1, boost + kick), hy));
+    for (const h of this.hyperKnots) h.update(this.t, this.spin, hy);
+    if (this.vapour) {
+      const U = this.vapour.material.uniforms;
+      U.k.value = hy * this.spin * (0.85 + 0.15 * Math.sin(this.t * 21));
+      U.time.value = this.t;
+    }
     if (this.umbra) {
       // the Umbra's mouth shows its black hole, not a flame: the plume's cones and halo stay hidden; its heat shimmer
       // (space bent behind the hole, stronger), its light and its trail stay. On the boost the hole sends out ripples
@@ -1990,8 +2096,8 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
       const b1 = Math.min(1, boost + kick);
       this.waveT = (this.waveT ?? 0) - dt;
       if (this.onWave && b1 > 0.5 && this.power > 0.5 && this.waveT <= 0) {
-        this.waveT = 0.26;
-        this.onWave(this.umbra.group.getWorldPosition(this._wv || (this._wv = new THREE.Vector3())), b1);
+        this.waveT = 0.26 / (1 + 1.2 * hy);            // (the hyper boost: more than twice as often, stronger)
+        this.onWave(this.umbra.group.getWorldPosition(this._wv || (this._wv = new THREE.Vector3())), b1 * (1 + 0.8 * hy));
       }
     }
     if (this.pulseFx.length) {
@@ -2005,7 +2111,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
         p.halo.scale.multiplyScalar(1.15 + 0.5 * pk);
         p.haloA = Math.min(0.95, p.haloA * (1.2 + 0.9 * pk));
       }
-      this.pulseFx.forEach((f) => f.update(dt, Ship.pulseRings === false ? 0 : this.spin, clamp(thr, 0, 1), Math.min(1, boost + kick), pk));
+      this.pulseFx.forEach((f) => f.update(dt, Ship.pulseRings === false ? 0 : this.spin, clamp(thr, 0, 1), Math.min(1, boost + kick), pk, hy));
     }
     // a hint of blue on the road under the nozzles (220 cd painted the whole road blue)
     if (!this.umbra) for (const l of this.exhaustLights) l.intensity = 30 * this.spin * (0.25 + thrust);
@@ -2017,7 +2123,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     const nz = this._nz || (this._nz = new THREE.Vector3());
     this.plumes.forEach((pl, k) => {
       nz.copy(pl.outer.position).applyMatrix4(this.visual.matrixWorld);
-      const width = pl.r * (0.2 + 0.12 * boost), life = 0.07 + 0.12 * clamp(boost + kick, 0, 1), b = clamp(boost + kick, 0, 1);
+      const width = pl.r * (0.2 + 0.12 * boost) * (1 + 0.6 * hy), life = (0.07 + 0.12 * clamp(boost + kick, 0, 1)) * (1 + 2.5 * hy), b = clamp(boost + kick, 0, 1);
       if (puffs) this.exhaust.emit(k, nz, this.t, tr, width, life, b);
       else this.engineTrails[k].update(nz, this.t, tr, width, life, camera, b);
     });
@@ -2037,7 +2143,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
   // Blender axes, metres), faster with the throttle and the boost, the two engines' turning opposite ways; home again
   // when it stops. The headlamp lights with the power, the tail lamp with the avionics and brighter on the brake.
   updatePulse(dt, thr, boost, lamp, speed) {
-    const rate = this.spin * (0.9 + 2.6 * thr + 13 * boost);          // pulses a second
+    const rate = this.spin * (0.9 + 2.6 * thr + 13 * boost) * (1 + 0.8 * (this.hyper || 0));   // pulses a second
     const ph0 = this.pulsePh ?? 0;
     this.pulsePh = (ph0 + dt * rate) % 1e4;
     // a pulse leaving the mouth: a ring out of each muzzle, the jet kicking with it
@@ -2313,7 +2419,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
   // light missing from that list rendered as a black square)
   fxObjects() {
     return [...this.plumes, ...(this.retros || [])].flatMap((p) => [p.outer, p.inner, p.halo])
-      .concat((this.pulseFx || []).flatMap((f) => f.objects()))
+      .concat((this.pulseFx || []).flatMap((f) => f.objects()), (this.hyperKnots || []).flatMap((h) => h.objects()), this.vapour ? [this.vapour] : [])
       .concat(this.umbra ? this.umbra.objects() : [])
       .concat(this.brakeLights || [], this.shield ? [this.shield] : [], (this.trails || []).map((t) => t.mesh),
         (this.engineTrails || []).map((t) => t.mesh), this.exhaust ? [this.exhaust.mesh] : []);

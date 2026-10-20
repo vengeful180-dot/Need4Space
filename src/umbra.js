@@ -587,8 +587,11 @@ export class Umbra {
   }
 
   // power: the reactor 0..1; thr, boost 0..1; speed m/s; aura, time: the settings
-  update(dt, power, thr, boost, speed, aura = true, time = true, brake = 0, arcs = true) {
+  // hy: the hyper boost (ship.js HYPER) - the singularity overdriven: the rings spinning hard and breathing, the core
+  // and the disk burning brighter, the dark matter's jets doubled
+  update(dt, power, thr, boost, speed, aura = true, time = true, brake = 0, arcs = true, hy = 0) {
     this.t += dt;
+    this.hy = hy;
     // the brake (the brake lights' signal, 0 with the setting off): the infall turned round - in at once, out over a
     // quarter second
     this.brk += (brake - this.brk) * (1 - Math.exp(-dt / (brake > this.brk ? 0.06 : 0.25)));
@@ -617,13 +620,13 @@ export class Umbra {
     this.flash = Math.max(0, this.flash - dt * 1.6);
     this.burst = Math.min(1, this.burst + dt / 0.9);
     // the singularity: dim parked, brighter with the throttle, flaring on the boost
-    this.glow += ((0.08 + power * (0.75 + 0.35 * thr + 0.9 * boost)) - this.glow) * (1 - Math.exp(-dt / 0.25));
+    this.glow += ((0.08 + power * (0.75 + 0.35 * thr + 0.9 * boost + 0.9 * hy)) - this.glow) * (1 - Math.exp(-dt / 0.25));
     const lightK = this.glow + 4.0 * this.flash * this.flash;
     // the dark matter: jets on the boost, the ring at ignition
     for (const m of [this.dmMat, this.dmSparkMat]) {
       const D = m.uniforms;
       D.time.value = this.t;
-      D.k.value = aura ? power * boost : 0;
+      D.k.value = aura ? power * boost * (1 + hy) : 0;
       D.burst.value = this.burst;
       D.burstK.value = aura && this.burst < 1 ? 1 : 0;
       D.dil.value = this.dil;
@@ -651,7 +654,7 @@ export class Umbra {
     I.rate.value = 1;
     I.swirl.value = 2.0 * boost;
     this.fieldMat.uniforms.time.value = this.t * 0.45;   // (its bands and flicker at under half the pace: they ran too fast)
-    this.fieldMat.uniforms.k.value = 0.35 + 0.65 * power + 0.6 * boost;
+    this.fieldMat.uniforms.k.value = 0.35 + 0.65 * power + 0.6 * boost + 0.5 * hy;
     for (const { f, g, gap } of this.fields) {      // (from the pad to the shoe wherever the blade has floated to)
       const off = _d.subVectors(f.node.position, f.base).dot(f.n);
       g.position.copy(f.base).addScaledVector(f.n, -gap);
@@ -845,12 +848,12 @@ export class Umbra {
     const qt = this.qt ||= new THREE.Quaternion(), qa = this.qa ||= new THREE.Quaternion(), zx = this.zx ||= new THREE.Vector3(0, 0, 1);
     for (const g of this.rings) {
       g.a += dt * g.w * (0.35 + power * (0.7 + 0.9 * thr)) * (1 - 0.6 * al);
-      g.roll += dt * g.dir * (0.5 + power * (0.8 + 3.5 * boost));
+      g.roll += dt * g.dir * (0.5 + power * (0.8 + 3.5 * boost)) * (1 + 2 * (this.hy || 0));
       // tumbling: the ring's plane tipped about its axis; lined up: square to the bore, turning round it
       qt.setFromAxisAngle(g.axis, g.a);
       qa.setFromAxisAngle(zx, g.roll);
       g.mesh.quaternion.copy(qt).multiply(qa).slerp(qa, al);
-      g.mesh.scale.setScalar(Math.max(0.002, fk * (1 + 0.12 * al)));
+      g.mesh.scale.setScalar(Math.max(0.002, fk * (1 + 0.12 * al) * (1 + (this.hy || 0) * (0.14 + 0.05 * Math.sin(this.t * 9 + g.dir)))));
       const U = g.mesh.material.uniforms;
       U.time.value = this.ringT;
       U.k.value = lightK * (0.5 + 0.45 * al);

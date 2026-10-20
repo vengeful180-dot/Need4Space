@@ -281,6 +281,9 @@ async function boot() {
   const fx = new FX(scene, camera);
   fx.track = track;
   // the Umbra's boost: ripples of bent space out of its black hole, carried along a little slower than the ship
+  // the hyper boost's sonic boom (ship.js HYPER): a ripple of bent space left where the ship broke through, a wider one
+  // round it - any ship's
+  Ship.onBoom = (at) => { fx.shock(at, null, 34, 0.022, 0.75, 0.55, 0.1); fx.shock(at, null, 85, 0.009, 1.3, 0.3, 0.05); };
   if (ship.umbra) ship.onWave = (at, k) => fx.shock(at, (ctl.vel ? ctl.vel.clone().multiplyScalar(0.92) : null), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05);
   // the damage smoke's light: the circuit's sun, and the sky on the side away from it (night on the ocean: moonlight)
   { const L = { space: [[1.0, 0.95, 0.88], [0.16, 0.19, 0.26]], forest: [[1.0, 0.92, 0.78], [0.36, 0.44, 0.46]],
@@ -621,6 +624,7 @@ async function boot() {
     Ship.umbraArcs = v.umbraArcs !== false;             // the Umbra's lightning across its blades' gaps
     Ship.umbraTime = v.umbraTime !== false;             // and its slowed time on the boost
     Ship.sharpEdges = v.sharpEdges !== false;
+    Ship.hyperOK = v.hyperBoost !== false && (track?.speedK || 1) > 1;   // the hyper boost: speed circuits (ship.js HYPER)
     blurOn = v.blur;
     slamCamOn = v.slamCam !== false;
     Ship.brakeLights = v.brakeLights;
@@ -1246,6 +1250,7 @@ async function boot() {
     if (rig.slamW > 0 && slow.other) { rig.slamAt = slow.other.ship.root.position; rig.slamSide = Math.sign(slow.other.racer.x - racer.x) || 1; rig.slamMine = slow.mine; }
     if (xr.active) { xr.update(view, xrFrame); world.renderScale = 1; }
     else {
+      rig.hyper = ship.hyper || 0;
       rig.update(dt, view, inp, ctl.boosting);
       menu.camera(dt);                                   // the title's shots, or a blend between two camera views
     }

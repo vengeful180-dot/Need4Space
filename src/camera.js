@@ -65,7 +65,7 @@ export class CameraRig {
       // camera inertia: it lags back as the ship accelerates and closes in as it brakes
       this.lag = (this.lag || 0) + (clamp((flight.accS || 0) / 50, -1, 1) - (this.lag || 0)) * damp(3, dt);
       const off = new THREE.Vector3(this.swing, (far ? 6.5 : 3.6) + Math.min(0, this.lag) * -0.4,
-        (far ? 30 : 17) + Math.min(speed, 340) * 0.018 + boost * 2.5 + this.lag * 1.8).applyQuaternion(cq);
+        (far ? 30 : 17) + Math.min(speed, 340) * 0.018 + boost * 2.5 + this.lag * 1.8 + 7 * (this.hyper || 0)).applyQuaternion(cq);   // (hyper: the hyper boost falls back 7 m - main.js)
       cam.position.copy(pos).add(off);
       lookAt.copy(pos).add(new THREE.Vector3(0, far ? 1.0 : 1.6, -30).applyQuaternion(cq));
       camUp.lerp(new THREE.Vector3(0, 1, 0).applyQuaternion(cq), this.rollFollow).normalize();

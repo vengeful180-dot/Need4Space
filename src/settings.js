@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, netPing: true, netChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true };
+  pilots: true, netPing: true, netChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -78,6 +78,7 @@ const ROWS = [
   ['pyrRuins', 'Ruins on the planet', [[true, 'On'], [false, 'Off']]],
   ['pyrTomb', "The tunnel's columns, monoliths and sandfalls", [[true, 'On'], [false, 'Off']]],
   ['pyrShadows', 'Shadows on the sand', [[true, 'On'], [false, 'Off']]],
+  ['hyperBoost', 'Hyper boost (over 3000 km/h)', [[true, 'On'], [false, 'Off']]],
   ['colossus', 'Broken capital ship in the sky', [[true, 'On'], [false, 'Off']]],
   ['wreckFx', 'Derelict: sparks, flicker, drift, arcs', [[true, 'On'], [false, 'Off']]],
   ['wreckMist', 'Derelict: coolant mist, sun beams', [[true, 'On'], [false, 'Off']]],
@@ -105,7 +106,7 @@ const SECTIONS = [
   ['ice', 'Ice planet', ['iceSnow', 'iceDust', 'aurora', 'iceStorm', 'iceGeysers']],
   ['desert', 'Desert planet', ['sandFx', 'dustDevils', 'heatHaze', 'sandstorm']],
   ['ocean', 'Ocean planet', ['seaLife', 'seaReflect', 'oceanStorm', 'shipWet', 'kraken', 'oceanRain', 'oceanPillars']],
-  ['pyramid', 'Pyramid Run', ['pyrRuins', 'pyrTomb', 'pyrShadows']],
+  ['pyramid', 'Pyramid Run', ['pyrRuins', 'pyrTomb', 'pyrShadows', 'hyperBoost']],
 ];
 {
   const placed = new Set(SECTIONS.flatMap(([, , keys]) => keys));
