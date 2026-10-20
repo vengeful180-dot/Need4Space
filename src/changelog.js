@@ -7,6 +7,7 @@ export const UPDATES = [
       'Two new songs in the playlist: Pixel Rush and Deep Orbit',
       'Pixel Rush: a chiptune - a pulse-wave lead, a bouncing triangle bass, noise drums',
       'Deep Orbit: progressive - long lines over a saw arpeggio and an offbeat bass',
+      'Quieter: your ship’s engines and the rush of the wind, 30 % down',
     ],
   },
   {

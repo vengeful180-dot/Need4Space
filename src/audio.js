@@ -195,7 +195,7 @@ export class GameAudio {
     const P = (this.p = {});
     P.pan = this.panner(30, 1);
     P.pan.connect(this.sfxBus);
-    P.bus = this.gain(0.72, P.pan);                                  // the ship's own sound, under the music
+    P.bus = this.gain(0.5, P.pan);                                   // the ship's own sound, under the music (0.72 - 30 %)
     P.bus.connect(this.gain(0.3, this.envSend));
     // turbine whine: two detuned saws and the second harmonic through a resonant band
     P.whF = this.filt('bandpass', 900, 5);
@@ -431,8 +431,9 @@ export class GameAudio {
     const ab = ctl.airIn != null ? Math.abs(ctl.airIn) : (inp ? Math.max(inp.airL || 0, inp.airR || 0) : 0);
     this.level(P.airG, Math.min(1, ab) * Math.min(1, v / 120) * 0.2, t, 0.05);
     P.windF.frequency.setTargetAtTime(300 + 1500 * vn, t, 0.1);
-    P.windG.gain.setTargetAtTime(Math.min(0.3, vn * vn * 0.3), t, 0.1);
-    this.level(P.whistleG, Math.max(0, vn - 0.5) * 0.05, t, 0.1);
+    // (the wind and its whistle 30 % under what they were: "the constant sound of air ... 30% lower")
+    P.windG.gain.setTargetAtTime(Math.min(0.21, vn * vn * 0.21), t, 0.1);
+    this.level(P.whistleG, Math.max(0, vn - 0.5) * 0.035, t, 0.1);
     this.place(P.pan, ship.root.position);
     // on the track: walls, barriers, landing, echo, gantries
     const onTrack = track && mode === 'race' && ctl.s != null;
