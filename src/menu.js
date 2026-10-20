@@ -95,13 +95,14 @@ const ICON = {
   pad: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 7h9a5 5 0 0 1 4.9 6l-.8 3.6a2.4 2.4 0 0 1-4 1.2L14.4 16H9.6l-2.2 1.8a2.4 2.4 0 0 1-4-1.2L2.6 13A5 5 0 0 1 7.5 7z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7 10v4M5 12h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16" cy="11" r="1.1"/><circle cx="18" cy="13" r="1.1"/></svg>',
   heart: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4.5 6.6 4.5c2.1 0 3.6 1.2 4.4 2.6.8-1.4 2.3-2.6 4.4-2.6 3.6 0 5.7 3.7 4.2 7.2C19.5 16.4 12 21 12 21z"/></svg>',
 };
-// the circuits (main.js loads the one chosen: the page reloads into it)
+// the circuits (main.js loads the one chosen: the page reloads into it); 'fast': a speed circuit, listed apart as the
+// other kind of race
 export const CIRCUITS = [['space', 'Space', 'The orbital circuit over the ringed gas giant: a colossal broken derelict to thread, upside down through its hold, a meteorite to fly through, a glass tunnel, a loop'],
   ['forest', 'Forest moon', 'High over a jungle moon: floating islands, a river arching over the track, a colossal tree, two kilometres of caverns, a giant\'s skull, home upside down'],
   ['ice', 'Ice planet', 'Over a frozen sea at dusk, a storm in the east: a crevasse down an ice shelf, a glacier to fly through, two rifts to jump, upside down over the floes'],
   ['desert', 'Desert planet', 'Dunes at sunset: a half-buried city, a sandstorm, a sandstone gorge under natural bridges, a banked wall, a gravity flip'],
   ['ocean', 'Ocean planet', 'A world of sea at night under a great moon: sea stacks and spray, a dive into the deep through a drowned city, a surge back out of the water'],
-  ['pyramid', 'Pyramid Run', 'A speed circuit: twice the top speed. Long jumps in orbit, pads and obstacles, a dive onto a desert world, down a colossal pyramid into the planet and out of a crater']];
+  ['pyramid', 'Pyramid Run', 'A speed circuit: twice the top speed. Long jumps in orbit, pads and obstacles, a dive onto a desert world, down a colossal pyramid into the planet and out of a crater', 'fast']];
 // donations: the author's PayPal and Revolut (where: 'paypal' | 'revolut')
 const DONATE = { paypal: 'https://paypal.me/DimianAlex', revolut: 'https://revolut.me/alexan_vic' };
 const donate = (where = 'paypal') => window.open(DONATE[where] || DONATE.paypal, '_blank', 'noopener');
@@ -222,8 +223,9 @@ export class Menu {
     const h = this.h;
     const map = h.map || 'space', mapName = CIRCUITS.find(([id]) => id === map)?.[1] || '';
     const shipId = h.shipId || 'feather';
-    const item = ([act, name], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-slab" aria-hidden="true"></span>` +
-      `${ICONS[act] || ''}<span class="m-num">${pad2(i)}</span>` +
+    // (num: its number when not its place in the list - the Circuit screen numbers each kind of race on its own)
+    const item = ([act, name, num], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-slab" aria-hidden="true"></span>` +
+      `${ICONS[act] || ''}<span class="m-num">${pad2(num ?? i)}</span>` +
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
@@ -274,7 +276,10 @@ export class Menu {
       </section>
       <section class="m-screen" data-s="circuit">
         <header><div class="m-kicker">Where to race</div><h2 class="m-h2">Circuit</h2></header>
-        <nav class="m-list">${CIRCUITS.map(([id, name]) => ['map:' + id, name]).map(item).join('')}</nav>
+        <nav class="m-list">${[['Normal races', false], ['Fast race', true]].map(([head, fast]) => {
+          const list = CIRCUITS.filter((c) => !!c[3] === fast), at = fast ? CIRCUITS.filter((c) => !c[3]).length : 0;
+          return `<div class="m-group" style="--i:${at}">${head}</div>` + list.map(([id, name], k) => item(['map:' + id, name, k], at + k)).join('');
+        }).join('')}</nav>
         <div class="m-desc"></div>
       </section>
       <section class="m-screen" data-s="music">

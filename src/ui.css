@@ -1321,9 +1321,16 @@ body.touch #netchat .nc-line { font-size: 0.8rem; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-item.sel .m-go { opacity: 1; transform: rotate(45deg); transition-delay: 0.08s; }
 /* (in as the screen opens: one after another - backwards only, so the chosen one's own slide is not held back after) */
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]).active .m-list .m-item { animation: m-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms + 0.08s); }
+/* the Circuit screen's two kinds of race, each under its heading (the accent's small caps, a dash before it) */
+.m-screen[data-s="circuit"] .m-group { display: flex; align-items: center; gap: 0.7rem; margin: 0.95rem 0 0.2rem 1.25rem;
+  font: 700 0.74rem/1 var(--ui); letter-spacing: 0.32em; text-transform: uppercase; color: var(--accent); }
+.m-screen[data-s="circuit"] .m-group::before { content: ''; width: 1.4rem; height: 2px; background: var(--accent); box-shadow: 0 0 0.5rem var(--accent); }
+.m-screen[data-s="circuit"] .m-group:first-child { margin-top: 0; }
+.m-screen[data-s="circuit"].active .m-group { animation: m-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: calc(var(--i, 0) * 45ms + 0.08s); }
 @keyframes m-in { from { opacity: 0; transform: translateX(-1.8rem); } }
 @media (max-height: 500px) {
   :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list { gap: 0.2rem; }
   :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item { padding: 0.46rem 2.3rem 0.42rem 1.3rem; font-size: 1.02rem; }
   .m-ic { width: 1.1rem; height: 1.1rem; }
+  .m-screen[data-s="circuit"] .m-group { margin: 0.45rem 0 0.05rem 1rem; font-size: 0.62rem; }
 }
