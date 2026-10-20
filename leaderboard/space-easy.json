@@ -304,6 +304,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Chinxcore",
+        "totalMs": 282950,
+        "bestLapMs": 91067,
+        "lapsMs": [
+          96758,
+          95125,
+          91067
+        ],
+        "points": 60,
+        "recordedAt": "2026-10-20T21:05:24.615Z",
+        "runId": "c2ec9837-24d0-4f1c-ad28-f9d114a862e6"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Logan",
         "totalMs": 284300,
         "bestLapMs": 92975,
@@ -438,7 +453,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-20T20:49:52.238Z",
+  "updatedAt": "2026-10-20T21:05:24.615Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -473,7 +488,8 @@
       "a59479ac-bed2-4172-ade3-9fca69c91d4e": "Jimbo",
       "dccf4882-fd55-43dc-8ca9-bf02cc67cbc2": "Ubik",
       "169cba3c-641c-44e9-b9ee-96d01d42d6e9": "Wet Poop Nuggets",
-      "de32e85d-7d15-4ea5-b28a-9f996aee8197": "ZUMBIOO"
+      "de32e85d-7d15-4ea5-b28a-9f996aee8197": "ZUMBIOO",
+      "c2ec9837-24d0-4f1c-ad28-f9d114a862e6": "Chinxcore"
     }
   }
 }
