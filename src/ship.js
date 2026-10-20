@@ -1472,6 +1472,13 @@ export class Ship {
       this.model.traverse((o) => { if (o.isMesh && o.material && o.material.name === 'RacerBaked') hull.push(o); });
       this.umbra = new Umbra(this, bhNode, hull, { steps: opts.lights === false ? 48 : 72 });
       this.umbra.setLivery(this.liveryShown || 'umbra');          // (the paint shown before the effect existed)
+      // its headlight (main.js) out of the glowing slits between the nose's prongs (umbra.js: the charging beam's
+      // middle), aimed down onto the deck ahead and wider: the default spot sat ~1.7 m over its low nose, aimed nearly
+      // level - its pool lay 20-40 m out with dark deck between, a light from an empty spot ahead of the ship
+      this.root.updateMatrixWorld(true);
+      this.headLampPos = this.root.worldToLocal(this.umbra.nose.localToWorld(new THREE.Vector3(0, -0.78, -6.05)));
+      this.headLampAim = new THREE.Vector3(0, -6.7, -30);
+      this.headLampCone = { angle: 0.62, penumbra: 0.8 };
     }
     // the rest of the lit materials (rotors, the canopy's frame) take the deck's light too
     this.model.traverse((o) => {

@@ -266,11 +266,13 @@ async function boot() {
     headlight.position.set(...h.pos); headlight.target.position.set(...h.at);
     Object.assign(headlight, { angle: h.angle, penumbra: h.penumbra, distance: h.distance });
   }
-  // a ship with a headlamp of its own (the Anvil's band across its nose): the beam comes out of it, aimed as before
+  // a ship with a headlamp of its own (the Anvil's band across its nose, the Umbra's nose slits): the beam comes out
+  // of it, aimed as before or as the ship says (headLampAim, headLampCone)
   if (ship.headLampPos) {
-    const d = headlight.target.position.clone().sub(headlight.position);
+    const d = ship.headLampAim ? ship.headLampAim.clone() : headlight.target.position.clone().sub(headlight.position);
     headlight.position.copy(ship.headLampPos);
     headlight.target.position.copy(ship.headLampPos).add(d);
+    if (ship.headLampCone) Object.assign(headlight, ship.headLampCone);
   }
   ship.root.add(headlight, headlight.target);
   const rivalLights = [0, 1, 2].map(() => { const l = new THREE.PointLight(0xffffff, 0, 70, 1.6); l.userData.rivalLight = true; scene.add(l); return l; });
