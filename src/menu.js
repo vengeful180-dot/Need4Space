@@ -209,13 +209,18 @@ export class Menu {
   }
 
   // the players online and the rooms open, on the main list's Multiplayer (multiplayer.js watchCount; Settings: Players
-  // online): "7 online · 2 rooms" - or, from a lobby that cannot count the games yet, "2 rooms · 5 players"
+  // online): a line under its name - "7 online · 2 rooms" by a live dot; from a lobby that cannot count the games, "2
+  // rooms · 5 players" (beside the name, between it and Testing, it wrapped word by word)
   markCount() {
     const el = this.el.querySelector('.m-count'), c = this.h.settings?.v.netCount === false ? null : this.h.mp?.count;
     if (!el) return;
     const n = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
-    const text = !c ? '' : c.online != null ? `${n(c.online, 'online', 'online')} · ${n(c.rooms, 'room')}` : `${n(c.rooms, 'room')} · ${n(c.players, 'player')}`;
-    if (el.textContent !== text) el.textContent = text;
+    const [a, b] = !c ? ['', ''] : c.online != null ? [n(c.online, 'online', 'online'), n(c.rooms, 'room')] : [n(c.rooms, 'room'), n(c.players, 'player')];
+    el.hidden = !c;
+    el.classList.toggle('live', c?.online != null);
+    const [x, y] = el.children;
+    if (x.textContent !== a) x.textContent = a;
+    if (y.textContent !== b) y.textContent = b;
   }
 
   // What's new kept whole under the screen's middle (ui.css max-height): what does not fit goes from the bottom - the
@@ -236,10 +241,11 @@ export class Menu {
     // (num: its number when not its place in the list - the Circuit screen numbers each kind of race on its own)
     const item = ([act, name, num], i) => `<button class="m-item" data-act="${act}" tabindex="-1" style="--i:${i}"><span class="m-slab" aria-hidden="true"></span>` +
       `${ICONS[act] || ''}<span class="m-num">${pad2(num ?? i)}</span>` +
-      `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
+      (act === 'multi' ? `<span class="m-two"><span class="m-name">${name}</span><span class="m-count" hidden><b></b><span></span></span></span>` : `<span class="m-name">${name}</span>`) +
+      `${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
-        : act === 'multi' ? '<span class="m-meta m-count"></span><span class="m-meta m-test">Testing</span>'
+        : act === 'multi' ? '<span class="m-meta m-test">Testing</span>'
         : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
           : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}<span class="m-go" aria-hidden="true"></span></button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely

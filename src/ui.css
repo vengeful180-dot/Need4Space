@@ -1313,11 +1313,21 @@ body.touch #netchat .nc-line { font-size: 0.8rem; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(6, 16, 24, 0.72); }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-item:not(.sel) .m-meta.m-lvl { color: var(--accent); }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:not(.sel) .m-meta.m-test { color: #ffc14d; }            /* (Testing: in amber, as the other values - no box) */
-/* the players online and the rooms open (menu.js markCount): before Testing, the two kept together on the right */
-.m-list .m-meta.m-count:empty { display: none; }
-:is(.m-screen[data-s="main"]) .m-list .m-meta.m-count:not(:empty) + .m-meta { margin-left: 0.9rem; }
-:is(.m-screen[data-s="main"]) .m-list .m-item:not(.sel) .m-meta.m-count { color: var(--accent); }
-@media (max-width: 480px) { :is(.m-screen[data-s="main"]) .m-list .m-meta.m-count { letter-spacing: 0.1em; } }
+/* the players online and the rooms open (menu.js markCount): a small line under Multiplayer's name, never wrapped - a
+   live dot, softly pulsing, by the players online; the item's padding taken in so it keeps its height */
+.m-two { display: flex; flex-direction: column; gap: 0.34rem; min-width: 0; position: relative; z-index: 1; }
+.m-count[hidden] { display: none; }
+.m-count { display: flex; align-items: center; white-space: nowrap; font: 700 0.6rem/1 var(--ui); letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--accent); }
+.m-count > span { opacity: 0.75; }
+.m-count > span::before { content: '\B7 '; margin: 0 0.55rem; }
+.m-count.live b::before { content: ''; display: inline-block; width: 0.42rem; height: 0.42rem; margin-right: 0.5rem; border-radius: 50%;
+  background: #3ddc84; box-shadow: 0 0 0.5rem #3ddc84; vertical-align: 0.02rem; animation: m-live 2.4s ease-in-out infinite; }
+.m-count b { font: inherit; }
+.m-item.sel .m-count { color: rgba(6, 16, 24, 0.75); }
+.m-item.sel .m-count.live b::before { background: #0b6b3c; box-shadow: none; }
+.m-screen[data-s="main"] .m-list .m-item:has(.m-count:not([hidden])) { padding-top: 0.6rem; padding-bottom: 0.56rem; }
+@keyframes m-live { 50% { opacity: 0.4; } }
 /* the arrow: in on the chosen one, dark on its slab */
 .m-go { display: none; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-go {
