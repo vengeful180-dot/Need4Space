@@ -16,16 +16,32 @@
         "points": 74,
         "recordedAt": "2026-10-17T00:44:36.401Z",
         "runId": "1af913b1-a757-4f88-937a-4f9d22408930"
+      },
+      {
+        "map": "desert",
+        "difficulty": "normal",
+        "name": "Wilbis",
+        "totalMs": 147725,
+        "bestLapMs": 47550,
+        "lapsMs": [
+          51842,
+          47550,
+          48333
+        ],
+        "points": 60,
+        "recordedAt": "2026-10-20T20:59:50.950Z",
+        "runId": "5226c296-bedd-47ab-8b89-d470602a0a15"
       }
     ]
   },
-  "updatedAt": "2026-10-17T11:03:17.860Z",
+  "updatedAt": "2026-10-20T20:59:50.950Z",
   "submissions": {
     "desert:normal": {
       "15afd0dc-73c4-42ca-a71b-09cbb4601508": "V3ngeful",
       "1af913b1-a757-4f88-937a-4f9d22408930": "V3ngeful",
       "b236823d-ba8a-4c35-857d-04a613ad6523": "V3ngeful",
-      "b6b24a5a-c7c1-45cf-914f-b99a49338fd7": "V3ngeful"
+      "b6b24a5a-c7c1-45cf-914f-b99a49338fd7": "V3ngeful",
+      "5226c296-bedd-47ab-8b89-d470602a0a15": "Wilbis"
     }
   }
 }
