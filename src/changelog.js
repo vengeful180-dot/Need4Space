@@ -2,7 +2,19 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.19.0', date: '20 Oct 2026', name: 'New music',
+    notes: [
+      'Two new songs in the playlist: Pixel Rush and Deep Orbit',
+      'Pixel Rush: a chiptune - a pulse-wave lead, a bouncing triangle bass, noise drums',
+      'Deep Orbit: progressive - long lines over a saw arpeggio and an offbeat bass',
+    ],
+  },
+  {
     version: '1.18.0', date: '20 Oct 2026', name: 'The contained singularity',
+    brief: [
+      'Umbra V1: a contained singularity for a heart',
+      'Chat in multiplayer, new phone controls, shadows on the Pyramid Run sand',
+    ],
     notes: [
       'Umbra V1: a new heart - a black singularity held in three glowing containment rings that tumble round it like a gyroscope',
       'On the boost the rings swing into line round the engine and spin up, and the core flares',
