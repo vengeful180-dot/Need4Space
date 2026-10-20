@@ -1,5 +1,5 @@
 """The multiplayer lobby (lobby.py): rooms listed and expiring, the handshake passed both ways once, the host's secret,
-full / racing / other-version rooms refused, the games online counted."""
+full / racing / other-version rooms refused, the games online counted, the global chat kept and filtered."""
 from pathlib import Path
 import sys
 import unittest
@@ -93,6 +93,37 @@ class LobbyTest(unittest.TestCase):
             for k in range(3):
                 L.presence(dict(id=f'tab-cap{k:05d}', version=1))
             self.assertEqual(L.presence(dict(id='tab-cap00000', version=1))['online'], 2)
+
+    def test_chat(self):
+        say = lambda pid, text, name='Pilot': self.L.chat_say(dict(id=pid, name=name, text=text))['message']
+        m = say('tab-chat0001', 'gg  wp\x00 ')
+        self.assertEqual((m['n'], m['name'], m['text']), (1, 'Pilot', 'gg wp'))
+        self.assertNotIn('tab-chat0001', str(m))                     # (the sender's id never handed out)
+        with self.assertRaises(LobbyError) as e:                      # (one line every 3 s)
+            say('tab-chat0001', 'again')
+        self.assertEqual(e.exception.status, 429)
+        for bad in ('see www.x.org', 'join discord.gg/abc', 'a@b.co', 'call 0722 123 456'):
+            with self.assertRaises(LobbyError, msg=bad) as e:
+                say('tab-chat0002', bad)
+            self.assertEqual(e.exception.status, 400)
+        for bad in (dict(name='', text='hi'), dict(name='P', text='   '), dict(name='P', text='hi', id='x')):
+            with self.assertRaises(LobbyError):
+                self.L.chat_say(dict(dict(id='tab-chat0003'), **bad))
+        self.assertEqual(say('tab-chat0004', 'what the fuck, nice cockpit, sh1t, Dickens, bitchin')['text'],
+                         'what the ****, nice cockpit, ****, Dickens, *******')
+        got = self.L.chat_since(0)
+        self.assertEqual([x['n'] for x in got['messages']], [1, 2])
+        self.assertEqual(self.L.chat_since(1)['messages'][0]['n'], 2)
+        self.assertEqual(self.L.chat_since('junk')['last'], 2)
+        # (the last 50 kept, an hour at most)
+        t0 = lobby.time.time()
+        for k in range(60):
+            with patch.object(lobby.time, 'time', return_value=t0 + 4 * k):
+                say(f'tab-many{k:04d}', f'line {k}')
+        lines = self.L.chat_since(0)['messages']
+        self.assertEqual((len(lines), lines[-1]['text']), (50, 'line 59'))
+        with patch.object(lobby.time, 'time', return_value=t0 + 4 * 59 + lobby.CHAT_TTL + 1):
+            self.assertEqual(self.L.chat_since(0)['messages'], [])
 
     def test_names_cleaned(self):
         r = self.L.create(dict(ROOM, name='  A\x00 <b>room</b>\n  with   space  ' + 'x' * 50))

@@ -78,6 +78,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 out = LOBBY.create(data)
             elif method == 'POST' and parts == ['presence']:
                 out = LOBBY.presence(data)
+            elif method == 'POST' and parts == ['chat']:
+                out = LOBBY.chat_say(data)
+            elif method == 'GET' and parts == ['chat']:
+                out = LOBBY.chat_since(query.get('since', ['0'])[0])
             elif method == 'POST' and len(parts) == 3 and parts[0] == 'rooms' and parts[2] in ('host', 'close', 'join'):
                 out = getattr(LOBBY, parts[2])(parts[1], data)
             elif method == 'GET' and len(parts) == 4 and parts[0] == 'rooms' and parts[2] == 'join':

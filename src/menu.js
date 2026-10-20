@@ -12,6 +12,7 @@ import { SHIPS, HANDLING, LIVERIES, PILOTING, PILOTING_LEVELS, shipName } from '
 import { standardGamepad } from './input.js';
 import { SONGS } from './audio.js';
 import { Rooms } from './rooms.js';
+import { GlobalChat } from './gchat.js';
 
 const ui = (name) => window.__feather?.audio?.ui?.(name);
 const wake = () => window.__feather?.audio?.start?.();          // audio needs a user gesture: any menu key or click
@@ -173,11 +174,16 @@ export class Menu {
     this.pad = {};
     this.diffI = Math.max(0, IDS.indexOf(h.settings.v.ai));
     this.diffMode = 'start';
+    this.gchat = h.mp ? new GlobalChat(this, h.mp) : null;           // the title's global chat (gchat.js)
     this.build();
     this.board = new Scoreboard(this);
     this.rooms = h.mp ? new Rooms(this, h.mp, CIRCUITS) : null;       // the Multiplayer screen (rooms.js)
     this.setLevel(h.settings.v.ai, false);
-    h.settings.onSet = (k, v) => { if (k === 'ai') { this.levelSet(v); this.board.difficultyChanged(v); } if (k === 'music') this.markVol(); };
+    h.settings.onSet = (k, v) => {
+      if (k === 'ai') { this.levelSet(v); this.board.difficultyChanged(v); }
+      if (k === 'music') this.markVol();
+      if (k === 'globalChat') this.gchat?.setOpen(this.screen === 'main' && this.ctx === 'title');
+    };
     this.markVol();
     h.hud.onResults = () => this.showResults();
     h.hud.onHideResults = () => { if (this.ctx === 'results' && !this.busy) this.resume(); };
@@ -271,8 +277,9 @@ export class Menu {
     const km = h.track ? (h.track.length / 1000).toFixed(1) : null;
     // the latest update's notes on the title, and the one before's in brief under them (changelog.js)
     const U = UPDATES[0], U1 = UPDATES[1];
-    const news = `<aside class="m-news"><div class="n-head"><span class="n-tag">What's new</span>` +
-      `<span class="n-ver">v${U.version} &middot; ${U.date}</span></div><div class="n-name">${U.name}</div>` +
+    const news = `<aside class="m-news"><button class="n-head" data-act="news" tabindex="-1"><span class="n-tag">What's new</span>` +
+      `<span class="n-ver">v${U.version} &middot; ${U.name}</span><i class="n-open" aria-hidden="true"></i></button>` +
+      `<div class="n-name">${U.name} <small>${U.date}</small></div>` +
       `<ul class="n-list">${U.notes.map((n) => `<li>${n}</li>`).join('')}</ul>` +
       (U1 ? `<div class="n-prev"><div class="n-head"><span>Earlier</span><span class="n-ver">v${U1.version} &middot; ${U1.name}</span></div>` +
         `<ul class="n-list">${(U1.brief || U1.notes.slice(0, 2)).map((n) => `<li>${n}</li>`).join('')}</ul></div>` : '') + '</aside>';
@@ -281,7 +288,7 @@ export class Menu {
         <header><div class="m-kicker">Anti-gravity racing</div><h1 class="m-logo brand-logo" aria-label="Need4Space"><span class="brand-fallback" aria-hidden="true"><span>NEED</span><i>4</i><span>SPACE</span></span><svg class="brand-mark" viewBox="0 0 2172 440" aria-hidden="true" focusable="false"><use href="#brand-wordmark"/></svg></h1><div class="m-sub">${shipName(shipId)} <span class="m-v">v${VERSION}</span></div></header>
         <nav class="m-list">${main.map(item).join('')}</nav>
         <div class="m-desc"></div>
-        ${news}
+        <div class="m-side">${this.gchat ? GlobalChat.markup() : ''}${news}</div>
         ${this.dock()}
       </section>
       <section class="m-screen" data-s="diff">
@@ -359,6 +366,7 @@ export class Menu {
     this.slots = [...this.el.querySelectorAll('.d-slot')];
     this.fadeEl = this.el.querySelector('.m-fade');
     this.markCount();
+    this.gchat?.attach(this.el);
   }
 
   // The title's corner dock: the song playing (the Music screen's list behind it), previous / next, the music's volume
@@ -406,6 +414,7 @@ export class Menu {
     this.h.showroom?.(screen === 'ship');
     this.board?.setOpen(screen === 'scoreboard');
     this.rooms?.setOpen(screen === 'multi');
+    this.gchat?.setOpen(screen === 'main' && this.ctx === 'title');
     if (!screen) { document.getElementById('support-toast')?.classList.remove('on'); return; }   // (the last screen stays drawn while the menu fades out)
     this.el.dataset.ctx = this.ctx;
     this.el.dataset.depth = this.stack.length > 1 || (this.ctx === 'pause' && screen !== 'pause') ? 'sub' : 'top';   // (touch: a Back button)
@@ -827,6 +836,13 @@ export class Menu {
   act(a) {
     const h = this.h;
     switch (a) {
+      case 'news': {                                       // What's new: its notes opened or closed under its bar
+        const n = this.el.querySelector('.m-news');
+        n?.classList.toggle('open');
+        ui('move');
+        this.fitNews();
+        break;
+      }
       case 'race': ui('select'); if (h.mp?.active) this.go('multi'); else this.go('diff', 'start'); break;   // (in a room: the room)
       case 'multi': ui('select'); this.go('multi'); break;
       case 'mpleave': ui('back'); h.mp?.leave(); break;

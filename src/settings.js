@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, netPing: true, netChat: true, netCount: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true };
+  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -45,6 +45,7 @@ const ROWS = [
   ['netPing', 'Online races: the pilots and their ping', [[true, 'On'], [false, 'Off']]],
   ['netChat', 'Online races: chat (Enter to talk)', [[true, 'On'], [false, 'Off']]],
   ['netCount', 'Players online and rooms open, on the title', [[true, 'On'], [false, 'Off']]],
+  ['globalChat', 'Global chat, on the title', [[true, 'On'], [false, 'Off']]],
   ['airPitch', 'Nose control in the air', [[true, 'On'], [false, 'Off']]],
   ['pilots', 'Rival pilots (their faces and what they say)', [[true, 'On'], [false, 'Off']]],
   ['music', 'Music', [['off', 'Off'], ['low', 'Low'], ['mid', 'Medium'], ['high', 'High']]],
@@ -99,7 +100,7 @@ const ROWS = [
 // the Settings screen's sections: each a bar that opens and closes (General open on arrival), each circuit's own
 // effects under that circuit's bar. A row not listed here lands in Picture.
 const SECTIONS = [
-  ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'netPing', 'netChat', 'netCount', 'airPitch', 'music', 'song', 'sfx', 'touch']],
+  ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'netPing', 'netChat', 'netCount', 'globalChat', 'airPitch', 'music', 'song', 'sfx', 'touch']],
   ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraArcs', 'umbraTime']],
   ['perf', 'Performance', ['scale', 'aa', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],

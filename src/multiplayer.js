@@ -85,19 +85,25 @@ export class Multiplayer {
   // from the browser's own, CID), answered with the games online, the rooms open and the players in them. A lobby
   // without it yet (404): the rooms' own list - rooms and players, no online count. this.count: { online (null: not
   // known), rooms, players }, null while off or not heard yet; h.counted() after each.
-  watchCount() {
-    if (this.countT) return;
+  // this tab's anonymous id for the lobby (the count, the global chat's gap between lines): made once, kept for the tab
+  get tabId() {
+    if (this.tab) return this.tab;
     try { this.tab = sessionStorage.getItem(TAB); } catch { /* storage blocked */ }
     if (!/^[A-Za-z0-9_-]{8,40}$/.test(this.tab || '')) {
       this.tab = 'tab-' + crypto.randomUUID().replace(/-/g, '').slice(0, 24);
       try { sessionStorage.setItem(TAB, this.tab); } catch { /* storage blocked */ }
     }
+    return this.tab;
+  }
+
+  watchCount() {
+    if (this.countT) return;
     const tick = async () => {
       if (this.h.countOn?.() === false) { if (this.count) { this.count = null; this.h.counted?.(); } return; }
       try {
         let c = null;
         if (this.presence !== false) {
-          try { c = await this.lobby.presence(this.tab); this.presence = true; } catch (e) { if (e.status === 404) this.presence = false; else throw e; }
+          try { c = await this.lobby.presence(this.tabId); this.presence = true; } catch (e) { if (e.status === 404) this.presence = false; else throw e; }
         }
         if (!c) { const r = await this.lobby.rooms(); c = { online: null, rooms: r.rooms.length, players: r.rooms.reduce((n, x) => n + (x.players | 0), 0) }; }
         this.count = { online: Number.isFinite(c.online) ? c.online : null, rooms: c.rooms | 0, players: c.players | 0 };

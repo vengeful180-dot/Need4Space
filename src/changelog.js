@@ -14,6 +14,7 @@ export const UPDATES = [
       'Umbra V1: its headlight shines from its nose onto the deck right in front of it (it lit a patch far ahead, from nowhere)',
       'Multiplayer: the other players’ ships move as smoothly as your own (on fast screens they stuttered, whatever the ping)',
       'Multiplayer on the title shows how many players are online and the rooms open (Settings to turn it off)',
+      'A global chat on the title, for everyone playing - press a name to mute that player; What’s new is now a bar you press to read (Settings: Global chat)',
     ],
   },
   {
