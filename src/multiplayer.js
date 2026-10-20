@@ -393,8 +393,9 @@ export class Multiplayer {
     this.change();
   }
 
-  // Race.step: the lights and the race time by the room's clock
-  clock(race) {
+  // Race.step: the lights and the race time by the room's clock - and the clock the others' ships are drawn by (stepT)
+  clock(race, dt = 0) {
+    this.stepClock(dt);
     if (this.goAt == null) return;
     const now = this.now();
     if (race.state === 'grid' && now >= this.goAt - 3) { race.state = 'countdown'; race.count = 3; }
@@ -404,12 +405,24 @@ export class Multiplayer {
     } else if (race.racing) race.time = Math.max(race.time, now - this.goAt);
   }
 
-  // Race.step, another player's ship: at its last state carried on to now; a fresh state's correction eased out over
-  // ~0.1 s (a big one - a respawn, a wreck reset - taken at once)
+  // The room's time at each physics step, for the others' ships (drive). The steps of a frame run back to back at the
+  // frame's moment: read off the room's clock, two steps in one frame put a ship in one place, and a frame with none
+  // (past 120 fps) left it where it was - the others' ships stuttered (at any ping) while the player's own, stepped on
+  // its own clock, ran smooth. So a clock of the steps: on by each step, eased toward the room's - its nudges from the
+  // pings (4 ms at a time: 3 m at 3000 km/h) spread over about a second; taken at once if the two part by 0.25 s
+  stepClock(dt) {
+    const room = this.now();
+    if (this.stepT == null || !(Math.abs(room - this.stepT) < 0.25)) this.stepT = room;
+    else this.stepT += dt + (room - this.stepT) * Math.min(1, dt * 1.5);
+    return this.stepT;
+  }
+
+  // Race.step, another player's ship: at its last state carried on to this step's moment; a fresh state's correction
+  // eased out over ~0.1 s (a big one - a respawn, a wreck reset - taken at once)
   drive(e, dt) {
     const n = e.net, S = n.last, r = e.racer, tr = this.race.track;
     if (!S) return;                                      // (nothing heard yet: it waits in its grid slot)
-    const now = this.now(), lim = tr.W / 2 - e.ship.halfSpan * 0.92, at = predict(S, now, lim, tr, n.at ||= {}), E = n.err;
+    const now = this.stepT ?? this.now(), lim = tr.W / 2 - e.ship.halfSpan * 0.92, at = predict(S, now, lim, tr, n.at ||= {}), E = n.err;
     if (n.fresh) {
       n.fresh = false;
       if (n.prev) {

@@ -629,7 +629,7 @@ export class Race {
     const racing = this.racing;
     // (another player's ship online is hurt on its own screen: here its hull is what it last said)
     for (const e of this.entries) { e.racer.locked = !racing; e.racer.armed = racing && !e.finished && !e.remote && this.time >= DAMAGE.safe; }
-    if (this.mp) this.mp.clock(this);                    // an online race: the lights and the race time by the room's clock
+    if (this.mp) this.mp.clock(this, dt);                // an online race: the lights and the race time by the room's clock
     else if (this.state === 'grid') {
       // the rivals' engines come alive with the player's; the lights start when everyone is ready
       if (this.player.ship.engineOn) {
