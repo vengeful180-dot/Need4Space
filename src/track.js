@@ -2066,9 +2066,9 @@ export class TrackRacer {
     const wantBoost = inp.boost && this.boostEnergy > 0.02 && ship.ready && !(this.ghost > 0);   // (no boost while a wreck)
     this.boosting += ((wantBoost ? 1 : 0) - this.boosting) * damp(6, dt);
     // a ship the boost mends (ships.js boostHeal: the Umbra): that share of its hull back for every boostHealEvery s
-    // it boosts (the time on the boost counted, kept between boosts)
+    // it boosts (the time on the boost counted, kept between boosts) - never while it leads the race (Race sets leading)
     const heal = this.handling.boostHeal;
-    if (heal && wantBoost) {
+    if (heal && wantBoost && !this.leading) {
       const every = this.handling.boostHealEvery || 1;
       this.healT = (this.healT || 0) + dt;
       while (this.healT >= every) { this.healT -= every; if (this.health < this.maxHealth) this.health = Math.min(this.maxHealth, this.health + this.maxHealth * heal); }

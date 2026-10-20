@@ -640,6 +640,7 @@ export class Race {
     // the order (the first three fight among themselves - Driver - so the ones behind can catch them)
     const order = racing ? this.standings() : null;
     order?.forEach((e, k) => (e.rank = k + 1));
+    for (const e of this.entries) e.racer.leading = !!order && e.rank === 1;
     for (const e of this.entries) {
       if (e.player) { if (playerActive) e.racer.step(dt, inp); continue; }
       if (e.remote) { this.mp?.drive(e, dt); continue; }  // another player online: where its own screen says it is
