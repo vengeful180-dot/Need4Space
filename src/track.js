@@ -1816,6 +1816,10 @@ const HOVER = 1.35;            // clearance of the lowest point (1.1: a hard lea
 const AIRBRAKE = 0.9;
 const HOLD_GAP = 24;            // over a cut in the deck: no cushion, no floor - only a weak pull (m/s2)
 const PAD_KICK = 55, PAD_MAX = 380;
+// the hyper boost's blast (a speed circuit; ship.js HYPER, main.js 'hyper'): boosting through 3000 km/h (HYPER_V m/s) an
+// explosion behind the engines throws the ship on HYPER_KICK m/s - once, armed again under 2800 km/h (so a boost held
+// and let go at the line gets one kick, not a stream of them). Physics, the same with the effects switched off
+const HYPER_V = 3000 / 3.6, HYPER_REARM = 2800 / 3.6, HYPER_KICK = 45;
 // "make turns harder at higher speeds": the yaw rate the ship can steer halves from walking pace to top speed,
 // and the hull slides more (grip 4 -> 2.4); airbrakes still add 90 %
 export const turnRate = (v) => 1.6 * (1 - 0.5 * smoothstep(60, 320, v));
@@ -2157,6 +2161,12 @@ export class TrackRacer {
         this.padT = 0.6;
         this.emit({ type: 'pad', i: tr.pads.indexOf(p), at: p.at });
       }
+    }
+    // the hyper boost's blast (HYPER_V)
+    if (SK > 1) {
+      const v = Math.hypot(this.vs, this.vx);
+      if (!this.hyperIn && wantBoost && v >= HYPER_V && !this.locked) { this.hyperIn = true; this.vs += HYPER_KICK; this.emit({ type: 'hyper' }); }
+      else if (this.hyperIn && v < HYPER_REARM) this.hyperIn = false;
     }
     // along / across (held in the grid slot until the lights go out)
     if (this.locked) { this.vs = 0; this.vx = 0; this.psi = 0; this.yawRate = 0; }

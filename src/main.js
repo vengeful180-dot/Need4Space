@@ -281,9 +281,6 @@ async function boot() {
   const fx = new FX(scene, camera);
   fx.track = track;
   // the Umbra's boost: ripples of bent space out of its black hole, carried along a little slower than the ship
-  // the hyper boost's sonic boom (ship.js HYPER): a ripple of bent space left where the ship broke through, a wider one
-  // round it - any ship's
-  Ship.onBoom = (at) => { fx.shock(at, null, 34, 0.022, 0.75, 0.55, 0.1); fx.shock(at, null, 85, 0.009, 1.3, 0.3, 0.05); };
   if (ship.umbra) ship.onWave = (at, k) => fx.shock(at, (ctl.vel ? ctl.vel.clone().multiplyScalar(0.92) : null), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05);
   // the damage smoke's light: the circuit's sun, and the sky on the side away from it (night on the ocean: moonlight)
   { const L = { space: [[1.0, 0.95, 0.88], [0.16, 0.19, 0.26]], forest: [[1.0, 0.92, 0.78], [0.36, 0.44, 0.46]],
@@ -1046,7 +1043,21 @@ async function boot() {
       mp?.update();                                      // (online: the player's moves and state to the others)
       for (const e of race.events) {
         if (mode === 'race' && !race.mp) comms.event(e, race);     // (online: no rival pilots to talk)
-        if (e.type === 'padfx') {
+        if (e.type === 'hyper') {
+          // the hyper boost's blast (track.js HYPER_KICK; ship.js HYPER): the explosion behind the engines that threw the
+          // ship on - seen with the effects on, felt (the shake, the field of view's punch, the boom) by its pilot
+          const S = e.entry?.ship, R = e.entry?.racer;
+          if (S && R) {
+            const at = S.root.position, near = camera.position.distanceTo(at);
+            if (Ship.hyperOK && near < 1500) fx.hyperBlast(at, e.player ? ctl.vel || R.vel : R.vel, R.vel.lengthSq() > 1 ? R.vel : new THREE.Vector3(0, 0, -1), S.engineColor, near);
+            if (e.player && mode === 'race') {
+              rig.shake = Math.max(rig.shake, 1.0);
+              fx.kick = 1;
+              hud.flash(`rgba(${S.engineColor.toArray().map((c) => Math.round(255 * Math.min(1, c * 0.6 + 0.4))).join(', ')}, 0.45)`, 0.5);
+              audio.whoomp(); audio.blast(null);
+            } else if (near < 600) audio.blast(at);
+          }
+        } else if (e.type === 'padfx') {
           const pad = track.pads[e.i];
           track.padFlash(e.i);
           if (camera.position.distanceTo(e.at) < 400) fx.padBurst(pad.at, pad.basis, e.player && mode === 'race');

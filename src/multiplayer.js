@@ -508,6 +508,9 @@ export class Multiplayer {
     } else if (m.k === 'pad') {
       const pad = race.track.pads[m.i | 0];
       if (pad) race.events.push({ type: 'padfx', i: m.i | 0, at: pad.at, player: false, net: true });
+    } else if (m.k === 'hyper') {
+      race.events.push({ type: 'hyper', player: false, entry: A, net: true });
+      A.ship.boostKick = 1;
     }
   }
 
@@ -523,6 +526,7 @@ export class Multiplayer {
       else if (ev.type === 'clash' && ev.b === P && ev.a?.id != null) this.emit({ k: 'clash', a: ev.a.id });
       else if (ev.type === 'wreck' && ev.entry === P) this.emit({ k: 'wreck', at: ev.at.toArray(), vel: (ev.vel || P.racer.vel).toArray() });
       else if (ev.type === 'padfx' && ev.player) this.emit({ k: 'pad', i: ev.i });
+      else if (ev.type === 'hyper' && ev.player) this.emit({ k: 'hyper' });
     }
     if (P.finished && !this.finSent) {
       this.finSent = true;

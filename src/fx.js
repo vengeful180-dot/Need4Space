@@ -885,6 +885,42 @@ export class FX {
     this.ringT = 0;
   }
 
+  // The hyper boost's blast (main.js 'hyper'; ship.js HYPER): breaking through 3000 km/h an explosion behind the engines
+  // throws the ship on. Built as the other blows are, not drawn: the air bent by two shockwaves (ShockPass) - one
+  // carried along round the tail, a wide one left falling back where it broke through - real light from it on the
+  // hull and the deck (the flash, travelling with it), a white-hot core and a ball of fire in the engine's colour
+  // carried with the ship, plasma and sparks blasted back out of the engines past the camera. vel: the ship's (all of
+  // it carried: at 3000 km/h anything left standing is gone in a frame); fwd: its heading; near: m to the camera
+  hyperBlast(at, vel, fwd, colour, near = 100) {
+    const F = fwd.clone().normalize(), B = F.clone().negate();
+    const X = new THREE.Vector3().crossVectors(F, Math.abs(F.y) < 0.9 ? UP : new THREE.Vector3(1, 0, 0)).normalize();
+    const Z = new THREE.Vector3().crossVectors(X, F), V = new THREE.Vector3(), P = new THREE.Vector3();
+    const k = Math.min(1, Math.max(0.35, (near - 6) / 30));
+    const tail = at.clone().addScaledVector(B, 6);
+    const hot = colour.clone().lerp(WHITE, 0.35), fire = colour.clone().multiplyScalar(1.8), white = new THREE.Color(1, 0.97, 0.92);
+    this.shock(tail, vel, 26, 0.024, 0.6, 0.6, 0.12);
+    this.shock(tail, vel.clone().multiplyScalar(0.6), 70, 0.011, 1.1, 0.35, 0.06);
+    this.flash.position.copy(tail);
+    this.flashVel.copy(vel);
+    this.flash.color.copy(colour).lerp(WHITE, 0.5);
+    this.flashT = Math.max(this.flashT, 0.9);
+    this.glints.emit(tail, vel.clone(), white, { size: 6, grow: 30, life: 0.16, alpha: 2.4 * k, drag: 0, fadeIn: 0.005 });
+    this.glints.emit(tail, vel.clone(), hot, { size: 8, grow: 26, life: 0.4, alpha: 1.2 * k, drag: 0, fadeIn: 0.01 });
+    for (let i = 0; i < 70; i++) {           // the fireball: hot puffs thrown out round the tail, carried, falling back
+      V.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(8 + Math.random() * 24)
+        .addScaledVector(B, 10 + Math.random() * 30).add(vel);
+      P.copy(tail).addScaledVector(X, (Math.random() - 0.5) * 3).addScaledVector(Z, (Math.random() - 0.5) * 2);
+      this.fire.emit(P, V, Math.random() < 0.35 ? hot : fire, { size: 2 + Math.random() * 2.5, grow: 9,
+        life: 0.3 + Math.random() * 0.45, alpha: 0.55 * k, drag: 0.15, grav: 0, spin: (Math.random() - 0.5) * 3, fadeIn: 0.02 });
+    }
+    for (let i = 0; i < 220; i++) {          // plasma and sparks blasted back out of the engines, streaking past
+      V.copy(B).multiplyScalar(60 + Math.random() * 120).addScaledVector(X, (Math.random() - 0.5) * 50)
+        .addScaledVector(Z, (Math.random() - 0.5) * 30).add(vel);
+      this.sparks.emit(tail, V, Math.random() < 0.55 ? hot : white, { size: 0.06 + Math.random() * 0.08, life: 0.25 + Math.random() * 0.45,
+        alpha: 2.2, drag: 0.3, grav: 0, fadeIn: 0.005, stretch: 0.03 });
+    }
+  }
+
   // A hull destroyed in a race (main.js 'wreck'): it blows up where it stops. A white-hot core and the light of it, a
   // fireball rolling out, two shockwaves bending the air (ShockPass), plates of its hull flung out (debris), burning
   // debris and sparks flung on - the faster it was going the further - and a smoke cloud left hanging. near (m to the camera): the

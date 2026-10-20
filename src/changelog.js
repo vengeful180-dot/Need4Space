@@ -9,7 +9,7 @@ export const UPDATES = [
       'Deep Orbit: progressive - long lines over a saw arpeggio and an offbeat bass',
       'Quieter: your ship’s engines and the rush of the wind, 30 % down',
       'Pyramid Run: the sand drifts round the ruins no longer flicker and match the dunes; no stray shadow lines on the sand',
-      'Pyramid Run: boost past 3000 km/h for the hyper boost - each ship its own, a sonic boom as you break through, the camera falling back (Settings: Hyper boost)',
+      'Pyramid Run: boost past 3000 km/h for the hyper boost - each ship its own; breaking through, a blast behind the engines throws you on (Settings: Hyper boost)',
     ],
   },
   {

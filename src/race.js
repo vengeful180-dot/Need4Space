@@ -593,6 +593,7 @@ export class Race {
 
   onRacerEvent(e, ev) {
     if (ev.type === 'pad') this.events.push({ type: 'padfx', i: ev.i, at: ev.at, player: e.player });
+    if (ev.type === 'hyper') { this.events.push({ type: 'hyper', player: e.player, entry: e }); e.ship.boostKick = 1; }
     if (ev.type === 'fall') { this.events.push({ type: 'fall', at: ev.at, player: e.player }); if (this.stats) this.stats.falls++; }
     if (ev.type === 'drift') e.ship.boostKick = Math.max(e.ship.boostKick || 0, 0.4 + 0.2 * ev.tier);
     if (ev.type === 'driftStart') e.ship.driftHop = 1;

@@ -184,8 +184,9 @@ class Plume {
 // The hyper boost (Settings hyperBoost; on speed circuits only - main.js sets Ship.hyperOK): boosting past 3000 km/h
 // (v0 - v1 m/s: 2950 - 3050 km/h) the engines go into overdrive, each ship its own way - every jet longer and hotter
 // (Plume), the Feather wrapped in a vapour cone, the Comet's rocket jets a chain of white-hot shock diamonds, the
-// Anvil's pulses whole detonation waves, the Umbra's singularity overdriven (umbra.js); a sonic boom as it breaks
-// through (Ship.onBoom: a ripple of bent space left where it was) - and the chase camera falls back (camera.js)
+// Anvil's pulses whole detonation waves, the Umbra's singularity overdriven (umbra.js); breaking through, a blast
+// behind the engines that throws the ship on (track.js HYPER_KICK, fx.js hyperBlast) - and the chase camera falls back
+// (camera.js)
 const HYPER = { v0: 819, v1: 847 };
 
 // The Comet's hyper boost: down each rocket jet a chain of white-hot shock diamonds standing in the exhaust - a rocket
@@ -2013,11 +2014,9 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     // throttle, the speed and the boost - the rocket's nozzle rotor. Never past 7.5 deg a frame: beyond half its 20 deg
     // tooth spacing the 18 teeth strobe and the spin reads backwards, so how fast it can look depends on the frame rate)
     const thr1 = clamp(thr, 0, 1), boost1 = clamp(boost + this.boostKick, 0, 1), sp = smoothstep(30, 340, ctrl.speed || 0);
-    // the hyper boost (HYPER): in over 0.3 s, out over 0.7; breaking through, the boom
+    // the hyper boost (HYPER): in over 0.3 s, out over 0.7 (breaking through, the blast: main.js 'hyper')
     const hyT = Ship.hyperOK ? clamp(boost, 0, 1) * this.spin * smoothstep(HYPER.v0, HYPER.v1, ctrl.speed || 0) : 0;
     this.hyper += (hyT - this.hyper) * (1 - Math.exp(-dt / (hyT > this.hyper ? 0.3 : 0.7)));
-    if (hyT > 0.6 && !this.hyperIn) { this.hyperIn = true; Ship.onBoom?.(this.root.getWorldPosition(this._boomAt || (this._boomAt = new THREE.Vector3()))); }
-    else if (hyT < 0.1) this.hyperIn = false;
     const hy = this.hyper;
     for (const r of this.rotors) {
       if (r.spool) {
