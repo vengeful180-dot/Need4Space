@@ -2146,18 +2146,20 @@ export class TrackRacer {
       this.driftCharge += dt * smoothstep(0.12, 0.4, Math.abs(this.slip)) * dk * (1 + 0.25 * ch) * this.perks.drift;
       if (this.driftTier > tierWas) this.emit({ type: 'driftTier', tier: this.driftTier, at: this.pos.clone() });
     }
-    // a drift's kick, paid over ~0.2 s along the way it goes
+    // a drift's kick, paid over ~0.2 s along the way it goes (up to the pads' cap - never down to it: a ship already
+    // past it, the hyper boost's speeds, kept its own)
     if (this.driftKick > 0) {
       const d = Math.min(this.driftKick, 180 * dt), v = Math.max(1, Math.hypot(this.vs, this.vx));
-      this.vs = Math.min(PAD_MAX * vR1 * SK, this.vs + this.vs / v * d); this.vx += this.vx / v * d;
+      this.vs = Math.max(this.vs, Math.min(PAD_MAX * vR1 * SK, this.vs + this.vs / v * d)); this.vx += this.vx / v * d;
       this.driftKick -= d;
     }
-    // boost pads
+    // boost pads: a kick up to PAD_MAX - a ship already past it keeps its speed (capped down to it, a pad took ~280 km/h
+    // off a ship past the hyper boost's 3000)
     this.padT = Math.max(0, this.padT - dt);
     for (const p of tr.pads) {
       const ds = ((this.s - p.s) % tr.length + tr.length * 1.5) % tr.length - tr.length / 2;
       if (Math.abs(ds) < 8 && Math.abs(this.x - p.x) < 6 && this.padT <= 0 && !air) {
-        this.vs = Math.min(PAD_MAX * vR1 * SK, this.vs + PAD_KICK * sk);      // (a speed circuit's pads kick harder the faster it goes)
+        this.vs = Math.max(this.vs, Math.min(PAD_MAX * vR1 * SK, this.vs + PAD_KICK * sk));   // (a speed circuit's pads kick harder the faster it goes)
         this.padT = 0.6;
         this.emit({ type: 'pad', i: tr.pads.indexOf(p), at: p.at });
       }
