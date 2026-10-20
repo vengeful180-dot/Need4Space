@@ -932,6 +932,9 @@ async function boot() {
     // the chat: a line in the race's box and the room's log
     chat: (m) => { chatBox?.add(m); menu.rooms?.renderChat(); },
     chatClear: () => chatBox?.clear(),
+    // the title's count of the players online and the rooms open (Settings: Players online)
+    countOn: () => settings.v.netCount !== false,
+    counted: () => menu.markCount(),
     change: () => menu.rooms?.render() }) : null;
   window.__feather.mp = mp;
   const menu = new Menu({ settings, hud, input, rig, camera, race, track, ship, world, audio, mp, map: MAP, shipId: SHIP, showroom: showcase,
@@ -955,6 +958,7 @@ async function boot() {
       rig.mode = 'orbit';
     } });
   window.__feather.menu = menu;
+  mp?.watchCount();
   const chatBox = mp ? new ChatBox(mp, settings) : null;   // (the race's chat box over the HUD)
   audio.onSong = () => { settings.songName = audio.songName; if (settings.open) settings.draw(); menu.markSong(); };
   menu.markSong();

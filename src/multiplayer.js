@@ -20,6 +20,7 @@ const HZ = 30;                        // states sent a second
 const JOIN = 'n4s-mp-join';           // (sessionStorage: the room to join once the page has reloaded into its circuit)
 const PILOT = 'need4space.pilot.v1';  // (the racing name: shared with the scoreboard)
 const CID = 'n4s-mp-cid';             // (this browser's own random id: a player the host removed stays out of that room)
+const TAB = 'n4s-tab';                // (sessionStorage: this tab's anonymous id for the lobby's count of games online)
 // a chat line: one line, no control characters, 120 characters at most
 export const cleanText = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 export const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/\s+/g, ' ').slice(0, 24);
@@ -77,6 +78,41 @@ export class Multiplayer {
   }
 
   change() { this.h.change?.(); }
+
+  // ---------------------------------------------------------------- who is online (the title's Multiplayer item)
+  // Every 30 s while the page is open (Settings: Players online - h.countOn): this tab's heartbeat to the lobby, an
+  // anonymous random id kept for the tab (a reload into a room's circuit is still the same game - and a different id
+  // from the browser's own, CID), answered with the games online, the rooms open and the players in them. A lobby
+  // without it yet (404): the rooms' own list - rooms and players, no online count. this.count: { online (null: not
+  // known), rooms, players }, null while off or not heard yet; h.counted() after each.
+  watchCount() {
+    if (this.countT) return;
+    try { this.tab = sessionStorage.getItem(TAB); } catch { /* storage blocked */ }
+    if (!/^[A-Za-z0-9_-]{8,40}$/.test(this.tab || '')) {
+      this.tab = 'tab-' + crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+      try { sessionStorage.setItem(TAB, this.tab); } catch { /* storage blocked */ }
+    }
+    const tick = async () => {
+      if (this.h.countOn?.() === false) { if (this.count) { this.count = null; this.h.counted?.(); } return; }
+      try {
+        let c = null;
+        if (this.presence !== false) {
+          try { c = await this.lobby.presence(this.tab); this.presence = true; } catch (e) { if (e.status === 404) this.presence = false; else throw e; }
+        }
+        if (!c) { const r = await this.lobby.rooms(); c = { online: null, rooms: r.rooms.length, players: r.rooms.reduce((n, x) => n + (x.players | 0), 0) }; }
+        this.count = { online: Number.isFinite(c.online) ? c.online : null, rooms: c.rooms | 0, players: c.players | 0 };
+        this.h.counted?.();
+      } catch { /* (offline, the lobby away: the last count kept) */ }
+    };
+    this.countT = setInterval(tick, 30000);
+    tick();
+  }
+  // the Multiplayer screen's own list (rooms.js, every 5 s while it shows): the count's rooms kept as fresh
+  noteRooms(rooms) {
+    if (!this.count || !Array.isArray(rooms)) return;
+    Object.assign(this.count, { rooms: rooms.length, players: rooms.reduce((n, x) => n + (x.players | 0), 0) });
+    this.h.counted?.();
+  }
 
   // ---------------------------------------------------------------- the room
   rooms() { return this.lobby.rooms(); }

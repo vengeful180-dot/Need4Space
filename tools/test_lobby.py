@@ -1,5 +1,5 @@
 """The multiplayer lobby (lobby.py): rooms listed and expiring, the handshake passed both ways once, the host's secret,
-full / racing / other-version rooms refused."""
+full / racing / other-version rooms refused, the games online counted."""
 from pathlib import Path
 import sys
 import unittest
@@ -72,6 +72,27 @@ class LobbyTest(unittest.TestCase):
         t0 += lobby.JOIN_TTL + 1
         with patch.object(lobby.time, 'time', return_value=t0 + lobby.JOIN_TTL + lobby.ROOM_TTL + 2):
             self.assertEqual(self.L.list()['rooms'], [])
+
+    def test_presence(self):
+        P = lambda pid, v=1: self.L.presence(dict(id=pid, version=v))
+        self.assertEqual(P('tab-aaaaaaaa'), {'online': 1, 'rooms': 1, 'players': 1})
+        self.assertEqual(P('tab-bbbbbbbb')['online'], 2)
+        self.assertEqual(P('tab-aaaaaaaa')['online'], 2)              # (the same tab again: counted once)
+        self.assertEqual(P('tab-cccccccc', v=2)['rooms'], 0)          # (rooms of its own version only)
+        for bad in ('short', 'has space in it', 'x' * 41, 7, None, '<script>alert</script>'):
+            with self.assertRaises(LobbyError, msg=repr(bad)) as e:
+                self.L.presence(dict(id=bad, version=1))
+            self.assertEqual(e.exception.status, 400)
+        # (gone quiet: no longer online - the room too, its host gone)
+        t0 = lobby.time.time()
+        with patch.object(lobby.time, 'time', return_value=t0 + lobby.PRESENCE_TTL + 6):
+            self.assertEqual(P('tab-dddddddd'), {'online': 1, 'rooms': 0, 'players': 0})
+        # (a cap on the ids held: past it a new one waits for an old one to lapse)
+        with patch.object(lobby, 'MAX_PRESENCE', 2):
+            L = Lobby()
+            for k in range(3):
+                L.presence(dict(id=f'tab-cap{k:05d}', version=1))
+            self.assertEqual(L.presence(dict(id='tab-cap00000', version=1))['online'], 2)
 
     def test_names_cleaned(self):
         r = self.L.create(dict(ROOM, name='  A\x00 <b>room</b>\n  with   space  ' + 'x' * 50))

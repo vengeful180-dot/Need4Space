@@ -1313,6 +1313,11 @@ body.touch #netchat .nc-line { font-size: 0.8rem; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item.sel .m-meta { color: rgba(6, 16, 24, 0.72); }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"]) .m-list .m-item:not(.sel) .m-meta.m-lvl { color: var(--accent); }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-list .m-item:not(.sel) .m-meta.m-test { color: #ffc14d; }            /* (Testing: in amber, as the other values - no box) */
+/* the players online and the rooms open (menu.js markCount): before Testing, the two kept together on the right */
+.m-list .m-meta.m-count:empty { display: none; }
+:is(.m-screen[data-s="main"]) .m-list .m-meta.m-count:not(:empty) + .m-meta { margin-left: 0.9rem; }
+:is(.m-screen[data-s="main"]) .m-list .m-item:not(.sel) .m-meta.m-count { color: var(--accent); }
+@media (max-width: 480px) { :is(.m-screen[data-s="main"]) .m-list .m-meta.m-count { letter-spacing: 0.1em; } }
 /* the arrow: in on the chosen one, dark on its slab */
 .m-go { display: none; }
 :is(.m-screen[data-s="main"], .m-screen[data-s="pause"], .m-screen[data-s="circuit"], .m-screen[data-s="music"]) .m-go {

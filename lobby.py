@@ -2,7 +2,10 @@
 
 Rooms are listed while their host keeps calling rooms/<id>/host; each player's handshake (a WebRTC offer, then the
 host's answer) waits here until the other side collects it. The race itself never comes through. See src/net.js.
+Every open game also says it is there (presence: an anonymous random id per browser tab, every 30 s) - the title's
+count of the players online, with the rooms open and the players in them.
 """
+import re
 import secrets
 import threading
 import time
@@ -11,6 +14,9 @@ MAPS = ('space', 'forest', 'ice', 'desert', 'ocean', 'pyramid')
 ROOM_TTL = 30          # s a room stays listed after its host's last call
 JOIN_TTL = 60          # s an offer waits for its answer
 MAX_SDP = 16384
+PRESENCE_TTL = 75      # s a game counts as online after its last heartbeat (sent every 30 s; a hidden tab's every 60)
+MAX_PRESENCE = 20000   # ids held at most (past it a new one is counted only once an old one lapses)
+PRESENCE_ID = re.compile(r'[A-Za-z0-9_-]{8,40}')
 
 
 def clean(text, limit):
@@ -29,6 +35,8 @@ class LobbyError(Exception):
 class Lobby:
     def __init__(self):
         self.rooms = {}
+        self.seen = {}         # presence: id -> its last heartbeat (s); nothing else about it is kept
+        self.pruned = 0.0
         self.lock = threading.Lock()
 
     def sweep(self, now):
@@ -58,6 +66,25 @@ class Lobby:
             rooms.sort(key=lambda r: -r['created'])
             return {'rooms': [{'id': r['id'], 'name': r['name'], 'map': r['map'], 'host': r['host'], 'players': r['players'],
                                'max': r['max'], 'state': r['state'], 'version': r['version']} for r in rooms[:50]]}
+
+    def presence(self, data):
+        """a game's heartbeat: counted online for PRESENCE_TTL s; answers the count, the rooms open for its version and
+        the players in them"""
+        pid = data.get('id')
+        if not isinstance(pid, str) or not PRESENCE_ID.fullmatch(pid):
+            raise LobbyError(400, 'Invalid request.')
+        now = time.time()
+        with self.lock:
+            self.sweep(now)
+            if now - self.pruned > 5:
+                self.seen = {k: t for k, t in self.seen.items() if now - t <= PRESENCE_TTL}
+                self.pruned = now
+            if pid in self.seen or len(self.seen) < MAX_PRESENCE:
+                self.seen[pid] = now
+            online = sum(1 for t in self.seen.values() if now - t <= PRESENCE_TTL)
+            version = data.get('version')
+            rooms = [r for r in self.rooms.values() if version is None or str(r['version']) == str(version)]
+            return {'online': online, 'rooms': len(rooms), 'players': sum(r['players'] for r in rooms)}
 
     def create(self, data):
         name, host = clean(data.get('name'), 32), clean(data.get('host'), 24)

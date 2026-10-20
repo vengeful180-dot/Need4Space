@@ -11,6 +11,9 @@
 //   POST rooms/ID/close { token }                                      -> { ok }
 //   POST rooms/ID/join  { name, sdp, version }                         -> { joinId, token }
 //   GET  rooms/ID/join/JOINID?token=T                                  -> { state: 'waiting' | 'answered' | 'gone', sdp }
+//   POST presence     { id, version }                                  -> { online, rooms, players }
+//        (every open game, every 30 s: an anonymous random id per tab - the title's count of the games online, the
+//        rooms open for its version and the players in them; 404 from a lobby without it)
 // A room is listed while its host calls rooms/ID/host (every 2 s open, every 8 s racing; gone 30 s after the last);
 // an offer waits 60 s for its answer.
 
@@ -55,6 +58,7 @@ export class Lobby {
   }
 
   rooms() { return this.call(`rooms?v=${NET_VERSION}`); }
+  presence(id) { return this.call('presence', { id, version: NET_VERSION }, true); }
   create(info) { return this.call('rooms', { ...info, version: NET_VERSION }); }
   host(id, body) { return this.call(`rooms/${encodeURIComponent(id)}/host`, body, true); }
   join(id, body) { return this.call(`rooms/${encodeURIComponent(id)}/join`, { ...body, version: NET_VERSION }); }

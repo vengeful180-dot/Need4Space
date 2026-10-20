@@ -59,6 +59,7 @@ export class Rooms {
     if (!quiet) { this.status = 'Looking for rooms'; this.render(); }
     try {
       const r = await this.mp.rooms();
+      this.mp.noteRooms(r.rooms);
       this.list = Array.isArray(r.rooms) ? r.rooms : [];
       this.status = '';                    // (the panel says how many)
       this.offline = false;

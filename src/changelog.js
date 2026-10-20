@@ -13,6 +13,7 @@ export const UPDATES = [
       'Fixed: a boost pad or a drift’s kick no longer slows a ship that is already past its top speed (it cost ~280 km/h after the hyper boost)',
       'Umbra V1: its headlight shines from its nose onto the deck right in front of it (it lit a patch far ahead, from nowhere)',
       'Multiplayer: the other players’ ships move as smoothly as your own (on fast screens they stuttered, whatever the ping)',
+      'Multiplayer on the title shows how many players are online and the rooms open (Settings to turn it off)',
     ],
   },
   {

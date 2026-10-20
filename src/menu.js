@@ -208,6 +208,16 @@ export class Menu {
     if (this.screen === 'music' || this.screen === 'main') this.refresh();
   }
 
+  // the players online and the rooms open, on the main list's Multiplayer (multiplayer.js watchCount; Settings: Players
+  // online): "7 online · 2 rooms" - or, from a lobby that cannot count the games yet, "2 rooms · 5 players"
+  markCount() {
+    const el = this.el.querySelector('.m-count'), c = this.h.settings?.v.netCount === false ? null : this.h.mp?.count;
+    if (!el) return;
+    const n = (k, one, many = one + 's') => `${k} ${k === 1 ? one : many}`;
+    const text = !c ? '' : c.online != null ? `${n(c.online, 'online', 'online')} · ${n(c.rooms, 'room')}` : `${n(c.rooms, 'room')} · ${n(c.players, 'player')}`;
+    if (el.textContent !== text) el.textContent = text;
+  }
+
   // What's new kept whole under the screen's middle (ui.css max-height): what does not fit goes from the bottom - the
   // update before's lines, then its heading, then the latest's last notes (two always stay) - never a line cut in half
   fitNews() {
@@ -229,7 +239,7 @@ export class Menu {
       `<span class="m-name">${name}</span>${act === 'race' || act === 'difficulty' ? '<span class="m-meta m-lvl"></span>'
         : act === 'circuit' ? `<span class="m-meta">${mapName}</span>` : act === 'ship' ? `<span class="m-meta">${shipName(shipId)}</span>`
         : act === 'music' ? `<span class="m-meta m-song">${h.audio?.songName || ''}</span>`
-        : act === 'multi' ? '<span class="m-meta m-test">Testing</span>'
+        : act === 'multi' ? '<span class="m-meta m-count"></span><span class="m-meta m-test">Testing</span>'
         : act.startsWith('song:') ? '<span class="m-meta m-play"><i></i><i></i><i></i>Playing</span>'
           : act === 'map:' + map || act === 'ship:' + shipId ? '<span class="m-meta">Now</span>' : ''}<span class="m-go" aria-hidden="true"></span></button>`;
     // the Ship screen's rows: each ship with a chip per paint beside it ("make the skins ui better, people can barely
@@ -342,6 +352,7 @@ export class Menu {
     this.el.querySelector('.m-slot-results').append(document.getElementById('results'));
     this.slots = [...this.el.querySelectorAll('.d-slot')];
     this.fadeEl = this.el.querySelector('.m-fade');
+    this.markCount();
   }
 
   // The title's corner dock: the song playing (the Music screen's list behind it), previous / next, the music's volume
@@ -560,6 +571,7 @@ export class Menu {
 
   refresh() {
     const s = this.screen, items = this.items();
+    if (s === 'main') this.markCount();                 // (Settings: Players online turned off - gone at once)
     if (!items.length) return;
     const i = Math.min(this.sel[s] || 0, items.length - 1);
     this.sel[s] = i;
