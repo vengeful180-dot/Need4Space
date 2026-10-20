@@ -2,7 +2,8 @@
 // lines of the last hour, the new ones fetched every 4 s while the title shows it (Settings: Global chat). The lobby
 // filters the lines (links, emails and phone numbers refused, swearing starred out, one line every 3 s from a game);
 // a name clicked mutes whoever said it (kept in this browser, with an Undo). The pilot's name is the Multiplayer one -
-// asked for here, in the same box, when there is none yet.
+// asked for here, in the same box, when there is none yet. Shown once the lobby has answered for it: a lobby without
+// the chat (404) leaves it hidden, asked again each minute.
 import { COLOURS } from './multiplayer.js';
 
 const MUTED = 'need4space.gchat.muted';  // (localStorage: the senders muted - their lines' hashed `from`)
@@ -43,16 +44,19 @@ export class GlobalChat {
       if (m) this.mute(m.dataset.mute, m.textContent);
       else if (u) this.unmute(u.dataset.undo);
     });
-    this.el.classList.toggle('off', !this.on);
+    this.shown();
     this.hint();
     this.render(true);
   }
+
+  // (on: the setting, and the lobby has answered for the chat)
+  shown() { this.el?.classList.toggle('off', !this.on || !this.ready); }
 
   hint() { if (this.in) this.in.placeholder = this.mp.myName ? 'Chat' : 'Your pilot name'; }
 
   // shown (the title's main screen) or not: fetched every 4 s while shown and the page is in view
   setOpen(open) {
-    this.el?.classList.toggle('off', !this.on);
+    this.shown();
     open = !!open && this.on && !!this.el;
     if (open === this.open) return;
     this.open = open;
@@ -65,7 +69,7 @@ export class GlobalChat {
   }
 
   async poll() {
-    if (this.busy) return;
+    if (this.busy || (this.missing && Date.now() - this.missing < 60000)) return;
     this.busy = true;
     try {
       const r = await this.mp.lobby.chat(this.last);
@@ -75,8 +79,12 @@ export class GlobalChat {
       this.lines.sort((a, b) => a.n - b.n);
       this.lines = this.lines.slice(-60);
       this.last = Math.max(this.last, r.last | 0);
+      this.missing = 0;
+      if (!this.ready) { this.ready = true; this.shown(); }
       this.render();
-    } catch { /* (offline, the lobby away: tried again on the next) */ } finally { this.busy = false; }
+    } catch (e) {
+      if (e.status === 404) { this.missing = Date.now(); this.ready = false; this.shown(); }   // (a lobby without the chat)
+    } finally { this.busy = false; }
   }
 
   async send() {
