@@ -7,7 +7,8 @@
 // layout.speedK times its usual here (track.js TrackRacer): the straights and the boosts are what count.
 import * as THREE from 'three';
 import { Track, TRACK_W, layout, CAVE_R, CAVE_MOUTH } from './track.js';
-import { bakeLater } from './bake.js';
+import { bakeLater, quadJob } from './bake.js';
+import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { Q } from './quality.js';
 import { mulberry32 } from './noise.js';
 import { stars } from './space.js';
@@ -30,6 +31,9 @@ const ZC = PLANET_C.z;
 const surfY = (x, z) => PLANET_C.y + Math.sqrt(Math.max(0, PLANET_R ** 2 - x * x - (z - ZC) ** 2));
 // the crater the road climbs out of, on the planet's flank
 const EXIT = new THREE.Vector3(3306, -2874, -12634);
+// the sand's baked shadows (Pyramid bakeSandShadows): each tile a square `half` m from its middle across the sun's rays,
+// `depth` m along them either way; at most `tiles` of them, every `step` half-widths down the road
+const SAND_SHADOW = { half: 700, depth: 2500, tiles: 12, step: 1.5 };
 
 const P = [];
 const pt = (x, y, z, bank = 0, name = null) => P.push([x, y, z, bank, name]);
@@ -182,14 +186,36 @@ const NOISE = /* glsl */`
 function planetMaterial() {
   return new THREE.ShaderMaterial({
     uniforms: { sunDir: { value: SUN_DIR }, camPos: { value: new THREE.Vector3() }, centre: { value: PLANET_C },
-      R: { value: PLANET_R }, exitP: { value: EXIT }, pyr: { value: new THREE.Vector4(PYR.half, PYR.base, ZC, 0) } },
+      R: { value: PLANET_R }, exitP: { value: EXIT }, pyr: { value: new THREE.Vector4(PYR.half, PYR.base, ZC, 0) },
+      // the baked shadows (bakeSandShadows): the map, its tiles (centre across the rays, the sand's depth along them, the
+      // cell), their count, the axes across the rays, (columns, rows, half, depth), the switches (all, the ruins')
+      sandSh: { value: null }, shTile: { value: Array.from({ length: SAND_SHADOW.tiles }, () => new THREE.Vector4()) }, shN: { value: 0 },
+      shX: { value: new THREE.Vector3() }, shY: { value: new THREE.Vector3() }, shGrid: { value: new THREE.Vector4(1, 1, 1, 1) },
+      shOn: { value: new THREE.Vector2(1, 1) } },
     vertexShader: /* glsl */`
       varying vec3 vW; varying vec3 vN;
       void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vN = normalize(mat3(modelMatrix) * normal); gl_Position = projectionMatrix * viewMatrix * w; }`,
     fragmentShader: /* glsl */`
       uniform vec3 sunDir, camPos, centre, exitP; uniform float R; uniform vec4 pyr;
+      uniform sampler2D sandSh; uniform vec4 shTile[${SAND_SHADOW.tiles}]; uniform int shN; uniform vec3 shX, shY; uniform vec4 shGrid; uniform vec2 shOn;
       varying vec3 vW; varying vec3 vN;
       ${NOISE}
+      // the baked shadow here: the first tile holding the point (across the rays, and along them near its sand); r the
+      // road's, the pyramid's and the blocks', g the ruins'
+      float sandShadow(vec3 p) {
+        vec3 l = vec3(dot(p, shX), dot(p, shY), dot(p, sunDir));
+        for (int i = 0; i < ${SAND_SHADOW.tiles}; i++) {
+          if (i >= shN) break;
+          vec4 t = shTile[i];
+          vec2 d = (l.xy - t.xy) / (2.0 * shGrid.z) + 0.5;
+          if (abs(l.z - t.z) < shGrid.w && all(greaterThan(d, vec2(0.004))) && all(lessThan(d, vec2(0.996)))) {
+            vec2 cell = vec2(mod(t.w, shGrid.x), floor(t.w / shGrid.x));
+            vec2 s = texture2D(sandSh, (cell + d) / shGrid.xy).rg;
+            return max(s.r, s.g * shOn.y) * shOn.x;
+          }
+        }
+        return 0.0;
+      }
       void main() {
         // (the pyramid's footprint and the crater's mouth: their own meshes)
         if (abs(vW.x) < pyr.x - 4.0 && abs(vW.z - pyr.z) < pyr.x - 4.0 && vW.y > pyr.y) discard;
@@ -212,7 +238,11 @@ function planetMaterial() {
         float cr = pfbm(q * 3.0 + 11.0);
         alb *= 1.0 - 0.25 * smoothstep(0.62, 0.7, cr) * (1.0 - smoothstep(0.7, 0.74, cr));
         float ndl = dot(nn, sunDir), lit = smoothstep(-0.08, 0.25, ndl) * max(ndl, 0.0) + 0.012;
-        vec3 col = alb * (vec3(1.0, 0.9, 0.78) * 1.25 * lit + vec3(0.03, 0.04, 0.07) * (0.4 + 0.6 * n.y));
+        // in a baked shadow most of the sun is gone - the sky's blue and the sand's own glow left, the ripples still
+        // shaping it
+        float sh = shN > 0 ? sandShadow(vW) : 0.0;
+        vec3 col = alb * (vec3(1.0, 0.9, 0.78) * 1.25 * lit * (1.0 - 0.8 * sh) * mix(vec3(1.0), vec3(0.8, 0.92, 1.22), sh)
+          + vec3(0.03, 0.04, 0.07) * (0.4 + 0.6 * n.y));
         // the air: a glow round the limb, haze over the far ground
         vec3 V = normalize(camPos - vW);
         float rim = pow(1.0 - max(dot(n, V), 0.0), 3.0), day = smoothstep(-0.25, 0.3, dot(n, sunDir));
@@ -552,6 +582,7 @@ export class PyramidWorld {
       let sA = g1;
       for (let s = g0; s < g1; s += 50) { tr.frame(s, f0); if (f0.P.distanceTo(PLANET_C) - PLANET_R < 40) { sA = s; break; } }
       const H = PYR.half + 160;
+      this.sandSpan = [sA, g1];
       this.ruins = buildRuins(tr, { centre: PLANET_C, R: PLANET_R, sA, sB: tr.at('gate', -320), gate: g1,
         keepOut: (p, r) => (Math.abs(p.x) < H + r && Math.abs(p.z - ZC) < H + r && p.y > PYR.base - 600) || p.distanceTo(EXIT) < 600 + r });
       for (const m of this.ruins.meshes) scene.add(m);
@@ -600,6 +631,7 @@ export class PyramidWorld {
     // the obstacles
     this.blocks = this.buildBlocks();
     scene.add(...this.blocks);
+    this.bakeSandShadows(renderer);
     // the stone obstacles down in the root: each in the light baked there (bakeI)
     for (const mesh of [this.blocks[2], this.blocks[3]]) {
       const out = new Float32Array(Math.max(1, mesh.count) * 3), M = new THREE.Matrix4(), q = new THREE.Vector3(), up = new THREE.Vector3(), tmp = [0, 0, 0];
@@ -1048,10 +1080,108 @@ export class PyramidWorld {
       });
   }
 
+  // The sand's shadows, baked (Settings pyrShadows): the sun never moves and nothing standing on the sand does, so what
+  // the road, the pyramid, the blocks and the ruins shade there is worked out once, at load. Tiles down the road over
+  // the planet (SAND_SHADOW), each a square across the sun's rays: the casters' depth seen from the sun, then for each
+  // texel the sand's own depth there (the ray met with the planet's sphere - exact, the dunes being only shading) - in
+  // shadow where a caster comes first, 5 x 5 tests round it averaged for a soft edge - into one map, r the road's, the
+  // pyramid's and the blocks', g the ruins' (their switch takes their shadows too). The planet's shader dims the sun by it.
+  bakeSandShadows(renderer) {
+    if (!this.sandSpan) return;
+    const tr = this.track, { half: Hh, depth: D } = SAND_SHADOW, C = PLANET_C, f = {};
+    const T = Math.min({ high: 2048, mid: 1536, low: 1024 }[Q.tier] ?? 1536, renderer.capabilities.maxTextureSize / 4);
+    // the tiles: on the sand under the road from before it touches down to past the gate
+    const [sA, sB] = this.sandSpan, tiles = [];
+    let step = SAND_SHADOW.step * Hh;
+    while ((sB - sA + 1300) / step + 1 > SAND_SHADOW.tiles) step *= 1.2;
+    for (let s = sA - 600; s <= sB + 700 && tiles.length < SAND_SHADOW.tiles; s += step) {
+      tr.frame(tr.wrap(s), f);
+      tiles.push(f.P.clone().sub(C).normalize().multiplyScalar(PLANET_R).add(C));
+    }
+    const cols = Math.ceil(Math.sqrt(tiles.length)), rows = Math.ceil(tiles.length / cols);     // (no empty cells: 6 tiles 3 x 2)
+    const atlas = new THREE.WebGLRenderTarget(cols * T, rows * T, { format: THREE.RGFormat, type: THREE.UnsignedByteType,
+      depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false });
+    atlas.scissorTest = true;
+    // the casters: stand-ins sharing their geometry (the road's ribbons, its walls and girders, the pyramid, the blocks;
+    // the ruins on their own)
+    const dm = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }), groups = [new THREE.Scene(), new THREE.Scene()];
+    const add = (m, g) => {
+      if (!m?.geometry) return;
+      m.updateMatrixWorld(true);
+      const q = m.isInstancedMesh ? new THREE.InstancedMesh(m.geometry, dm, m.count) : new THREE.Mesh(m.geometry, dm);
+      if (m.isInstancedMesh) { q.instanceMatrix = m.instanceMatrix; q.count = m.count; }
+      q.matrixAutoUpdate = false; q.matrix.copy(m.matrixWorld); q.frustumCulled = false;
+      groups[g].add(q);
+    };
+    const P = tr.parts || {};
+    for (const m of [P.deck, P.under, ...(P.walls || []), ...(P.girders || []), ...(P.gantries || []), ...(P.lamps || []),
+      ...(P.towers || []), ...(P.trims || []), ...(P.lips || []), ...this.pyramid, this.blocks[0], this.blocks[2], this.blocks[3]]) add(m, 0);
+    for (const m of this.ruins?.meshes || []) add(m, 1);
+    const depths = [0, 1].map(() => {
+      const rt = new THREE.WebGLRenderTarget(T, T);
+      rt.depthTexture = new THREE.DepthTexture(T, T, THREE.UnsignedIntType);
+      return rt;
+    });
+    const cam = new THREE.OrthographicCamera(-Hh, Hh, Hh, -Hh, 0, 2 * D);
+    const resolve = new FullScreenQuad(new THREE.ShaderMaterial({
+      uniforms: { dA: { value: depths[0].depthTexture }, dB: { value: depths[1].depthTexture }, eye: { value: new THREE.Vector3() },
+        ax: { value: this.lx }, ay: { value: this.ly }, sun: { value: SUN_DIR }, centre: { value: C }, R: { value: PLANET_R },
+        hw: { value: Hh }, far: { value: 2 * D }, texel: { value: 1 / T } },
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: /* glsl */`
+        uniform sampler2D dA, dB; uniform vec3 eye, ax, ay, sun, centre; uniform float R, hw, far, texel;
+        varying vec2 vUv;
+        // the sand's distance along the ray from the eye's plane at uv (its first meeting with the sphere)
+        float ground(vec2 uv) {
+          vec3 o = eye + ax * ((uv.x - 0.5) * 2.0 * hw) + ay * ((uv.y - 0.5) * 2.0 * hw) - centre;
+          float b = -dot(o, sun), c = dot(o, o) - R * R, h = b * b - c;
+          return h < 0.0 ? 1e9 : -b - sqrt(h);
+        }
+        void main() {
+          vec2 sh = vec2(0.0);
+          for (int i = -2; i <= 2; i++) for (int j = -2; j <= 2; j++) {
+            vec2 uv = vUv + vec2(float(i), float(j)) * texel * 1.25;
+            // (a foot sunk into the sand never shades the sand by it; nothing drawn there, or no sand: no shadow)
+            float g = ground(uv) - 1.5;
+            vec2 d = vec2(texture2D(dA, uv).r, texture2D(dB, uv).r);
+            sh += step(d, vec2(0.99999)) * step(d * far, vec2(g));
+          }
+          gl_FragColor = vec4(sh / 25.0, 0.0, 1.0);
+        }`,
+      depthTest: false, depthWrite: false,
+    }));
+    const U = this.planetMat.uniforms;
+    tiles.forEach((G, i) => {
+      U.shTile.value[i].set(G.dot(this.lx), G.dot(this.ly), G.dot(SUN_DIR), i);
+      bakeLater([[groups[0], cam], [groups[1], cam], quadJob(resolve)], () => {
+        cam.position.copy(G).addScaledVector(SUN_DIR, D);
+        cam.up.copy(this.ly);
+        cam.lookAt(G);
+        cam.updateMatrixWorld();
+        const keep = renderer.getRenderTarget();
+        for (let g = 0; g < 2; g++) { renderer.setRenderTarget(depths[g]); renderer.clear(); renderer.render(groups[g], cam); }
+        resolve.material.uniforms.eye.value.copy(cam.position);
+        const x = (i % cols) * T, y = Math.floor(i / cols) * T;
+        atlas.viewport.set(x, y, T, T); atlas.scissor.set(x, y, T, T);
+        renderer.setRenderTarget(atlas);
+        resolve.render(renderer);
+        renderer.setRenderTarget(keep);
+        if (i === tiles.length - 1) { for (const d of depths) { d.depthTexture.dispose(); d.dispose(); } resolve.dispose(); dm.dispose(); }
+      });
+    });
+    this.sandAtlas = atlas;
+    U.sandSh.value = atlas.texture;
+    U.shN.value = tiles.length;
+    U.shX.value.copy(this.lx); U.shY.value.copy(this.ly);
+    U.shGrid.value.set(cols, rows, Hh, D);
+    console.info(`pyramid run: sand shadows baked in ${tiles.length} tiles of ${T} px (${(2 * Hh / T).toFixed(2)} m a texel)`);
+  }
+
   // the settings' switches for this world's own works (main.js, on every change)
   setOptions(v) {
     for (const m of this.ruins?.meshes || []) m.visible = v.pyrRuins !== false;
     for (const m of this.tomb?.meshes || []) m.visible = v.pyrTomb !== false;
+    this.planetMat.uniforms.shOn.value.set(v.pyrShadows !== false ? 1 : 0, v.pyrRuins !== false ? 1 : 0);
   }
 
   update(t, camera, shipPos, s, renderer) {
