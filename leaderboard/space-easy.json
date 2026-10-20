@@ -124,6 +124,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "ZUMBIOO",
+        "totalMs": 272800,
+        "bestLapMs": 86675,
+        "lapsMs": [
+          98775,
+          86675,
+          87350
+        ],
+        "points": 50,
+        "recordedAt": "2026-10-20T20:49:52.238Z",
+        "runId": "de32e85d-7d15-4ea5-b28a-9f996aee8197"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Wet Poop Nuggets",
         "totalMs": 273317,
         "bestLapMs": 88633,
@@ -423,7 +438,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-20T19:49:25.452Z",
+  "updatedAt": "2026-10-20T20:49:52.238Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -457,7 +472,8 @@
       "534579d7-4334-4e99-bccc-db4769c10b66": "Logan",
       "a59479ac-bed2-4172-ade3-9fca69c91d4e": "Jimbo",
       "dccf4882-fd55-43dc-8ca9-bf02cc67cbc2": "Ubik",
-      "169cba3c-641c-44e9-b9ee-96d01d42d6e9": "Wet Poop Nuggets"
+      "169cba3c-641c-44e9-b9ee-96d01d42d6e9": "Wet Poop Nuggets",
+      "de32e85d-7d15-4ea5-b28a-9f996aee8197": "ZUMBIOO"
     }
   }
 }
