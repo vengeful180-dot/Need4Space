@@ -11,6 +11,7 @@ export const UPDATES = [
       'Pyramid Run: the sand drifts round the ruins no longer flicker and match the dunes; no stray shadow lines on the sand',
       'Pyramid Run: boost past 3000 km/h for the hyper boost - each ship its own; breaking through, a blast behind the engines throws you on (Settings: Hyper boost)',
       'Fixed: a boost pad or a drift’s kick no longer slows a ship that is already past its top speed (it cost ~280 km/h after the hyper boost)',
+      'Umbra V1: its headlight shines from its nose onto the deck right in front of it (it lit a patch far ahead, from nowhere)',
     ],
   },
   {
