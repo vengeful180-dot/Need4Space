@@ -1902,6 +1902,7 @@ export class TrackRacer {
     this.yawRate = 0; this.airIn = 0;
     this.accS = 0; this.latS = 0; this.landImp = 0;    // for the ship's animation (Ship.animate)
     this.thrustScale = 1;              // rivals' engines (and a little rubber band)
+    this.gripScale = 1;                // its grip and turn over its ship's (a rival catching the player up: race.js CATCH)
     this.locked = false;               // on the grid: engines and throttle live, the ship held in its slot
     this.camQ = new THREE.Quaternion(); // the track frame + heading, without the lean: what the chase camera follows
     this.qAir = new THREE.Quaternion(); // the attitude in the air (pose)
@@ -2089,7 +2090,7 @@ export class TrackRacer {
     const ch = this.chain || 0, rateK = (brakeL || brakeR ? 1 + AIRBRAKE : 1) * (1 + (DRIFT.rate + 0.1 * ch - 1) * dk);
     // (a faster ship turns as the other does at the same share of its top speed - its yaw rate scaled with its speed,
     // so it holds the same lines - and then by its own turn)
-    this.yawRate = this.steerS * turnRate(Math.abs(this.vs) / vR) * vR * H.turn * rateK * grip * power;
+    this.yawRate = this.steerS * turnRate(Math.abs(this.vs) / vR) * vR * H.turn * this.gripScale * rateK * grip * power;
     this.psi += this.yawRate * dt;
     if (this.assist && Math.abs(steer) < 0.1 && !air && !this.drift) this.psi -= this.psi * 1.1 * dt;   // eases back along the track
     this.airIn = brakeR - brakeL;
@@ -2127,7 +2128,7 @@ export class TrackRacer {
     const along = this.vs * hs + this.vx * hx, across = -this.vs * hx + this.vx * hs;
     const push = this.drift ? clamp(steer * this.drift, 0, 1) : 0;    // steered into the slide (else it grips again)
     const loose = this.knocked > 0 ? 1 - (1 - ATTACK.loose) * Math.min(1, this.knocked / (ATTACK.knock * 0.5)) : 1;
-    let kept = across * Math.exp(-(air ? 0.4 : gripAt(sp / vR) * vR * H.turn * loose * (1 - (1 - DRIFT.grip + 0.07 * ch) * dk * (0.35 + 0.65 * push))) * dt);
+    let kept = across * Math.exp(-(air ? 0.4 : gripAt(sp / vR) * vR * H.turn * this.gripScale * loose * (1 - (1 - DRIFT.grip + 0.07 * ch) * dk * (0.35 + 0.65 * push))) * dt);
     let al2 = along + (air ? 0 : Math.abs(across - kept) * (0.5 + (DRIFT.keep - 0.5) * dk) * Math.sign(along || 1));
     if (dk > 0) {
       const was = Math.hypot(along, across), now = Math.hypot(al2, kept);

@@ -8,6 +8,8 @@ export const UPDATES = [
       'On the boost the rings swing into line round the engine and spin up, and the core flares',
       'In the colours of its paint: violet, white or gold - cyan on the boost',
       'Umbra V1: its boost no longer mends the hull while it leads the race',
+      'Easy, Normal and Hard: get far ahead and the rivals behind push harder until they are on your tail',
+      'Umbra V1: its boost no longer mends the hull while it leads the race',
       'Multiplayer: chat in the room, and in the race - press Enter to talk (Settings: Online races: chat)',
       'Phones: new controls - the left stick steers, hold Thrust on the right, Boost beside it, Slam and Brake under them',
       'New title menu: proper buttons that light up and slide in; a cleaner Ship list with each ship’s difficulty in a column',

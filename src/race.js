@@ -41,18 +41,26 @@ const HOLD = { throttleUp: 0, throttleDown: 0, throttleAxis: 0, boost: 0, yaw: 0
 export const AI_LEVELS = {
   // "add an easy setting ... and the enemies are also slower": a tenth less engine than Normal, careful in the bends,
   // pads and boost left to chance, wide of the line, never blocking, easing off more when well ahead of the player
-  easy: { pace: [0.84, 0.004, 0.02], corner: 0.9, pads: 0.3, boost: 'random', lane: 10, wander: 7, band: [0.03, 0.08], defend: 0, aggression: 0.35, speed: 0.25, hold: 0.08, counter: 0.08,
+  easy: { pace: [0.84, 0.004, 0.02], corner: 0.9, pads: 0.3, boost: 'random', lane: 10, wander: 7, band: [0.03, 0.08], catchUp: 0.12, defend: 0, aggression: 0.35, speed: 0.25, hold: 0.08, counter: 0.08,
     kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 } }, ace: { kind: 'heavy', pace: 0, drive: { pads: 0.55, boost: 'plan', lane: 6, wander: 4, corner: 0.92 } } },
   // "make normal, hard and brutal a bit easier, like 30 % easier overall": each one's lap a third of the way back
   // toward Easy's (median laps on the ice: Normal 47.0 -> 48.2 s, Hard 44.9 -> 46.4, Brutal 44.6 -> 46.2, Easy 50.2),
   // its aggression and defence 30 % of the way too. speed: the menu's bar for their pace (the laps, not the engine)
-  normal: { pace: [0.9235, 0.004, 0.02], corner: 0.95, pads: 0.45, boost: 'random', lane: 8, wander: 5, band: [0.04, 0.04], defend: 0, aggression: 0.45, speed: 0.5, hold: 0.07, counter: 0.18,
+  normal: { pace: [0.9235, 0.004, 0.02], corner: 0.95, pads: 0.45, boost: 'random', lane: 8, wander: 5, band: [0.04, 0.04], catchUp: 0.12, defend: 0, aggression: 0.45, speed: 0.5, hold: 0.07, counter: 0.18,
     kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 } }, ace: { kind: 'heavy', pace: -0.005, drive: { pads: 0.7, boost: 'plan', lane: 5, wander: 3, corner: 0.96 } } },
-  hard: { pace: [0.895, 0.0025, 0.008], corner: 1, pads: 1, boost: 'plan', lane: 3, wander: 0, band: [0.05, 0.015], defend: 0.42, aggression: 0.67, speed: 0.78, hold: 0.06, counter: 0.32,
+  hard: { pace: [0.895, 0.0025, 0.008], corner: 1, pads: 1, boost: 'plan', lane: 3, wander: 0, band: [0.05, 0.015], catchUp: 0.12, defend: 0.42, aggression: 0.67, speed: 0.78, hold: 0.06, counter: 0.32,
     kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 } }, ace: { kind: 'rocket', pace: 0.02, drive: { lane: 2 } } },
   brutal: { pace: [0.905, 0.0015, 0.004], corner: 1, pads: 1, boost: 'plan', lane: 2, wander: 0, band: [0.08, 0], defend: 0.7, aggression: 0.8, speed: 0.88, hold: 0.05, counter: 0.45,
     kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 } }, ace: { kind: 'feather', pace: 0.025, drive: {} } },
 };
+// The catch-up (AI_LEVELS catchUp, the easier levels): the player leading over `on` s clear of the second, the next
+// `who` rivals get the player's engine and that share more, and fly like the best of them (`drive`: the bends at the
+// line's limit, every pad, the boost where the lap has room) and `grip` times their grip (the line's speeds worked out
+// again for it: the bends faster, still on the line) until each is on the player's tail (`tail` m behind, or past it),
+// then their own pace again - engine and grip eased in and out over `ease` s; it starts again only once the player
+// is that far clear once more ("make them cheat a bit to get closer to the player or even take him, but after they got
+// close to go back to their slower speeds")
+export const CATCH = { on: 2, who: 3, tail: 50, ease: 0.8, grip: 1.1, drive: { corner: 1, pads: 1, boost: 'plan' } };
 
 // The rivals' plan of the lap, made once per track. In this physics a ship has to yaw at v x (the track's curvature +
 // the bend of its own line across the deck), so the line that bends least - as straight as the walls allow, the least
@@ -231,6 +239,7 @@ class Driver {
     const L0 = AI_LEVELS[name] || AI_LEVELS.hard, ace = this.e.ace && L0.ace, [p0, step, spread] = L0.pace, [a, b, c] = this.seed;
     const L = ace ? { ...L0, ...ace.drive } : L0;
     this.level = L;
+    this.catchLevel = { ...L, ...CATCH.drive, corner: Math.max(L.corner, CATCH.drive.corner) };   // (Race catchUp)
     // engine: the front of the grid a touch quicker; by its ship; the ace's a step stronger
     const K = L0.kinds?.[this.e.kind] || {};
     this.pace = (p0 - this.slot * step + a * spread) * (K.pace || 1) * (ace ? 1 + ace.pace : 1);
@@ -244,7 +253,10 @@ class Driver {
   // player's inputs: steer, airbrakes, throttle, brake, boost.
   think(dt) {
     const r = this.e.racer, race = this.race, tr = race.track, plan = race.plan, n = tr.n, T = Driver.tune;
-    const L = this.level, lim = race.lim, v = Math.max(20, r.vs), VL = race.vlims?.[this.e.kind] || plan.vlim;
+    const L = this.e.catching ? this.catchLevel : this.level, lim = race.lim, v = Math.max(20, r.vs), VL0 = race.vlims?.[this.e.kind] || plan.vlim;
+    // (catching the player up: the limits for its grip then - Race CATCH - eased in with it)
+    const kc = this.e.catchK > 0.001 ? this.e.catchK : 0, VLc = race.vlimsCatch?.[this.e.kind];
+    const vl = (j) => (kc && VLc ? VL0[j] + (VLc[j] - VL0[j]) * kc : VL0[j]);
     // one of the first three: it fights the others there - defends against them, attacks them far more readily
     const top = race.racing && this.e.rank <= 3;
     const i = ((Math.floor(r.s / tr.step) % n) + n) % n;
@@ -334,7 +346,7 @@ class Driver {
           if (dx > 0) xT = Math.min(xT, or.x - W - 2); else xT = Math.max(xT, or.x + W + 2);
           if (Math.abs(xT) > lim - 0.5 && Math.abs(dx) < W + 0.7) follow = Math.min(follow, ds > 0 ? or.vs - 6 : Infinity);
         }
-      } else if ((o.player ? L.defend > 0 : top && o.rank <= 3) && ds > -45 && (or.vs > r.vs + 1 || ds > -30)) guard = o;
+      } else if (!this.e.catching && (o.player ? L.defend > 0 : top && o.rank <= 3) && ds > -45 && (or.vs > r.vs + 1 || ds > -30)) guard = o;
     }
     // the slipstream: tuck in behind (8 - 45 m, within 4.5 m across: +7 % thrust) where the line costs nothing
     if (draftX != null && this.passT <= 0) xT += (draftX - xT) * clamp(plan.slack[i] + 0.4, 0, 1);
@@ -359,7 +371,7 @@ class Driver {
     // answer); the bend ahead is fed forward. Gains fixed in steer units over-steered slowly and under-damped fast.
     // (its own ship's turn and grip: track.js scales them by its top speed and turn)
     const H = r.handling, vR = Math.sqrt(H.thrust / H.drag) * speedScale(tr, v, H);      // (a speed circuit scales them: track.js)
-    const tRate = turnRate(v / vR) * vR * H.turn, g = gripAt(v / vR) * vR * H.turn, slope = plan.slope[iA];
+    const tRate = turnRate(v / vR) * vR * H.turn * r.gripScale, g = gripAt(v / vR) * vR * H.turn * r.gripScale, slope = plan.slope[iA];
     const slip = clamp((v * cFF) / g, -0.3, 0.3), th = Math.atan2(r.vx, v);
     const thD = Math.atan(slope) - clamp((r.x - xT) / (v * T.tauE), -0.3, 0.3);
     let psiDes = clamp(th + (thD - th) / (g * T.tauTh) + slip, -0.45, 0.45);
@@ -392,11 +404,12 @@ class Driver {
     if (this.counterAt != null && race.time >= this.counterAt) { this.slamNow = true; this.counterAt = null; }
     else if (race.canSlam(this.e) && !(r.slamCool > 0) && straight && !jump && !loop && race.racing && r.ghost <= 0 && this.rnd() < (top ? 5 : 1.2) * this.aggression * dt) {
       const t = race.reach(this.e);
-      if (t && !(top && t.o.rank > 3 && this.rnd() < 0.7)) this.slamNow = true;
+      // (catching the player up - Race catchUp - it goes for the player only)
+      if (t && !(top && t.o.rank > 3 && this.rnd() < 0.7) && !(this.e.catching && !t.o.player)) this.slamNow = true;
     }
     // speed: the line's limit just ahead (braking already folded in), traffic; flat out over a cut
     let vT = Infinity;
-    for (let d = 0; d <= v * 0.3; d += 8) vT = Math.min(vT, VL[at(d)]);
+    for (let d = 0; d <= v * 0.3; d += 8) vT = Math.min(vT, vl(at(d)));
     vT *= L.corner * (this.cornerK || 1);
     let vF = Math.min(vT, Math.max(20, follow));
     if (esc > 0.85 && Math.abs(cFF) > 0.002) vF = Math.min(vF, r.vs - 8);   // running wide in a bend: lift
@@ -408,7 +421,7 @@ class Driver {
     // full; at once to finish a pass or to get back up to speed after a knock
     const E = r.boostEnergy;
     let room = Infinity;
-    for (let d = 0; d < v * T.boostRoom; d += 16) room = Math.min(room, VL[at(d)]);
+    for (let d = 0; d < v * T.boostRoom; d += 16) room = Math.min(room, vl(at(d)));
     const roomy = room > Math.min(375, v + 45) && !loop && follow > r.vs + 10;
     let boost = false;
     this.knockT = (r.slow || 0) > 3 ? 1.5 : Math.max(0, (this.knockT || 0) - dt);
@@ -539,6 +552,8 @@ export class Race {
     this.plan = makePlan(this.track, this.lim, Driver.tune);
     this.vlims = {};
     for (const e of this.entries) this.vlims[e.kind] ||= e.kind === 'feather' ? this.plan.vlim : speedLimits(this.track, this.plan.c, Driver.tune, HANDLING[e.kind]);
+    this.vlimsCatch = {};                                // (a rival catching the player up: its grip CATCH.grip times)
+    for (const e of this.entries) { const H = HANDLING[e.kind] || HANDLING.feather; this.vlimsCatch[e.kind] ||= speedLimits(this.track, this.plan.c, Driver.tune, { ...H, turn: (H.turn || 1) * CATCH.grip }); }
   }
 
   // signed track distance a - b, wrapped to half a lap
@@ -565,7 +580,7 @@ export class Race {
       e.racer.locked = true;
       e.racer.pose(0);
       Object.assign(e, { progress: -p.back, lastS: e.racer.s, laps: [], lapStart: 0, finished: false, finishTime: null,
-        clean: true, best: Infinity, wrecks: 0, dmgWall: 0, dmgShip: 0, underAttack: null, playerHitT: -99, airWas: 0 });
+        clean: true, best: Infinity, wrecks: 0, dmgWall: 0, dmgShip: 0, underAttack: null, playerHitT: -99, airWas: 0, catching: false, catchK: 0 });
       e.racer.repair();
       e.driver?.reset();
       e.ship.clearTrails();
@@ -641,6 +656,7 @@ export class Race {
     const order = racing ? this.standings() : null;
     order?.forEach((e, k) => (e.rank = k + 1));
     for (const e of this.entries) e.racer.leading = !!order && e.rank === 1;
+    if (order && !this.mp) this.catchUp(order);
     for (const e of this.entries) {
       if (e.player) { if (playerActive) e.racer.step(dt, inp); continue; }
       if (e.remote) { this.mp?.drive(e, dt); continue; }  // another player online: where its own screen says it is
@@ -653,13 +669,29 @@ export class Race {
       // chance of taking them")
       if (order && e.rank <= 3 && !e.finished) {
         const behind = order[e.rank], clear = behind ? e.progress - behind.progress : 0;
-        e.racer.thrustScale *= 1 - (AI_LEVELS[this.level].hold || 0) * smoothstep(60, 300, clear);
+        if (!e.catching) e.racer.thrustScale *= 1 - (AI_LEVELS[this.level].hold || 0) * smoothstep(60, 300, clear);
       }
+      e.catchK = (e.catchK || 0) + ((e.catching ? 1 : 0) - (e.catchK || 0)) * Math.min(1, dt / CATCH.ease);
+      if (e.catchK > 0.001) {
+        const want = Math.max(e.racer.thrustScale, this.player.racer.thrustScale * (1 + (AI_LEVELS[this.level].catchUp || 0)));
+        e.racer.thrustScale += (want - e.racer.thrustScale) * e.catchK;
+      }
+      e.racer.gripScale = 1 + (CATCH.grip - 1) * (e.catchK > 0.001 ? e.catchK : 0);
       e.racer.step(dt, !racing ? HOLD : e.finished ? e.driver.coast(dt) : e.driver.think(dt));
       e.racer.events.length = 0;
     }
     if (racing) { this.attacks(dt, playerActive, inp); this.unghost(); this.collide(dt, playerActive); }
     this.count_laps();
+  }
+
+  // the catch-up (CATCH): who is catching the player, and who has caught it
+  catchUp(order) {
+    const p = this.player, second = order[1];
+    for (const e of this.entries) if (e.catching && (e.finished || p.finished || p.progress - e.progress < CATCH.tail)) e.catching = false;
+    // (one still on its way up from far back doesn't hold the next start back: only the second's own catching does)
+    if (!AI_LEVELS[this.level].catchUp || p.finished || p.rank !== 1 || !second || second.catching) return;
+    if ((p.progress - second.progress) / Math.max(40, p.racer.vs) < CATCH.on) return;
+    for (const e of order.slice(1, 1 + CATCH.who)) if (!e.player && !e.remote && !e.finished) e.catching = true;
   }
 
   // The slam (track.js ATTACK), an ability on its own key: pressed with a hull in reach (reach: the HUD's arrow shows
