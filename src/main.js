@@ -603,8 +603,9 @@ async function boot() {
     renderer.toneMappingExposure = 0.95 * expBase;
     gtao.enabled = v.ao;
     canyonAO.value = v.canyonAO ? 1 : 0;
-    smaa.enabled = v.aa !== 'msaa';
+    smaa.enabled = v.aa !== 'msaa' && v.aa !== 'taa';     // (TAA smooths the edges itself: SMAA over it only blurred)
     taa.enabled = v.aa === 'taa';
+    taa.sharp = v.taaSharp ?? 0.8;
     const samples = v.aa === 'high' ? 8 : v.aa === 'fast' ? 2 : v.aa === 'smaa1' ? 0 : 4;   // the scene's MSAA (a new target when it changes)
     if (scenePass.msaa.samples !== samples) { scenePass.msaa.samples = samples; scenePass.msaa.dispose(); }
     ssr.enabled = !!track && v.ao && v.reflections;

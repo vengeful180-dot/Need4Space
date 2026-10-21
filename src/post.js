@@ -476,9 +476,9 @@ export class TAAPass extends Pass {
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }` }));
     this.resolve = quad({ tCur: { value: null }, tHist: { value: null }, tDepth: { value: null }, tPrevDepth: { value: null },
       invProj: { value: new THREE.Matrix4() }, camWorld: { value: new THREE.Matrix4() }, prevViewProj: { value: new THREE.Matrix4() },
-      texel: { value: new THREE.Vector2() }, valid: { value: 0 } }, /* glsl */`
+      texel: { value: new THREE.Vector2() }, jit: { value: new THREE.Vector2() }, valid: { value: 0 } }, /* glsl */`
       uniform sampler2D tCur, tHist, tDepth, tPrevDepth; uniform mat4 invProj, camWorld, prevViewProj;
-      uniform vec2 texel; uniform float valid;
+      uniform vec2 texel, jit; uniform float valid;
       varying vec2 vUv;
       vec3 tm(vec3 c) { return c / (1.0 + max(c.r, max(c.g, c.b))); }
       vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - max(c.r, max(c.g, c.b))); }
@@ -497,15 +497,20 @@ export class TAAPass extends Pass {
       void main() {
         vec3 cur = texture2D(tCur, vUv).rgb;
         // the neighbourhood (tone-mapped, YCoCg): its mean and spread; the nearest depth round it (an edge's history
-        // follows the thing in front)
-        vec3 m1 = vec3(0.0), m2 = vec3(0.0);
-        float dn = 1.0;
+        // follows the thing in front); and this frame's value at the pixel's own centre, rebuilt from the samples round
+        // it by their distance from it (jit: where this frame's samples lie off their pixels' centres) - taken as it
+        // came, the shift of each frame's samples averaged out into a pixel-wide blur
+        vec3 m1 = vec3(0.0), m2 = vec3(0.0), cf = vec3(0.0);
+        float dn = 1.0, wf = 0.0;
         for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-          vec2 o = vec2(float(x), float(y)) * texel;
-          vec3 c = ycc(tm(texture2D(tCur, vUv + o).rgb));
+          vec2 o = vec2(float(x), float(y)) * texel, dp = vec2(float(x), float(y)) + jit;
+          vec3 t = tm(texture2D(tCur, vUv + o).rgb), c = ycc(t);
+          float wk = exp(-2.29 * dot(dp, dp));
+          cf += t * wk; wf += wk;
           m1 += c; m2 += c * c;
           dn = min(dn, texture2D(tDepth, vUv + o).x);
         }
+        cf /= wf;
         m1 /= 9.0;
         vec3 sg = sqrt(max(m2 / 9.0 - m1 * m1, 0.0));
         // where this point was last frame (the sky: its direction only)
@@ -526,8 +531,8 @@ export class TAAPass extends Pass {
           float tol = 0.03 * want + 0.05;
           if (want < lo - tol || want > hi + tol) keep = 0.0;
         }
-        vec3 n = ycc(tm(cur));
-        if (keep < 0.5) { gl_FragColor = vec4(cur, 1.0); return; }
+        vec3 n = ycc(cf);
+        if (keep < 0.5) { gl_FragColor = vec4(itm(cf), 1.0); return; }
         vec3 h = ycc(tm(history(puv)));
         // clipped toward the neighbourhood's mean, into its box (mean +- 1.25 sigma)
         vec3 ext = 1.25 * sg + 1e-4, dv = h - m1, u = abs(dv / ext);
@@ -540,7 +545,22 @@ export class TAAPass extends Pass {
         a = max(a, 0.75 * smoothstep(1.0, 3.0, lc) * smoothstep(2.0, 6.0, lc / max(lh, 1e-3)));
         gl_FragColor = vec4(itm(rgb(mix(h, n, a))), 1.0);
       }`);
-    this.copy = quad({ tIn: { value: null } }, /* glsl */`uniform sampler2D tIn; varying vec2 vUv; void main() { gl_FragColor = texture2D(tIn, vUv); }`);
+    // what is shown: the result sharpened where it is soft and left alone where it has contrast (contrast-adaptive, in
+    // the tone-mapped space; the history itself stays unsharpened, or it would build up) - "the game losses a lot of
+    // its sharpness with taa on"
+    this.sharp = 0.8;
+    this.copy = quad({ tIn: { value: null }, texel: { value: new THREE.Vector2() }, sharp: { value: 0.6 } }, /* glsl */`
+      uniform sampler2D tIn; uniform vec2 texel; uniform float sharp; varying vec2 vUv;
+      vec3 tm(vec3 c) { return c / (1.0 + max(c.r, max(c.g, c.b))); }
+      vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - max(c.r, max(c.g, c.b))); }
+      void main() {
+        vec3 e = tm(texture2D(tIn, vUv).rgb), b = tm(texture2D(tIn, vUv + vec2(0.0, texel.y)).rgb), h = tm(texture2D(tIn, vUv - vec2(0.0, texel.y)).rgb);
+        vec3 d = tm(texture2D(tIn, vUv - vec2(texel.x, 0.0)).rgb), f = tm(texture2D(tIn, vUv + vec2(texel.x, 0.0)).rgb);
+        vec3 mn = min(min(min(d, e), min(f, b)), h), mx = max(max(max(d, e), max(f, b)), h);
+        vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-4)), 0.0, 1.0));
+        vec3 w = amp * (-1.0 / mix(8.0, 5.0, sharp));
+        gl_FragColor = vec4(itm(clamp((b * w + d * w + f * w + h * w + e) / (1.0 + 4.0 * w), 0.0, 0.999)), 1.0);
+      }`);
     this.depthOut = quad({ tDepth: { value: null }, invProj: { value: new THREE.Matrix4() } }, /* glsl */`
       uniform sampler2D tDepth; uniform mat4 invProj; varying vec2 vUv;
       void main() {
@@ -571,6 +591,7 @@ export class TAAPass extends Pass {
     cam.projectionMatrix.elements[9] += jy;
     cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
     cam.userData.jitter = [jx, jy];
+    this.jitPx = [jx * this.w / 2, jy * this.h / 2];        // (where this frame's samples lie off their pixels' centres, px)
   }
 
   unjitter() {
@@ -596,6 +617,7 @@ export class TAAPass extends Pass {
     u.prevViewProj.value.copy(this.prevViewProj);
     u.texel.value.set(1 / this.w, 1 / this.h);
     u.valid.value = this.valid ? 1 : 0;
+    u.jit.value.set(...(this.jitPx || [0, 0]));
     renderer.setRenderTarget(this.histB);
     this.resolve.render(renderer);
     [this.histA, this.histB] = [this.histB, this.histA];
@@ -607,7 +629,8 @@ export class TAAPass extends Pass {
     }
     this.prevViewProj.multiplyMatrices(this.unjittered, cam.matrixWorldInverse);
     this.valid = live;
-    this.copy.material.uniforms.tIn.value = this.histA.texture;
+    const cu = this.copy.material.uniforms;
+    cu.tIn.value = this.histA.texture; cu.texel.value.set(1 / this.w, 1 / this.h); cu.sharp.value = this.sharp;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.copy.render(renderer);
   }
