@@ -16,7 +16,8 @@ import { DUST_GLSL, DUST_FOG_CHUNK } from './haze.js';
 import { SEA_GLSL, SEA_FOG_CHUNK } from './sea.js';
 import { ICE_GLSL, ICE_FOG_CHUNK } from './frost.js';
 import { ATMO_GLSL, ATMO_FOG_CHUNK } from './atmo.js';
-import { TrackRacer, TRACK_W, PERKS } from './track.js';
+import { TrackRacer, TRACK_W, PERKS, WALL_PROFILE } from './track.js';
+import { TrackShadow } from './trackshadow.js';
 import { patchShaders } from './look.js';
 import { smoothstep } from './noise.js';
 import { loadShip, Ship } from './ship.js';
@@ -505,6 +506,10 @@ async function boot() {
     }
     return k;
   };
+  // the track fittings' shadows baked at load (trackshadow.js; Settings "Track fittings' shadows"): the fittings then
+  // cast no live shadow - their shade on a ship comes from the bake at its place (shipSun), and on the deck under it
+  let trackShadow = null, bakedCasters = [];
+  const bakedOn = () => !!trackShadow && track.tsU.tsLap.value.y > 0;
   const deckLight = () => {
     const sun = world.sun || world.sunL?.sun, D = deck;
     if (sun) D.sun.copy(sun.position).sub(sun.target.position).normalize();
@@ -514,7 +519,11 @@ async function boot() {
       D.up.set(0, 1, 0).applyQuaternion(s.root.quaternion);
       const cave = track ? track.caveLight(p) : 1;
       D.E.setRGB(0, 0, 0);
-      if (sun) D.E.copy(sun.color).multiplyScalar(sun.intensity * Math.max(0, D.sun.dot(D.up)) * cave);
+      // (a ship under a fitting's baked shadow: the sun on it - three points along it, from its height down the sun's
+      // rays - and on the deck under it)
+      const r = e.racer, ts = bakedOn() && r ? trackShadow : null, h = r ? r.y + 0.8 : 0;
+      s.deckU.shipSun.value = ts ? (ts.shade(r.s - 4, r.x, h) + ts.shade(r.s, r.x, h) + ts.shade(r.s + 4, r.x, h)) / 3 : 1;
+      if (sun) D.E.copy(sun.color).multiplyScalar(sun.intensity * Math.max(0, D.sun.dot(D.up)) * cave * (ts ? ts.shade(r.s, r.x) : 1));
       // a light's mean irradiance over the deck within 6 m of the ship, h over it, fading with its distance away
       for (const l of lights) {
         if (!l.visible || !(l.intensity > 0)) continue;
@@ -594,6 +603,33 @@ async function boot() {
   const fpsEl = document.getElementById('fps');
   let expBase = 1;                                       // (the setting's exposure; a map may vary it as it goes: exposureK)
   const sunLights = world.sun ? [world.sun, world.sunMid, world.sunFar] : [world.sunL.sun];
+  // baked: the bake read and the fittings out of the live maps; live: as they were (baked once asked for, if it was not)
+  const applyTrackShadows = (v) => {
+    const on = !!trackShadow?.baked && v.trackShadows !== 'live';
+    if (track?.tsU) track.tsU.tsLap.value.y = on ? 1 : 0;
+    for (const m of bakedCasters) m.castShadow = !on;
+    if (v.trackShadows !== 'live' && warmed && track && !trackShadow?.baked) bakeTrackShadows();
+  };
+  const bakeTrackShadows = async () => {
+    if (!track || !world.sun || bakeTrackShadows.busy) return;
+    bakeTrackShadows.busy = true;
+    // what the bake shades the track with: every fitting that casts (the gantries, lamp posts, emitters, pilasters,
+    // boards, gate legs, flip rings and struts, tunnel ribs, towers)
+    if (!bakedCasters.length) {
+      const add = (o) => { if (Array.isArray(o)) o.forEach(add); else if (o?.isObject3D) o.traverse((m) => { if (m.isMesh && m.castShadow) bakedCasters.push(m); }); };
+      Object.values(track.parts).forEach(add);
+      bakedCasters = [...new Set(bakedCasters)];
+    }
+    const maxTex = Math.min(8192, renderer.capabilities.maxTextureSize);
+    const low = Q.tier === 'low';
+    trackShadow ||= new TrackShadow(track, sunDir, WALL_PROFILE, { atlas: low || maxTex < 8192 ? [4096, maxTex] : [8192, 8192], maxTex,
+      tex: low ? 8 : 16, taps: low ? [16, 32] : [24, 48] });
+    const t0 = performance.now();
+    await trackShadow.bake(renderer, scene, bakedCasters, (k, n) => { if (!warmed) { status(`Baking the track’s shadows  ${k} / ${n}`); progress('bakes', k / n); } });
+    console.info(`track shadows: ${bakedCasters.length} casters, ${track.length.toFixed(0)} m x ${track.W} m, ${trackShadow.used} tiles kept of ${trackShadow.Pt * trackShadow.St} (${trackShadow.over} past the atlas), ${Math.round(performance.now() - t0)} ms`);
+    bakeTrackShadows.busy = false;
+    applyTrackShadows(settings.v);
+  };
   const settings = new Settings((v) => {
     agx.enabled = v.tonemap !== 'aces';
     agx.setLook(v.tonemap === 'agx' ? 1 : 0);
@@ -602,6 +638,7 @@ async function boot() {
     agx.uniforms.exposure.value = expBase;       // (a map can set its own)
     renderer.toneMappingExposure = 0.95 * expBase;
     gtao.enabled = v.ao;
+    applyTrackShadows(v);
     canyonAO.value = v.canyonAO ? 1 : 0;
     smaa.enabled = v.aa !== 'msaa' && v.aa !== 'taa';     // (TAA smooths the edges itself: SMAA over it only blurred)
     taa.enabled = v.aa === 'taa';
@@ -691,6 +728,7 @@ async function boot() {
   // Warm-up behind the loading screen: everything drawn once - hidden things too, every ship at both detail levels,
   // the trails - so every shader is compiled and every buffer and texture is on the GPU before the race. The first lap
   // stuttered: ~20 shaders compiled and the ships' far detail levels uploaded the first time each came into view.
+  if (settings.v.trackShadows !== 'live') await bakeTrackShadows();
   status('Warming up the shaders');
   // every paint in the race on its ship first, for the warm-up to upload: the rivals' own liveries and the player's
   // saved one (they loaded at each ship's first frame: a 2K paint decoded and uploaded there mid-race - 110 ms)
@@ -779,6 +817,7 @@ async function boot() {
   const circuitOnly = () => [ssr, taa, shafts, heat, shock, streaks, blur, world.heat, grade, lens].filter(Boolean);
   const drawShowroom = () => {
     showroom.update();
+    for (const s of fleet()) s.deckU.shipSun.value = 1;
     const keepPass = { sky: scenePass.sky, skyCam: scenePass.skyCam, scene: scenePass.scene, camera: scenePass.camera };
     const off = circuitOnly(), was = off.map((p) => p.enabled);
     Object.assign(scenePass, { sky: null, skyCam: null, scene: showroom.scene, camera: showroom.camera });

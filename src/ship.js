@@ -748,6 +748,7 @@ function partsGeometry(G, index) {
 // diffuse by the share of the hemisphere round the normal the deck fills, in the reflections where the reflected ray
 // meets the deck (the horizon softer the rougher the finish). deckK 0: as before.
 const DECK_PARS = /* glsl */`
+uniform float shipSun;
 uniform vec3 deckUp;
 uniform vec3 deckAlbedo;
 uniform vec3 deckDirect;
@@ -800,7 +801,8 @@ function deckPatch(sh, U) {
     .replace('#include <envmap_physical_pars_fragment>', DECK_PARS + WET_PARS + pars
       .replace(ENV_IRR, 'return PI * envMapColor.rgb * envMapIntensity * ( 1.0 - deckShare( worldNormal ) );')
       .replace(ENV_RAD, 'return envMapColor.rgb * envMapIntensity * ( 1.0 - deckSeen( reflectVec, roughness ) );') + DECK_FNS)
-    .replace('#include <lights_fragment_end>', C.lights_fragment_end.replace(IND_DIFF, DECK_ADD + IND_DIFF));
+    .replace('#include <lights_fragment_end>', C.lights_fragment_end.replace(IND_DIFF, DECK_ADD + IND_DIFF))
+    .replace('#include <lights_fragment_begin>', 'staticSun = shipSun;\n#include <lights_fragment_begin>');
   // (the water's film after the roughness is known - wherever it is set: the parts atlas sets its own in its place)
   sh.fragmentShader = sh.fragmentShader.replace('#include <metalnessmap_fragment>', WET_FRAG + '#include <metalnessmap_fragment>');
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWetP;')
@@ -1209,6 +1211,8 @@ export class Ship {
     // the deck's light on this ship's materials (setDeckLight)
     this.deckU = { deckUp: { value: new THREE.Vector3(0, 1, 0) }, deckAlbedo: { value: new THREE.Color(0.25, 0.25, 0.25) },
       deckDirect: { value: new THREE.Color(0, 0, 0) }, deckSky: { value: 1 }, deckK: { value: 0 },
+      // the sun's share where it is (the track fittings' baked shadows: main.js deckLight)
+      shipSun: { value: 1 },
       // how wet it is out of the sea (1 just out .. 0 dry) and the clock (WET_PARS: the ocean sets them)
       shipWet: { value: 0 }, shipWetT: { value: 0 } };
     // the accent lights' colour (this ship's engines) and how lit they are (finishPatch)

@@ -231,6 +231,15 @@ export function patchShaders({ sunDir, sunFog, shadowHalf, shadowDepth, cascades
       `#if UNROLLED_LOOP_INDEX != 1 && UNROLLED_LOOP_INDEX != 2${worldOnly ? ' && UNROLLED_LOOP_INDEX != 3' : ''}\n\t\t${m}\n\t\t#endif`) + L.slice(to);
   }
   C.shadowmap_pars_fragment = s;
+  // the sun's light (directional light 0) scaled by staticSun: what a material knows of shadows baked over it (the
+  // track's fittings': trackshadow.js) - set in its main() before the lights, 1 elsewhere. Outside the shadow maps'
+  // switch: the bake shows with the live shadows off too
+  if (!C.lights_pars_begin.includes('staticSun')) {
+    const at = 'getDirectionalLightInfo( directionalLight, directLight );';
+    if (C.lights_fragment_begin.split(at).length !== 2) throw new Error('lights chunk changed: baked sun shadows not applied');
+    C.lights_pars_begin = 'float staticSun = 1.0;\n' + C.lights_pars_begin;
+    C.lights_fragment_begin = C.lights_fragment_begin.replace(at, at + '\n\t\t#if UNROLLED_LOOP_INDEX == 0\n\t\tdirectLight.color *= staticSun;\n\t\t#endif');
+  }
 
   // ---- height fog with sun in-scatter (fogDensity = extinction per metre at y = 0)
   C.fog_pars_vertex = '#ifdef USE_FOG\n\tvarying float vFogDepth;\n\tvarying vec3 vFogWorld;\n#endif';

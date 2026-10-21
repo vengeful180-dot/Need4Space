@@ -11,6 +11,7 @@ import { Q } from './quality.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { rockMaterial } from './rock.js';
 import { hullMaterial, hullBox, HULL_SIDE, HULL_UNDER, HULL_GIRDER } from './hull.js';
+import { TRACK_SUN_GLSL, trackSunPatch, trackSunUniforms } from './trackshadow.js';
 import { wreckRoute, GRAVEYARD } from './wreckplan.js';
 
 // "the roads are a bit bigger in redout": 44 -> 56 m, room for five Feathers (10.3 m) abreast and a line through a
@@ -22,6 +23,7 @@ const WALL_H = 1.2, WALL_T = 0.7;    // solid wall
 const FIELD_H = 5.0;                 // energy barrier top
 const COPE = 0.08;                   // the wall's coping (its cap) over the wall's top
 const PYLON_EVERY = 8;               // the energy barrier's emitters: every 8 frames, from frame 4
+export const WALL_PROFILE = { h: WALL_H + COPE, t: WALL_T };   // (the walls up to the coping's top, their thickness: trackshadow.js)
 const GANTRY_EVERY = 300;            // m
 
 // The circuit, as control points: x, y, z (m) and bank (deg, + = right edge down, eased the short way round between
@@ -226,7 +228,7 @@ function laneSection(x) {
 // (satin aluminium: a joint every 3 m), 'cap' (the coping: satin aluminium) and 'fascia' (dark steel), a joint every
 // 6 m, or 'conduit' (dark painted: a galvanised clamp every 1.5 m, a coupling every
 // 6 m). Their sweeps' v is metres along the lap, u across the profile
-function housingMaterial(kind) {
+function housingMaterial(kind, ts = null) {
   const look = { lane: [0x15171b, 0.45, 0.7], strip: [0x8d939b, 0.46, 0.8], conduit: [0x2a2d31, 0.52, 0.45], cap: [0x9aa1aa, 0.46, 0.8],
     fascia: [0x262a31, 0.48, 0.7] }[kind];
   const mat = new THREE.MeshStandardMaterial({ color: look[0], roughness: look[1], metalness: look[2] });
@@ -264,7 +266,7 @@ function housingMaterial(kind) {
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = hsM;');
   };
   mat.customProgramCacheKey = () => 'track-housing-' + kind;
-  return mat;
+  return ts ? trackSunPatch(mat, ts) : mat;
 }
 
 function canvasTex(w, h, draw, srgb = true) {
@@ -775,7 +777,7 @@ export class Track {
 
   // a ribbon of cross-section points swept along the track: section = [[x, y, u], ...], normals per segment side
   sweep(section, vScale, closeLoop = true) {
-    const pos = [], nrm = [], uv = [], idx = [], n = this.n, m = section.length;
+    const pos = [], nrm = [], uv = [], trk = [], idx = [], n = this.n, m = section.length;
     for (let i = 0; i <= n; i++) {
       const k = i % n, P = this.P[k], U = this.U[k], R = this.R[k];
       for (let c = 0; c < m; c++) {
@@ -783,6 +785,7 @@ export class Track {
         pos.push(P.x + R.x * x + U.x * y, P.y + R.y * x + U.y * y, P.z + R.z * x + U.z * y);
         nrm.push(R.x * nx + U.x * ny, R.y * nx + U.y * ny, R.z * nx + U.z * ny);
         uv.push(u, (i * this.step) / vScale);
+        trk.push(x, y, i * this.step, 2);           // (its place on the track: the baked shadows - trackshadow.js)
       }
     }
     for (let i = 0; i < n; i++) {
@@ -797,6 +800,7 @@ export class Track {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('trk', new THREE.Float32BufferAttribute(trk, 4));
     g.setIndex(idx);
     g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * section.slice(0, -1).filter(p => p[5] !== 'cut').length;
     return g;
@@ -807,7 +811,7 @@ export class Track {
   // mirror: the same faces drawn on the left (swapped ends keep them facing out)
   hullSweep(faces, mirror = false) {
     if (mirror) faces = faces.map((f) => ({ ...f, a: f.b, b: f.a }));
-    const F = faces.length, n = this.n, pos = [], nrm = [], huv = [], hf = [], ht = [], idx = [];
+    const F = faces.length, n = this.n, pos = [], nrm = [], huv = [], hf = [], ht = [], trk = [], idx = [];
     const fw = faces.map((f) => Math.hypot(f.b[0] - f.a[0], f.b[1] - f.a[1]));
     for (let i = 0; i <= n; i++) {
       const k = i % n, P = this.P[k], U = this.U[k], R = this.R[k];
@@ -819,6 +823,7 @@ export class Track {
           huv.push(u, i * this.step);
           hf.push(W, f.kind);
           ht.push(R.x * tx + U.x * ty, R.y * tx + U.y * ty, R.z * tx + U.z * ty);
+          trk.push(q[0], q[1], i * this.step, 2);
         }
       });
     }
@@ -835,6 +840,7 @@ export class Track {
     g.setAttribute('hullUV', new THREE.Float32BufferAttribute(huv, 2));
     g.setAttribute('hullF', new THREE.Float32BufferAttribute(hf, 2));
     g.setAttribute('hullT', new THREE.Float32BufferAttribute(ht, 3));
+    g.setAttribute('trk', new THREE.Float32BufferAttribute(trk, 4));
     g.setIndex(idx);
     g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * F;
     return g;
@@ -843,6 +849,9 @@ export class Track {
   meshes(scene) {
     TH = this.L.theme || SPACE_THEME;                // (the materials below are made with this circuit's colours)
     const W = this.W / 2;
+    // the fittings' baked sun shadows (trackshadow.js), read by the deck, the walls and the housings: empty and off until
+    // baked
+    this.tsU = trackSunUniforms(W, this.length);
     const out = {};
     // a section drawn right-to-left faces the other way: mirror sections are reversed (their 'cut' flags move with
     // the segment they mark), so both walls face the deck
@@ -869,12 +878,12 @@ export class Track {
       sh.uniforms.detailMap = detail.map;
       sh.uniforms.detailNormal = detail.normal;
       sh.uniforms.detailRep = { value: new THREE.Vector2(this.W / 4, 40 / 4) };
-      Object.assign(sh.uniforms, this.deckU);
+      Object.assign(sh.uniforms, this.deckU, this.tsU);
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vRdUv;')
         .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
-          'uniform float deckRelief, deckSheen;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT)
+          'uniform float deckRelief, deckSheen;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
   diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
@@ -899,7 +908,8 @@ export class Track {
   }
   #endif
 // deck: after normal`))
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += rdEmit;   // (the light inlays)')
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += rdEmit;   // (the light inlays)\n'
+          + '  staticSun = trackSun((vRdUv.x - 0.5) * deckW, 0.0, vRdUv.y * 40.0);   // (the fittings\' baked shadows)')
         // the plates' coating reflects at deckSheen of a plain dielectric's strength (a dull, dusty finish: looking toward
         // a low sun the whole deck turned silver-white - "the sun reflection is too powerful"); the bare steel, and a
         // theme's puddles, in full
@@ -1044,7 +1054,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       { a: [-E, -DECK], b: [-E, 0], n: [-1, 0], kind: HULL_SIDE },
     ]);
     // painted steel plates, computed per pixel (hull.js)
-    const metal = hullMaterial(TH.moss ? { moss: true, key: 'hull-moss' } : {});
+    const metal = trackSunPatch(hullMaterial(TH.moss ? { moss: true, key: 'hull-moss' } : {}), this.tsU);
     out.under = new THREE.Mesh(under, metal);
     // walls: inner face, top, outer face, both sides
     const wall = (s) => this.hullSweep([
@@ -1076,9 +1086,9 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // every 1.5 m and a coupling every 6 m
     out.stripHousing = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [
       [0, WALL_H - 0.345], [0.03, WALL_H - 0.33], [0.03, WALL_H - 0.3], [0.018, WALL_H - 0.29], null,
-      [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip')));
+      [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip', this.tsU)));
     out.conduits = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, conduitRing(0.06, 0.42, 0.045, 10), true), 1),
-      housingMaterial('conduit')));
+      housingMaterial('conduit', this.tsU)));
     // the outside of the road ("the outside of the roads on the edges you didnt change anything there", then "still looks
     // without depth, only like a paint over"): the wall capped with a chamfered coping (3.5 cm over its inner face, 5 cm
     // over its outer one); down its outer side a structure 20-30 cm deep - a top chord under the coping, a band at the
@@ -1088,13 +1098,13 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     const O = -WALL_T;
     out.cap = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[0, WALL_H - 0.03], [0.035, WALL_H - 0.03],
       [0.035, WALL_H + 0.04], [0, WALL_H + COPE], [O, WALL_H + COPE], [O - 0.05, WALL_H + 0.04], [O - 0.05, WALL_H - 0.06],
-      [O, WALL_H - 0.06]]), 1), housingMaterial('cap')));
+      [O, WALL_H - 0.06]]), 1), housingMaterial('cap', this.tsU)));
     out.fascia = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[O, WALL_H - 0.14], [O - 0.2, WALL_H - 0.2],
       [O - 0.2, WALL_H - 0.42], [O, WALL_H - 0.48], null, [O, 0.2], [O - 0.2, 0.14], [O - 0.2, -0.14], [O, -0.2], null,
       [O, -0.33], [O - 0.06, -0.36], [O - 0.06, -0.39], [O - 0.035, -0.4], null, [O - 0.035, -0.6], [O - 0.06, -0.61],
-      [O - 0.06, -0.64], [O, -0.67], null, [O, -1.55], [O - 0.25, -1.62], [O - 0.25, -1.88], [O, -1.95]]), 1), housingMaterial('fascia')));
+      [O - 0.06, -0.64], [O, -0.67], null, [O, -1.55], [O - 0.25, -1.62], [O - 0.25, -1.88], [O, -1.95]]), 1), housingMaterial('fascia', this.tsU)));
     out.outerPipes = [-1, 1].map((s) => new THREE.Mesh(mergeTwo(this.sweep(sideSection(s, W, conduitRing(O - 0.09, -0.95, 0.06, 10), true), 1),
-      this.sweep(sideSection(s, W, conduitRing(O - 0.09, -1.25, 0.06, 10), true), 1)), housingMaterial('conduit')));
+      this.sweep(sideSection(s, W, conduitRing(O - 0.09, -1.25, 0.06, 10), true), 1)), housingMaterial('conduit', this.tsU)));
     out.ribs = this.edgePilasters();
     out.vents = this.edgeVents();
     out.gantries = this.gantries();
@@ -1692,7 +1702,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
           gl_FragColor = vec4(${g3(TH.spill)} * spill * 0.16 * chase, 1.0);
         }`,
     });
-    const housing = housingMaterial('lane'), out = [];
+    const housing = housingMaterial('lane', this.tsU), out = [];
     this.laneHousing = [];
     for (const x of [-11, 11]) {
       // (the channel's profile, across: flat faces with hard edges at the foot and the floor, the rim rounded)

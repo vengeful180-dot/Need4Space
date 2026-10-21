@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true, roadRelief: true, taaSharp: 0.8 };
+  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true, roadRelief: true, taaSharp: 0.8, trackShadows: 'baked' };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -57,6 +57,7 @@ const ROWS = [
   ['exposure', 'Exposure', [[-1.5, '-1.5'], [-1, '-1'], [-0.5, '-0.5'], [0, '0'], [0.5, '+0.5']]],
   ['aa', 'Anti-aliasing', [['smaa1', 'SMAA'], ['msaa', 'MSAA 4x'], ['fast', 'MSAA 2x + SMAA'], ['smaa', 'MSAA 4x + SMAA'], ['high', 'MSAA 8x + SMAA'], ['taa', 'MSAA 4x + TAA']]],
   ['taaSharp', 'TAA sharpening', [[0.4, 'Low'], [0.8, 'Medium'], [1, 'High']]],
+  ['trackShadows', 'Track fittings\' shadows', [['baked', 'Baked at load'], ['live', 'Live']]],
   ['ao', 'Ambient occlusion', [[true, 'On'], [false, 'Off']]],
   ['aoRes', 'AO resolution', [['auto', 'Auto'], ['full', 'Full'], ['half', 'Half']]],
   ['canyonAO', 'Canyon shading (ice, desert; needs AO)', [[true, 'On'], [false, 'Off']]],
@@ -104,7 +105,7 @@ const ROWS = [
 const SECTIONS = [
   ['general', 'General', ['quality', 'xrScale', 'ai', 'pilots', 'slamCam', 'slamNote', 'netPing', 'netChat', 'netCount', 'globalChat', 'airPitch', 'music', 'song', 'sfx', 'touch']],
   ['picture', 'Picture', ['tonemap', 'exposure', 'bloom', 'streaks', 'blur', 'shafts', 'lensWater', 'umbraAura', 'umbraArcs', 'umbraTime']],
-  ['perf', 'Performance', ['scale', 'aa', 'taaSharp', 'shadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
+  ['perf', 'Performance', ['scale', 'aa', 'taaSharp', 'shadows', 'trackShadows', 'ao', 'aoRes', 'canyonAO', 'reflections', 'fps']],
   ['space', 'Space', ['colossus', 'wreckFx', 'wreckMist']],
   ['forest', 'Forest moon', ['caveFx']],
   ['ice', 'Ice planet', ['iceSnow', 'iceDust', 'aurora', 'iceStorm', 'iceGeysers']],
