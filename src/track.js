@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clamp, damp, smoothstep, mulberry32, noise2, fbm } from './noise.js';
 import { bakeDeckMaps, DECK_LAYOUT } from './deck.js';
-import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial, ribGeometry, pylonGeometry } from './fittings.js';
+import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial, pylonGeometry, pilasterGeometry, ventGeometry } from './fittings.js';
 import { Q } from './quality.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { rockMaterial } from './rock.js';
@@ -116,7 +116,7 @@ const SPECULAR_AA = /* glsl */`
 // The deck's first lines in main() (deck.js DECK_LAYOUT): where the view ray meets the deck. With Settings "Road relief",
 // within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -6.2 cm; 8 steps looking
 // down, up to 28 grazing, then the crossing interpolated), its reach eased out from 30 m so nothing pops; past that, or
-// switched off, the surface itself. There the deck's maps are read (with the surface's own gradients - the meeting point
+// switched off, the surface itself; the crossing refined by halving between the last two steps. There the deck's maps are read (with the surface's own gradients - the meeting point
 // jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
 const DECK_MARCH = /* glsl */`
   vec2 rdUv = vRdUv, rdDx = dFdx(vRdUv), rdDy = dFdy(vRdUv), rdFw, rdSlope, rdRM;
@@ -143,7 +143,12 @@ const DECK_MARCH = /* glsl */`
         for (int i = 1; i <= 28; i++) {
           if (i > N) break;
           float z = 0.009 - dz * float(i), d = z - rdHeight(m0 - o * z, rdFw, false);
-          if (d <= 0.0) { mh = m0 - o * mix(zPrev, z, dPrev / max(dPrev - d, 1e-6)); break; }
+          if (d <= 0.0) {
+            float za = zPrev, zb = z;
+            for (int j = 0; j < 4; j++) { float zm = 0.5 * (za + zb); if (zm - rdHeight(m0 - o * zm, rdFw, false) > 0.0) za = zm; else zb = zm; }
+            mh = m0 - o * (0.5 * (za + zb));
+            break;
+          }
           zPrev = z; dPrev = d;
         }
         rdUv = vec2(mh.x / deckW, mh.y / 40.0);
@@ -164,6 +169,7 @@ const DECK_MARCH = /* glsl */`
     #endif
     float h0 = rdHeight(mh, rdFw, rdFine);
     rdSlope = vec2(rdHeight(mh + vec2(e.x, 0.0), rdFw, rdFine) - h0, rdHeight(mh + vec2(0.0, e.y), rdFw, rdFine) - h0) / e;
+    rdSlope *= 1.0 - smoothstep(0.04, 0.12, max(rdFw.x, rdFw.y));      // (bevels finer than the pixel: flat)
   }
 `;
 
@@ -310,6 +316,13 @@ function fieldMaterial() {
         float h = vUv.y, al = mod(vUv.x, 4800.0);          // 0 at the coping, 1 at the top; metres along
         vec2 p = vec2(al, h * ${(FIELD_H - WALL_H - COPE).toFixed(2)});
         vec3 c1 = hexCell(p / 0.9), c2 = hexCell((p + vec2(0.0, time * 0.25)) / 0.35);
+        // (where the big cell's centre is in the world: the field's metres along and up, mapped through the screen
+        // derivatives - for a blow's wave to light each cell as it reaches it)
+        vec3 dwx = dFdx(vW), dwy = dFdy(vW); vec2 dpx = dFdx(p), dpy = dFdy(p);
+        float det = dpx.x * dpy.y - dpx.y * dpy.x;
+        vec3 wAl = abs(det) > 1e-9 ? (dwx * dpy.y - dwy * dpx.y) / det : vec3(0.0), wUp = abs(det) > 1e-9 ? (dwy * dpx.x - dwx * dpy.x) / det : vec3(0.0);
+        vec2 cc = c1.yz * 0.9 - p;
+        vec3 wc = vW + wAl * cc.x + wUp * cc.y;
         float a1 = fwidth(c1.x), a2 = fwidth(c2.x), far = smoothstep(450.0, 140.0, distance(vW, cameraPosition));
         float e1 = (1.0 - smoothstep(0.02, 0.02 + 1.5 * a1, c1.x)) * clamp(0.08 / max(a1, 0.08), 0.0, 1.0);
         float e2 = (1.0 - smoothstep(0.03, 0.03 + 1.5 * a2, c2.x)) * clamp(0.08 / max(a2, 0.08), 0.0, 1.0) * far;
@@ -321,17 +334,23 @@ function fieldMaterial() {
         float near = exp(-pow(distance(vW, shipPos) / 22.0, 2.0));
         float graze = pow(1.0 - abs(dot(normalize(cameraPosition - vW), normalize(vN))), 3.0);
         float run = exp(-pow((fract(al / 160.0 - time * 0.375) - 0.5) * 160.0 / 3.0, 2.0));
-        // impacts: a bright ring racing out through the cells, a white-hot flash at the point of contact
-        float ring = 0.0, flash = 0.0;
+        // impacts: a wave racing out through the field at 18 m/s - a bright front, every cell lighting as it reaches
+        // the cell's centre and fading after it (the further from the blow, the fainter), the cells round the point of
+        // contact white-hot
+        float ring = 0.0, flash = 0.0, cells = 0.0, core = 0.0;
         for (int k = 0; k < 4; k++) {
-          float age = time - hits[k].w, d = distance(vW, hits[k].xyz);
-          if (age < 0.0 || age > 1.2) continue;
-          ring += exp(-pow((d - age * 22.0) / 1.6, 2.0)) * exp(-age * 2.5) * hitS[k];
+          float age = time - hits[k].w, d = distance(vW, hits[k].xyz), dc = distance(wc, hits[k].xyz);
+          if (age < 0.0 || age > 1.6) continue;
+          ring += exp(-pow((d - age * 18.0) / 1.4, 2.0)) * exp(-age * 2.2) * hitS[k];
           flash += exp(-d * d / 6.0) * exp(-age * 7.0) * hitS[k];
+          float a = age - dc / 18.0;
+          cells += step(0.0, a) * exp(-a * 3.2) * exp(-dc / 16.0) * hitS[k];
+          core += exp(-dc * dc / 4.0) * exp(-age * 4.0) * hitS[k];
         }
         float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
-          * (0.65 + 1.4 * near + 1.0 * run) + e1 * ring * 3.0 + ring * 0.6;
-        vec3 c = ${g3(TH.field)} * k + ${g3(TH.fieldFlash)} * flash * 2.0 * (1.0 - h);
+          * (0.65 + 1.4 * near + 1.0 * run) + e1 * ring * 3.0 + ring * 0.5
+          + cells * (e1 * 2.4 + 0.5 * smoothstep(0.5, 0.0, c1.x));
+        vec3 c = ${g3(TH.field)} * k + ${g3(TH.fieldFlash)} * (flash * 2.0 * (1.0 - h) + core * (0.8 + 2.5 * e1));
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
@@ -808,7 +827,7 @@ export class Track {
     // (The aggregate's normal was once added at 'mapN.xy *= normalScale;' - text three only puts in after this hook,
     // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
-    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckGlow: { value: new THREE.Vector3(...TH.strip) } };
+    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 } };
     const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.5 });
     const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
       `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
@@ -829,6 +848,7 @@ export class Track {
 // deck: themes`))
         .replace('#include <roughnessmap_fragment>', grad('#include <roughnessmap_fragment>', 'vRoughnessMapUv', `
   roughnessFactor = clamp(roughnessFactor * rdRoughK, 0.05, 1.0) * (1.0 - rdS.a) + rdRM.x;
+  roughnessFactor = max(roughnessFactor, 0.6 * smoothstep(0.05, 0.4, max(rdFw.x, rdFw.y)));   // (far off: the gaps and bevels a blur, not a mirror)
 // deck: after rough`))
         .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
   metalnessFactor = metalnessFactor * (1.0 - rdS.a) + rdRM.y;
@@ -1021,19 +1041,24 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip')));
     out.conduits = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, conduitRing(0.06, 0.42, 0.045, 10), true), 1),
       housingMaterial('conduit')));
-    // the outside of the road ("the outside of the roads on the edges you didnt change anything there"): the wall
-    // capped with a chamfered coping (3.5 cm over its inner face, 5 cm over its outer one); down its outer side a fascia
-    // band at the deck's level, a lit channel (lips 6 cm proud round the edge light) and a flange along the underside's
-    // edge - ribs between them every 6 m (edgeRibs); the energy barrier rising from emitters on the coping (fieldPylons)
+    // the outside of the road ("the outside of the roads on the edges you didnt change anything there", then "still looks
+    // without depth, only like a paint over"): the wall capped with a chamfered coping (3.5 cm over its inner face, 5 cm
+    // over its outer one); down its outer side a structure 20-30 cm deep - a top chord under the coping, a band at the
+    // deck's level, the edge light in a lipped channel, two pipes and a heavy bottom chord along the underside's edge, a
+    // pilaster through them every 6 m (edgePilasters), a louvred vent between two of them every 24 m (edgeVents); the
+    // energy barrier rising from emitters on the coping (fieldPylons)
     const O = -WALL_T;
     out.cap = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[0, WALL_H - 0.03], [0.035, WALL_H - 0.03],
       [0.035, WALL_H + 0.04], [0, WALL_H + COPE], [O, WALL_H + COPE], [O - 0.05, WALL_H + 0.04], [O - 0.05, WALL_H - 0.06],
       [O, WALL_H - 0.06]]), 1), housingMaterial('cap')));
-    out.fascia = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[O, 0.18], [O - 0.12, 0.12], [O - 0.12, -0.12],
-      [O, -0.18], null, [O, -0.33], [O - 0.06, -0.36], [O - 0.06, -0.39], [O - 0.035, -0.4], null, [O - 0.035, -0.6],
-      [O - 0.06, -0.61], [O - 0.06, -0.64], [O, -0.67], null, [O, -1.62], [O - 0.1, -1.7], [O - 0.1, -1.8], [O, -1.82]]), 1),
-      housingMaterial('fascia')));
-    out.ribs = this.edgeRibs();
+    out.fascia = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[O, WALL_H - 0.14], [O - 0.2, WALL_H - 0.2],
+      [O - 0.2, WALL_H - 0.42], [O, WALL_H - 0.48], null, [O, 0.2], [O - 0.2, 0.14], [O - 0.2, -0.14], [O, -0.2], null,
+      [O, -0.33], [O - 0.06, -0.36], [O - 0.06, -0.39], [O - 0.035, -0.4], null, [O - 0.035, -0.6], [O - 0.06, -0.61],
+      [O - 0.06, -0.64], [O, -0.67], null, [O, -1.55], [O - 0.25, -1.62], [O - 0.25, -1.88], [O, -1.95]]), 1), housingMaterial('fascia')));
+    out.outerPipes = [-1, 1].map((s) => new THREE.Mesh(mergeTwo(this.sweep(sideSection(s, W, conduitRing(O - 0.09, -0.95, 0.06, 10), true), 1),
+      this.sweep(sideSection(s, W, conduitRing(O - 0.09, -1.25, 0.06, 10), true), 1)), housingMaterial('conduit')));
+    out.ribs = this.edgePilasters();
+    out.vents = this.edgeVents();
     out.pylons = this.fieldPylons();
     // energy barriers
     this.fieldMat = fieldMaterial();
@@ -1066,7 +1091,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }
     for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.stripHousing, ...out.conduits, ...out.cap, ...out.fascia,
-      out.ribs, out.pylons, ...out.fields, ...out.gantries, ...out.pads,
+      out.ribs, out.vents, ...out.outerPipes, out.pylons, ...out.fields, ...out.gantries, ...out.pads,
       ...out.lanes, ...out.laneHousing, out.studs, ...out.girders, out.startLine, ...out.chevrons, ...out.lamps, ...out.trims,
       ...out.lips, ...out.flips, ...out.tunnel, ...out.gates, ...out.towers, ...out.cave]) scene.add(m);
     this.parts = out;
@@ -1811,10 +1836,10 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return [bm, pm];
   }
 
-  // ribs down the deck's outer sides every 6 m, from the flange to the lit channel (fittings.js)
-  edgeRibs() {
+  // pilasters down the track's outer sides every 6 m, from under the deck to the coping (fittings.js)
+  edgePilasters() {
     const every = 3, n = Math.ceil(this.n / every) * 2, E = this.W / 2 + WALL_T;
-    const im = new THREE.InstancedMesh(ribGeometry(), new THREE.MeshStandardMaterial({ color: 0x23262c, roughness: 0.42, metalness: 0.7 }), n);
+    const im = new THREE.InstancedMesh(pilasterGeometry(WALL_H - 0.06), new THREE.MeshStandardMaterial({ color: 0x2c3038, roughness: 0.45, metalness: 0.7 }), n);
     const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
     let k = 0;
     for (let i = 0; i < this.n; i += every) {
@@ -1823,6 +1848,26 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
         this.basisAt(i, M);
         M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * E));
         if (side < 0) M.multiply(turn);                 // (turned round, not mirrored)
+        im.setMatrixAt(k++, M);
+      }
+    }
+    im.count = k;
+    im.castShadow = im.receiveShadow = true;
+    return im;
+  }
+
+  // louvred vents on the walls' outer faces, between two pilasters every 24 m (fittings.js)
+  edgeVents() {
+    const every = 12, n = Math.ceil(this.n / every) * 2, E = this.W / 2 + WALL_T;
+    const im = new THREE.InstancedMesh(ventGeometry(), fittingMaterial('vent', [0, 0, 0]), n);
+    const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
+    let k = 0;
+    for (let i = 0; i < this.n; i += every) {
+      if (this.inGap(i * this.step, 6)) continue;
+      for (const side of [-1, 1]) {
+        this.basisAt(i, M);
+        M.setPosition(this.P[i].clone().addScaledVector(this.T[i], 3).addScaledVector(this.R[i], side * E).addScaledVector(this.U[i], 0.46));
+        if (side < 0) M.multiply(turn);
         im.setMatrixAt(k++, M);
       }
     }

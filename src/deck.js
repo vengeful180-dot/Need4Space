@@ -182,28 +182,27 @@ export function bakeDeckMaps(renderer, res = Q.tier === 'low' ? 2048 : 4096, det
 // wall (0 .. deckW) and along the lap; f: the pixel's footprint in metres across and along (fwidth), so every edge is
 // filtered over it and what is finer than a pixel fades to its share of it (no sparkle far down the track).
 // ("the new road texture ... still read as asphalt, the details are way too small, there no depth in them either, too
-// repetitive": the deck is built from big armour panels now, their gaps and recesses centimetres deep.)
+// repetitive": the deck is built from big armour panels now, their gaps and recesses centimetres deep; then "too many
+// small blue lights, when i said details thats not what i meant": no lights in it - its details are all shapes.)
 //   gutter  - the outer 34 cm against each wall: a galvanised channel, its grate slotted every 4.5 cm (3 cm deep), a
 //             solid cross bar every metre
 //   kerb    - from there to 1.6 m: cast blocks 8 mm proud, chamfered, red / white every 4 m with a 1.2 cm gap between,
 //             fine anti-slip grooves across the top, worn through in flecks (more along both edges)
-//   panels  - between the kerbs, an even number of columns ~6.6 m wide (a gap down the middle); rows 8 m long, every
-//             other column staggered half a row, a third of the panels split in two. Gaps 5 cm wide and 6 cm deep, their
-//             lips chamfered 2.5 cm and worn bright; every other lengthwise gap a light channel in the circuit's colour,
-//             the middle one white in 10 m dashes. A hex bolt (5 cm) near each corner. Each panel its own shade and
-//             finish, and one of five kinds: armour (its centre inset 1.2 cm inside a 30 cm border), a vent (slots
-//             across its centre, 4.5 cm deep), a light panel (a recessed light down its middle under a ribbed
-//             diffuser), tread plate (raised diamonds) or a field coil (three grooved rings round a glowing emitter)
-//   paint   - the edge lines (30 cm, 1.9 m in from each wall), chipped
+//   panels  - between the kerbs, an odd number of columns ~5.9 m wide (the middle line on a panel, not a gap); rows 8 m
+//             long, every other column staggered half a row, a third of the panels split in two. Gaps 5 cm wide and 6 cm
+//             deep, their lips chamfered 2.5 cm and worn bright. A hex bolt (5 cm) near each corner. Each panel its own
+//             shade and finish, and one of five kinds: armour (its centre inset 2 cm inside a 30 cm border), a vent
+//             (slots across its centre, 4.5 cm deep), a raised plate (its centre 1.5 cm proud, bevelled), tread plate
+//             (raised diamonds) or a round hatch (a 1.1 m lid in a 2 cm groove, eight bolts, a recessed handle)
+//   paint   - the edge lines (30 cm, 1.9 m in from each wall) and the dashed middle line, chipped
 // Everything is chosen by the panel's own place on the lap (no 40 m tile repeating). Heights in metres (+ up);
-// rdHeight's `fine`: the bolts, the tread, the rings, the diffuser and the kerbs' grooves too (the parallax march leaves
-// them out; the shading's normals have them).
+// rdHeight's `fine`: the bolts, the tread, the hatches' bolts, the vents' and gutters' slots and the kerbs' grooves too
+// (the parallax march leaves out what is small or repeats finely - it crawled; the shading's normals have them).
 export const DECK_LAYOUT = /* glsl */`
 uniform float deckW;
-uniform vec3 deckGlow;
 #define RD_GUT 0.34
 #define RD_KERB 1.6
-vec3 rdEmit = vec3(0.0);                     // (rdSurface: the light channels' and panels' light)
+vec3 rdEmit = vec3(0.0);                     // (none now: the deck has no lights of its own)
 float rdRoughK = 1.0;                        // (rdSurface: the panel's finish, on the baked roughness)
 float rdHash(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 // filtered over the footprint f: inside a region (sd < 0), and within hw of a line (d >= 0)
@@ -220,7 +219,7 @@ float rdHex(vec2 p, float r) {
 struct RdPanel { vec2 p; vec2 hs; vec2 id; float kind; float b; float n; };
 RdPanel rdPanel(vec2 m) {
   RdPanel P;
-  float fw = deckW - 2.0 * RD_KERB, n = 2.0 * max(1.0, floor(fw / 13.2 + 0.5)), cw = fw / n;
+  float fw = deckW - 2.0 * RD_KERB, n = 2.0 * floor(fw / 11.8) + 1.0, cw = fw / n;
   float u = (clamp(m.x, RD_KERB, deckW - RD_KERB) - RD_KERB) / cw, col = min(floor(u), n - 1.0);
   float sy = m.y + mod(col, 2.0) * 4.0, row = floor(sy / 8.0), vy = sy - row * 8.0, pl = 8.0, hv = 0.0;
   if (rdHash(vec2(col, mod(row, 4096.0)) + 2.3) < 0.33) { hv = floor(vy / 4.0); vy -= hv * 4.0; pl = 4.0; }
@@ -246,7 +245,7 @@ float rdHeight(vec2 m, vec2 f, bool fine) {
     float sy = (fract(yl / 0.045) - 0.5) * 0.045, bar = abs(yl - floor(yl + 0.5));
     float slot = rdIn(length(vec2(max(abs(xe - 0.17) - 0.105, 0.0), sy)) - 0.0095, fr) * smoothstep(0.025, 0.035, bar);
     slot = mix(slot, 0.3 * (1.0 - smoothstep(0.1, 0.12, abs(xe - 0.17))), smoothstep(0.008, 0.02, f.y));
-    h = -0.002 * rdIn(abs(xe - 0.17) - 0.135, f.x) - 0.028 * slot;
+    h = -0.002 * rdIn(abs(xe - 0.17) - 0.135, f.x) - (fine ? 0.028 * slot : 0.0);
   } else if (xe < RD_KERB) {
     // the kerb: chamfered both sides and at each block's ends
     float g = abs(yl - 4.0 * floor(yl / 4.0 + 0.5));
@@ -258,21 +257,24 @@ float rdHeight(vec2 m, vec2 f, bool fine) {
     vec2 q = abs(P.p);
     float de = min(P.hs.x - q.x, P.hs.y - q.y), di = de - 0.3;
     h = rdGap(de, fr);
-    if (P.kind == 0.0 || P.kind == 2.0 || P.kind == 4.0) {
-      // the centre inset 1.2 cm inside its border, chamfered
-      h -= 0.012 * smoothstep(-0.5 * fr, 0.012 + 0.5 * fr, di);
-      if (P.kind == 2.0) {
-        // the light: a channel 24 cm wide down the middle, 2 cm deeper, ribbed across every 5 cm
-        float ch = rdIn(q.x - 0.12, fr) * rdIn(-di + 0.02, fr);
-        h -= 0.02 * ch;
-        if (fine) h += 0.006 * ch * rdLine(abs(fract(P.p.y / 0.05) - 0.5) * 0.05, 0.008, f.y);
-      } else if (P.kind == 4.0 && fine) {
-        // the coil: three grooved rings (6 mm, 5 mm deep) round the emitter
-        for (int k = 1; k <= 3; k++) h -= 0.005 * rdLine(abs(de - 0.3 - 0.18 * float(k)), 0.003, fr) * step(0.0, di);
-        h -= 0.004 * rdIn(length(P.p) - 0.3, fr);
+    if (P.kind == 0.0) {
+      // armour: the centre inset 2 cm inside its border, chamfered
+      h -= 0.02 * smoothstep(-0.5 * fr, 0.02 + 0.5 * fr, di);
+    } else if (P.kind == 2.0) {
+      // a raised plate: the centre 1.5 cm proud, bevelled 45 deg
+      h += 0.015 * smoothstep(-0.5 * fr, 0.015 + 0.5 * fr, di);
+    } else if (P.kind == 4.0) {
+      // a round hatch: its lid in a 6 mm groove 2 cm deep, a recessed handle across it, eight bolts round its rim
+      float r = length(P.p);
+      h -= 0.02 * rdLine(abs(r - 0.55), 0.003, fr) * min(1.0, 0.012 / fr);
+      h -= 0.018 * rdIn(rdBox(P.p, vec2(0.16, 0.03)) - 0.01, fr) * step(r, 0.55);
+      if (fine) {
+        float a = 0.7853982 * floor(atan(P.p.y, P.p.x) / 0.7853982 + 0.5);
+        h += 0.005 * rdIn(rdHex(P.p - 0.47 * vec2(cos(a), sin(a)), 0.02), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
       }
-    } else if (P.kind == 1.0) {
-      // the vent: slots across its centre, 5 cm wide every 12 cm, 4.5 cm deep (their share of it, further off)
+    } else if (P.kind == 1.0 && fine) {
+      // the vent: slots across its centre, 5 cm wide every 12 cm, 4.5 cm deep (their share of it, further off) - in the
+      // shading only: marched through, a pattern that fine broke up and crawled
       float slots = rdIn(abs(fract(P.p.y / 0.12) - 0.5) * 0.12 - 0.025, f.y) * rdIn(-(de - 0.35), fr);
       slots = mix(slots, 0.42 * step(0.35, de), smoothstep(0.02, 0.06, f.y));
       h -= 0.045 * slots;
@@ -325,30 +327,19 @@ vec4 rdSurface(vec2 m, vec2 f, float chip, float broad, out vec2 rm, out float t
     float lip = rdIn(de - 0.05, fr) * (1.0 - rdIn(de - 0.025, fr)), gap = rdIn(de - 0.025, fr);
     rdOver(c, rm, STEEL * (1.3 + 0.5 * chip), vec2(0.3, 0.9), lip * 0.9);
     rdOver(c, rm, DARK, vec2(0.6, 0.3), gap);
-    // the light channels: every other lengthwise boundary (the kerbs' not), the middle one white in 10 m dashes
-    bool lengthwise = P.hs.x - q.x < P.hs.y - q.y, mid = P.b == P.n * 0.5;
-    if (lengthwise && mod(P.b, 2.0) == 0.0 && P.b > 0.0 && P.b < P.n) {
-      vec3 glow = mid ? vec3(1.6, 1.7, 1.9) * step(mod(m.y, 20.0), 10.0) : deckGlow;
-      rdEmit += glow * gap * (2.2 + 1.5 * (1.0 - smoothstep(0.0, 0.025, de))) + glow * lip * 0.25;
-    }
-    if (P.kind == 0.0 || P.kind == 2.0 || P.kind == 4.0) {
-      // the inset's chamfer catching the light; the centre a shade apart
-      float ch = rdIn(-di, fr) * (1.0 - rdIn(-(di - 0.012), fr));
+    if (P.kind == 0.0 || P.kind == 2.0) {
+      // the inset's (or the raised plate's) bevel catching the light; the centre a shade apart
+      float bw = P.kind == 0.0 ? 0.02 : 0.015, ch = rdIn(-di, fr) * (1.0 - rdIn(-(di - bw), fr));
       rdOver(c, rm, STEEL * (1.1 + 0.4 * chip), vec2(0.32, 0.85), ch * 0.8);
-      tone *= mix(1.0, 0.86, rdIn(-(di - 0.012), fr));
-      if (P.kind == 2.0) {
-        float chn = rdIn(q.x - 0.12, fr) * rdIn(-di + 0.02, fr);
-        float rib = rdLine(abs(fract(P.p.y / 0.05) - 0.5) * 0.05, 0.008, f.y);
-        rdOver(c, rm, vec3(0.03), vec2(0.15, 0.0), chn);
-        rdEmit += deckGlow * chn * (2.6 - 1.2 * rib);
-      } else if (P.kind == 4.0) {
-        float rings = 0.0;
-        for (int k = 1; k <= 3; k++) rings = max(rings, rdLine(abs(de - 0.3 - 0.18 * float(k)), 0.003, fr) * step(0.0, di));
-        float em = rdIn(length(P.p) - 0.3, fr), core = rdIn(length(P.p) - 0.18, fr);
-        rdOver(c, rm, DARK, vec2(0.8, 0.2), rings * 0.8);
-        rdOver(c, rm, vec3(0.03), vec2(0.1, 0.0), em);
-        rdEmit += deckGlow * (em * 0.6 + core * 1.6);
-      }
+      tone *= mix(1.0, P.kind == 0.0 ? 0.82 : 1.12, rdIn(-(di - bw), fr));
+    } else if (P.kind == 4.0) {
+      // the hatch: its groove and handle dark, its lid a shade apart, bolts bare steel
+      float r = length(P.p), a = 0.7853982 * floor(atan(P.p.y, P.p.x) / 0.7853982 + 0.5);
+      tone *= mix(1.0, 0.9, rdIn(r - 0.55, fr));
+      rdOver(c, rm, DARK, vec2(0.9, 0.0), max(rdLine(abs(r - 0.55), 0.003, fr) * min(1.0, 0.012 / fr),
+        rdIn(rdBox(P.p, vec2(0.16, 0.03)) - 0.01, fr) * step(r, 0.55)));
+      rdOver(c, rm, STEEL * (1.2 + 0.4 * chip), vec2(0.35, 0.9),
+        rdIn(rdHex(P.p - 0.47 * vec2(cos(a), sin(a)), 0.02), fr) * (1.0 - smoothstep(0.01, 0.03, fr)));
     } else if (P.kind == 1.0) {
       float slots = rdIn(abs(fract(P.p.y / 0.12) - 0.5) * 0.12 - 0.025, f.y) * rdIn(-(de - 0.35), fr);
       slots = mix(slots, 0.42 * step(0.35, de), smoothstep(0.02, 0.06, f.y));
@@ -365,8 +356,9 @@ vec4 rdSurface(vec2 m, vec2 f, float chip, float broad, out vec2 rm, out float t
     // the corner bolts: bare steel
     float bolt = rdIn(rdHex(q - (P.hs - 0.15), 0.025), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
     rdOver(c, rm, STEEL * (1.2 + 0.4 * chip), vec2(0.35, 0.9), bolt);
-    // the paint: the edge lines, chipped
-    float pnt = rdLine(abs(xe - 1.9), 0.15, f.x) * (1.0 - smoothstep(0.64, 0.7, chip) * (0.4 + 0.6 * broad));
+    // the paint: the edge lines and the dashed middle line, chipped
+    float pnt = max(rdLine(abs(xe - 1.9), 0.15, f.x), rdLine(abs(x - deckW * 0.5), 0.15, f.x) * rdIn(abs(mod(m.y, 20.0) - 5.0) - 5.0, f.y));
+    pnt *= 1.0 - smoothstep(0.64, 0.7, chip) * (0.4 + 0.6 * broad);
     rdOver(c, rm, PAINT * (0.9 + 0.1 * broad), vec2(0.4, 0.0), pnt * (1.0 - gap));
   }
   return c;

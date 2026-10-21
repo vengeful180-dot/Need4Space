@@ -155,14 +155,6 @@ export function lampGeometry() {
   return B.geometry();
 }
 
-// ---- a rib down the deck's outer side (x out from the face, y up from the deck's top, z along): 30 cm wide at the face,
-// 20 cm at its front, 15 cm proud, from the flange along the underside's edge up to the lit channel's lower lip
-export function ribGeometry() {
-  const B = new Builder();
-  B.prism([[-0.15, 0], [0.15, 0], [0.1, 0.15], [-0.1, 0.15]], V(0, 0, 1), V(1, 0, 0), V(0, 1, 0), -1.6, -0.68, 0);
-  return B.geometry();
-}
-
 // ---- a field emitter on the wall's coping (x across the track, out from it +x; y up; z along the track): a base plate,
 // a chamfered post 16 x 12 cm up past the field's top, an emitter strip down each face the field leaves from (+-z), a
 // capped head with a glowing node - the energy barrier stands between them
@@ -179,7 +171,7 @@ export function pylonGeometry(h) {
 }
 
 // The fittings' material: a lit metal whose finish is picked per part, with its fixings drawn per pixel, and the
-// lenses' glow (glow: the circuit's light colour, HDR - the bloom takes it). kind: 'stud' | 'lamp' | 'pylon'; time: { value }
+// lenses' glow (glow: the circuit's light colour, HDR - the bloom takes it). kind: 'stud' | 'lamp' | 'pylon' | 'vent'; time: { value }
 export function fittingMaterial(kind, glow, time = { value: 0 }) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.6 });
   const G = glow.map((x) => x.toFixed(3)).join(', ');
@@ -203,7 +195,9 @@ uniform float ftTime;`)
   {
     int pt = int(vPart + 0.5);
     ftEmit = 0.0;
-    ${kind === 'pylon' ? `
+    ${kind === 'vent' ? `
+    // the vent: dark steel, the plenum behind the slats black
+    if (pt == 0) { ftCol = vec3(0.07, 0.075, 0.082); ftRough = 0.45; ftMetal = 0.75; } else { ftCol = vec3(0.006); ftRough = 0.9; ftMetal = 0.0; }` : kind === 'pylon' ? `
     // the field emitter: dark anodised, its strips glowing with pulses climbing them, the node at its head brighter
     if (pt == 0) { ftCol = vec3(0.06, 0.065, 0.07); ftRough = 0.35; ftMetal = 0.8; }
     else {
@@ -347,4 +341,33 @@ vec3 pdCol; float pdRough, pdMetal; vec3 pdEmit;`)
   };
   mat.customProgramCacheKey = () => 'fitting-pad-' + C;
   return mat;
+}
+
+// ---- a pilaster down the track's outer side (x out from the face, y up from the deck's top, z along): 50 cm wide at
+// the face, 40 cm at its front, 30 cm proud, from 25 cm under the deck's underside up to the coping - the structure's
+// depth ("the outside of the road still looks without depth, only like a paint over"); bands and pipes run into it
+export function pilasterGeometry(top) {
+  const B = new Builder();
+  B.prism([[-0.25, 0], [0.25, 0], [0.2, 0.3], [-0.2, 0.3]], V(0, 0, 1), V(1, 0, 0), V(0, 1, 0), -2.05, top, 0);
+  // its foot tapered back under the deck
+  B.prism([[-0.2, 0], [0.2, 0], [0.2, 0.3], [-0.2, 0.1]], V(0, 0, 1), V(1, 0, 0), V(0, 1, 0), -2.2, -2.05, 0, { caps: true });
+  return B.geometry();
+}
+
+// ---- a louvred vent box on the wall's outer face (x out, y up, z along; centred): 2.6 m x 42 cm, a frame 8 cm deep
+// round six slats tilted down 35 deg, a dark plenum behind them
+export function ventGeometry() {
+  const B = new Builder(), X = V(1, 0, 0), Y = V(0, 1, 0), Z = V(0, 0, 1), L = 1.3, H = 0.21, D = 0.08, t = 0.035;
+  B.face([V(0.004, -H, -L), V(0.004, -H, L), V(0.004, H, L), V(0.004, H, -L)], X, 1);   // (the plenum's back)
+  B.prism([[-L, H - t], [L, H - t], [L, H], [-L, H]], Z, Y, X, 0, D, 0);
+  B.prism([[-L, -H], [L, -H], [L, -H + t], [-L, -H + t]], Z, Y, X, 0, D, 0);
+  B.prism([[-L, -H + t], [-L + t, -H + t], [-L + t, H - t], [-L, H - t]], Z, Y, X, 0, D, 0);
+  B.prism([[L - t, -H + t], [L, -H + t], [L, H - t], [L - t, H - t]], Z, Y, X, 0, D, 0);
+  for (let k = 0; k < 6; k++) {
+    const y = -H + t + (k + 0.5) * ((2 * H - 2 * t) / 6), c = Math.cos(0.61), s = Math.sin(0.61), w = 0.05, th = 0.006;
+    const prof = [[-w * c, y + w * s], [w * c, y - w * s], [w * c + th * s, y - w * s + th * c], [-w * c + th * s, y + w * s + th * c]]
+      .map(([x0, y0]) => [x0 + D * 0.5, y0]);
+    B.prism(prof, X, Y, Z, -L + t, L - t, 0);
+  }
+  return B.geometry();
 }
