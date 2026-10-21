@@ -187,6 +187,7 @@ export const UMBRA_GLOW = {
   umbra: { glow: [0.5, 0.2, 1.0], boost: [0.15, 0.85, 1.0], aura: [0.42, 0.18, 1.0], lum: 0, rim: [0.42, 0.16, 1.0] },
   horizon: { glow: [0.72, 0.84, 1.0], boost: [0.45, 0.9, 1.0], aura: [0.85, 0.9, 1.0], lum: 0.55, rim: [0.75, 0.85, 1.0] },
   pharaoh: { glow: [1.0, 0.58, 0.14], boost: [1.0, 0.86, 0.45], aura: [1.0, 0.55, 0.14], lum: 0.3, rim: [1.0, 0.56, 0.16] },
+  rose: { glow: [1.0, 0.16, 0.5], boost: [1.0, 0.62, 0.86], aura: [1.0, 0.2, 0.52], lum: 0.25, rim: [1.0, 0.24, 0.55] },   // (a rival's own: ships.js RIVAL_PAINT)
 };
 
 // The aura: soft dark wisps rising off points spread over the hull (area-weighted), each on its own clock - out along

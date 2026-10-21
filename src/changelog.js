@@ -15,6 +15,7 @@ export const UPDATES = [
       'Multiplayer: the other players’ ships move as smoothly as your own (on fast screens they stuttered, whatever the ping)',
       'Multiplayer on the title shows how many players are online and the rooms open (Settings to turn it off)',
       'A global chat on the title, for everyone playing - press a name to mute that player; What’s new is now a bar you press to read (Settings: Global chat)',
+      'Valentina Cruz now flies an Umbra V1 of her own: rose gold over carbon, glowing pink. On Brutal she is the ace - on pole, and the one to beat',
     ],
   },
   {
