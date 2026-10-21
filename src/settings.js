@@ -14,25 +14,31 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
-// the defaults. Balanced keeps every material and light and most of the look, and halves the costly parts: MSAA 2x,
-// AO at half resolution, medium shadows, no deck reflections, the heaviest weather left out.
+// the defaults. Balanced keeps every material and light and the road's whole look - its relief, reflections, the
+// barriers' glow on it, the pads' signs, the baked shadows - and cuts what costs most for what shows least: AO at half
+// resolution, MSAA 2x, medium shadows, the heaviest weather (1440p, on top of Balanced: full-size AO 0.75-0.93 ms, MSAA
+// 4x 0.33-0.44, the reflections 0.26-0.38, the relief 0.16-0.24). Low keeps the pads' signs (they make the pads seen)
+// and the baked shadows (all but free once baked).
 const PRESET_KEYS = ['laptop', 'scale', 'aa', 'ao', 'aoRes', 'reflections', 'shadows', 'streaks', 'blur', 'shafts', 'iceSnow', 'iceDust',
   'iceGeysers', 'wreckFx', 'wreckMist', 'sandFx', 'dustDevils', 'heatHaze', 'caveFx', 'engineHeat', 'engineTrails', 'seaReflect',
-  'shockwaves', 'showroom', 'umbraTime', 'roadRelief'];
+  'shockwaves', 'showroom', 'umbraTime', 'roadRelief', 'trackShadows', 'padSign', 'barrierGlow'];
 export const PRESETS = {
   low: { laptop: true, scale: 1, aa: 'smaa1', ao: false, aoRes: 'auto', reflections: false, shadows: 'off', streaks: false, blur: false,
     shafts: false, iceSnow: false, iceDust: false, iceGeysers: false, wreckFx: false, wreckMist: false, sandFx: false, dustDevils: false,
-    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false, umbraTime: false, roadRelief: false },
-  balanced: { laptop: false, scale: 1, aa: 'fast', ao: true, aoRes: 'half', reflections: false, shadows: 'medium', streaks: true, blur: true,
+    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false, umbraTime: false, roadRelief: false,
+    trackShadows: 'baked', padSign: true, barrierGlow: false },
+  balanced: { laptop: false, scale: 1, aa: 'fast', ao: true, aoRes: 'half', reflections: true, shadows: 'medium', streaks: true, blur: true,
     shafts: true, iceSnow: true, iceDust: false, iceGeysers: true, wreckFx: true, wreckMist: false, sandFx: true, dustDevils: false,
-    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true, umbraTime: true, roadRelief: false },
+    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true, umbraTime: true, roadRelief: true,
+    trackShadows: 'baked', padSign: true, barrierGlow: true },
   high: Object.fromEntries(PRESET_KEYS.map((k) => [k, DEFAULTS[k]])),
 };
 // no row of their own any more: the race's mechanics and the ships' look as the game has them, for everyone, whatever
 // was saved before; the costly ship effects (heat shimmer, trails, shockwaves, showroom) as the saved preset has them
 const FIXED = ['damage', 'shipBlast', 'rivalMix', 'deckLight', 'hullShadows', 'engineFaces', 'shipPaint', 'shipTrim', 'shipAccents',
   'nozzleMotion', 'pulseRings', 'sharpEdges', 'brakeLights'];
-const BY_PRESET = ['engineHeat', 'engineTrails', 'shockwaves', 'showroom'];
+// (and the road's relief and reflections, which Balanced took up with the road's rework: a Balanced player gets them)
+const BY_PRESET = ['engineHeat', 'engineTrails', 'shockwaves', 'showroom', 'reflections', 'roadRelief'];
 // which preset the rows match now (or 'custom')
 export const presetOf = (v) => Object.keys(PRESETS).find((p) => PRESET_KEYS.every((k) => v[k] === PRESETS[p][k])) || 'custom';
 // (AI difficulty: the rivals, race.js AI_LEVELS - Normal a fair fight, Hard close to a flawless lap, Brutal at it)
