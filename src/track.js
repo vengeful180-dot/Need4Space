@@ -28,6 +28,12 @@ export const WALL_PROFILE = { h: WALL_H + COPE, t: WALL_T };   // (the walls up 
 const GANTRY_EVERY = 300;            // m
 const CHUNK_M = 128;                 // the lap-long meshes drawn in stretches this long, only those in view (cullChunks)
 const PIECE_M = 2000;                // the lap's instanced fittings cut into pieces this long, each culled by itself (pieces)
+// The deck's pattern is worked out per pixel from metres along the lap counted from an origin near the camera
+// (deckOrigin), not from the start: 56 km along the Pyramid Run, a float only tells positions 4-5 mm apart, and the
+// pattern's slopes (half a millimetre either way) and its edges' filtering came out as noise - specks along every
+// joint's lip, edges and reflections crawling, on that circuit only. A whole number of each of its periods (the 40 m
+// tile, 8 m rows, 20 m dashes, the barriers' 16 m beams), so the pattern is the same from any origin
+const DECK_ORIGIN = 720;
 
 // The circuit, as control points: x, y, z (m) and bank (deg, + = right edge down, eased the short way round between
 // points). Named points carry the features: the gaps follow the two crests (a kicker throws the ship over the cut),
@@ -115,11 +121,11 @@ const SPECULAR_AA = /* glsl */`
 // switched off, the surface itself; the crossing refined by halving between the last two steps. There the deck's maps are read (with the surface's own gradients - the meeting point
 // jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
 const DECK_MARCH = /* glsl */`
-  vec2 rdUv = vRdUv, rdDx = dFdx(vRdUv), rdDy = dFdy(vRdUv), rdFw, rdSlope, rdRM;
+  vec2 rdUv = vec2(vRdUv.x, vRdL / 40.0), rdDx = dFdx(rdUv), rdDy = dFdy(rdUv), rdFw, rdSlope, rdRM;
   vec4 rdS;
   float rdTone;
   {
-    vec2 m0 = vec2(vRdUv.x * deckW, vRdUv.y * 40.0), mh = m0;
+    vec2 m0 = vec2(vRdUv.x * deckW, vRdL), mh = m0;
     rdFw = max(fwidth(m0), vec2(1e-5));
     float dist = length(vViewPosition);
     #ifndef DECK_LITE
@@ -855,6 +861,20 @@ export class Track {
   // thirds of them out of sight). The sweeps note where each stretch of CHUNK_M starts in their triangles (chunked);
   // cullChunks draws, per draw and per camera, only the stretches whose bounds are in that camera's view - the shadow
   // maps, the AO's normals and the sea's mirror each draw what they see - and VR's eyes keep their own (xr.js)
+  // the deck pattern's origin (DECK_ORIGIN): the camera's nearest frame, found by walking from the last one (afresh
+  // when the camera has jumped), rounded down to a whole DECK_ORIGIN
+  deckOrigin(p) {
+    let i = this._oi ?? -1;
+    if (i < 0 || this.P[i].distanceToSquared(p) > 250000) i = this.nearestIndex(p);
+    else {
+      for (let d = this.P[i].distanceToSquared(p); ;) {
+        const a = (i + 1) % this.n, b = (i + this.n - 1) % this.n, da = this.P[a].distanceToSquared(p), db = this.P[b].distanceToSquared(p);
+        if (da < d && da <= db) { i = a; d = da; } else if (db < d) { i = b; d = db; } else break;
+      }
+    }
+    this._oi = i;
+    if (this.deckU) this.deckU.rdOrigin.value = Math.floor((i * this.step) / DECK_ORIGIN) * DECK_ORIGIN;
+  }
   chunkFrames() { return Math.max(1, Math.round(CHUNK_M / this.step)); }
   chunked(starts, reach) {
     this.chunkReach = Math.max(this.chunkReach || 0, reach);
@@ -961,7 +981,7 @@ export class Track {
     // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
     // deckSheen: the plates' reflection at a glancing angle (1: a plain dielectric's)
-    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckSheen: { value: 0.3 }, deckMirror: { value: 1 } };
+    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckSheen: { value: 0.3 }, deckMirror: { value: 1 }, rdOrigin: { value: 0 } };
     const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.5 });
     const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
       `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
@@ -970,11 +990,11 @@ export class Track {
       sh.uniforms.detailNormal = detail.normal;
       sh.uniforms.detailRep = { value: new THREE.Vector2(this.W / 4, 40 / 4) };
       Object.assign(sh.uniforms, this.deckU, this.tsU);
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vRdUv;')
-        .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;');
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float rdOrigin;\nvarying vec2 vRdUv;\nvarying float vRdL;')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;\n  vRdL = uv.y * 40.0 - rdOrigin;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
-          'uniform float deckRelief, deckSheen, deckMirror;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
+          'uniform float deckRelief, deckSheen, deckMirror, rdOrigin;\nvarying vec2 vRdUv;\nvarying float vRdL;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
   diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
@@ -1018,7 +1038,7 @@ export class Track {
     float lo = ${(WALL_H + COPE).toFixed(2)}, hi = ${FIELD_H.toFixed(2)};
     float lit = smoothstep(lo - soft, lo + soft, h) * (1.0 - smoothstep(hi - soft, hi + soft, h));
     float tw = 0.06 + 0.03 * t, tq = (h - hi) / tw, top = exp(-tq * tq) * 0.04 / tw;
-    float along = vRdUv.y * 40.0 + rz * t, dp = abs(mod(along, 16.0) - 8.0), bw = 0.3 + 0.03 * t;
+    float along = vRdL + rz * t, dp = abs(mod(along, 16.0) - 8.0), bw = 0.3 + 0.03 * t;
     float beam = exp(-dp * dp / (bw * bw)) * 0.2 / bw;
     float F = 0.04 + 0.96 * pow(1.0 - clamp(dot(Vv, Nn), 0.0, 1.0), 5.0);
     float k = (lit * (0.16 + beam) + top) * F * step(0.0, ru) * exp(-t / 35.0) * (1.0 - deckFlat) * deckMirror;

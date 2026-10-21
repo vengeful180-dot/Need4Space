@@ -179,7 +179,7 @@ export function bakeDeckMaps(renderer, res = Q.tier === 'low' ? 2048 : 4096, det
 }
 
 // The deck's built layout, per pixel (the deck material's fragment shader: track.js). m: metres across from the left
-// wall (0 .. deckW) and along the lap; f: the pixel's footprint in metres across and along (fwidth), so every edge is
+// wall (0 .. deckW) and along the lap from rdOrigin (track.js DECK_ORIGIN); f: the pixel's footprint in metres across and along (fwidth), so every edge is
 // filtered over it and what is finer than a pixel fades to its share of it (no sparkle far down the track).
 // ("the new road texture ... still read as asphalt, the details are way too small, there no depth in them either, too
 // repetitive": the deck is built from big armour panels now, their gaps and recesses centimetres deep; then "too many
@@ -221,11 +221,13 @@ RdPanel rdPanel(vec2 m) {
   RdPanel P;
   float fw = deckW - 2.0 * RD_KERB, n = 2.0 * floor(fw / 11.8) + 1.0, cw = fw / n;
   float u = (clamp(m.x, RD_KERB, deckW - RD_KERB) - RD_KERB) / cw, col = min(floor(u), n - 1.0);
-  float sy = m.y + mod(col, 2.0) * 4.0, row = floor(sy / 8.0), vy = sy - row * 8.0, pl = 8.0, hv = 0.0;
-  if (rdHash(vec2(col, mod(row, 4096.0)) + 2.3) < 0.33) { hv = floor(vy / 4.0); vy -= hv * 4.0; pl = 4.0; }
+  // (m.y counts from the pattern's origin, rdOrigin metres along the lap - a whole number of rows: track.js DECK_ORIGIN;
+  // the row's number on the lap is put back for its identity)
+  float sy = m.y + mod(col, 2.0) * 4.0, rl = floor(sy / 8.0), vy = sy - rl * 8.0, row = mod(rl + rdOrigin / 8.0, 4096.0), pl = 8.0, hv = 0.0;
+  if (rdHash(vec2(col, row) + 2.3) < 0.33) { hv = floor(vy / 4.0); vy -= hv * 4.0; pl = 4.0; }
   P.p = vec2((u - col) * cw - cw * 0.5, vy - pl * 0.5);
   P.hs = vec2(cw, pl) * 0.5;
-  P.id = vec2(col + hv * 0.37, mod(row, 4096.0));
+  P.id = vec2(col + hv * 0.37, row);
   float k = rdHash(P.id + 7.1);
   P.kind = k < 0.48 ? 0.0 : k < 0.64 ? 1.0 : k < 0.74 ? 2.0 : k < 0.88 ? 3.0 : 4.0;
   P.b = floor(u + 0.5);

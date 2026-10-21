@@ -857,6 +857,7 @@ async function boot() {
   };
   setTimeout(prepShowroom, 3500);
   const render = () => {
+    track?.deckOrigin(camera.position);                   // (the deck pattern's origin near the camera: track.js)
     if (xr.active) { if (!xr.preparing) shipLook(); xr.render(); return; }
     if (showroom && showroom.active) { drawShowroom(); return; }
     scene.updateMatrixWorld(); shipLook(); world.preRender?.(renderer);
