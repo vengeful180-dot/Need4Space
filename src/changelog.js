@@ -2,6 +2,26 @@
 // the title shows the first entry's notes and, under them, the one before's brief (or its first two notes).
 export const UPDATES = [
   {
+    version: '1.20.0', date: '21 Oct 2026', name: 'The new road',
+    brief: [
+      'A new road on every circuit: armour plates with deep joints, reflections, a built-up barrier',
+      'Rebuilt boost pads with a sign of light, walls that push you off, faster on big screens',
+    ],
+    notes: [
+      'A new road on every circuit: armour plates with deep joints and bolted lips, kerbs, gutters, lane lights in their channels (Settings: Road relief)',
+      'The road reflects the ships, their lights and the barriers’ glow (Settings: Deck reflections, Barrier glow on the road)',
+      'The walls built up: a coping, light housings, conduits and pipes, pilasters and vents down their outer sides, emitters along the barrier and lamp posts over it',
+      'The barrier runs on through a slot in each gantry’s pillar',
+      'Boost pads rebuilt, each with a sign of light over it so you see it coming (Settings: Boost pad signs)',
+      'Hitting the wall: your ship never goes into it, the barrier pushes you off (no more sticking to it in corners), and you feel and hear the knock',
+      'The track’s fittings cast shadows baked at load: sharper, and cheaper while racing (Settings: Track fittings’ shadows)',
+      'A new anti-aliasing choice: MSAA 4x + TAA, with its own sharpening (Settings: Anti-aliasing, TAA sharpening)',
+      'Faster: what is out of sight, or too far off to see, is no longer drawn - the Pyramid Run at 4K runs as fast as before with all of the above',
+      'Balanced settings keep the new road’s look; Low keeps the pads’ signs and the baked shadows',
+      'Valentina Cruz now flies an Umbra V1 of her own: rose gold over carbon, glowing pink. On Brutal she is the ace - on pole, and the one to beat',
+    ],
+  },
+  {
     version: '1.19.0', date: '20 Oct 2026', name: 'New music',
     notes: [
       'Two new songs in the playlist: Pixel Rush and Deep Orbit',
@@ -15,7 +35,6 @@ export const UPDATES = [
       'Multiplayer: the other players’ ships move as smoothly as your own (on fast screens they stuttered, whatever the ping)',
       'Multiplayer on the title shows how many players are online and the rooms open (Settings to turn it off)',
       'A global chat on the title, for everyone playing - press a name to mute that player; What’s new is now a bar you press to read (Settings: Global chat)',
-      'Valentina Cruz now flies an Umbra V1 of her own: rose gold over carbon, glowing pink. On Brutal she is the ace - on pole, and the one to beat',
     ],
   },
   {
