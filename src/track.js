@@ -894,14 +894,33 @@ export class Track {
       }
     }
     // each camera's runs of stretches in view (gaps of up to GAP stretches drawn through: a draw costs more than they
-    // do), kept while its view is the same (a camera draws many meshes in a row)
-    const fr = new THREE.Frustum(), pv = new THREE.Matrix4(), views = new WeakMap(), mask = new Uint8Array(nC);
+    // do), kept while its view is the same (a camera draws many meshes in a row); and for the small parts that stop at
+    // a distance (lapFar), the runs within it - a view across the Pyramid Run's planet saw kilometres of road, and every
+    // pipe, conduit and housing on it was drawn at a fraction of a pixel (4.2 ms at 4K)
+    const fr = new THREE.Frustum(), pv = new THREE.Matrix4(), views = new WeakMap(), mask = new Uint8Array(nC), eye = new THREE.Vector3();
     const seen = (arr, c, r) => { sph.center.fromArray(arr, c * 4); sph.radius = arr[c * 4 + 3] + r; return fr.intersectsSphere(sph); };
+    const runsOf = (v, far) => {
+      const out = [];
+      const ok = (c) => v.mask[c] && (!far || v.dist[c] < far);
+      for (let c = 0; c < nC; c++) {
+        if (!ok(c)) continue;
+        let k = c + 1;
+        for (;;) {
+          while (k < nC && ok(k)) k++;
+          let j = k;
+          while (j < nC && j - k < GAP && !ok(j)) j++;
+          if (j < nC && ok(j) && j - k <= GAP) k = j; else break;
+        }
+        out.push(c, k);
+        c = k;
+      }
+      return out;
+    };
     const inView = (camera) => {
       pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
       let v = views.get(camera);
-      if (v && v.pv.equals(pv)) return v.runs;
-      if (!v) views.set(camera, (v = { pv: new THREE.Matrix4(), runs: [] }));
+      if (v && v.pv.equals(pv)) return v;
+      if (!v) views.set(camera, (v = { pv: new THREE.Matrix4(), mask: new Uint8Array(nC), dist: new Float32Array(nC), runs: [], far: new Map() }));
       v.pv.copy(pv);
       fr.setFromProjectionMatrix(pv);
       const r = this.chunkReach + 2;
@@ -910,29 +929,34 @@ export class Track {
         if (!seen(ss, g, r)) continue;
         for (let c = g * SUPER; c < Math.min(nC, (g + 1) * SUPER); c++) mask[c] = seen(cs, c, r) ? 1 : 0;
       }
-      v.runs.length = 0;
+      v.mask.set(mask);
+      // (how far each stretch is from a perspective camera - a shadow map's draws every caster it sees)
+      eye.setFromMatrixPosition(camera.matrixWorld);
       for (let c = 0; c < nC; c++) {
-        if (!mask[c]) continue;
-        let k = c + 1;
-        for (;;) {
-          while (k < nC && mask[k]) k++;
-          let j = k;
-          while (j < nC && j - k < GAP && !mask[j]) j++;
-          if (j < nC && mask[j] && j - k <= GAP) k = j; else break;
-        }
-        v.runs.push(c, k);
-        c = k;
+        v.dist[c] = camera.isPerspectiveCamera && mask[c] ? Math.max(0, Math.hypot(cs[c * 4] - eye.x, cs[c * 4 + 1] - eye.y, cs[c * 4 + 2] - eye.z) - cs[c * 4 + 3] - r) : 0;
       }
-      return v.runs;
+      v.runs = runsOf(v, 0);
+      v.far.clear();
+      return v;
     };
     const direct = renderer.renderBufferDirect, e = (m) => m.elements;
     renderer.renderBufferDirect = function (camera, scene, geometry, material, object, group) {
+      // (a piece of the fittings past its distance: not drawn - pieces)
+      const pf = object.userData.lapFar;
+      if (pf && camera.isPerspectiveCamera && !camera.userData.xrFrustum) {
+        const b = object.boundingSphere;
+        eye.setFromMatrixPosition(camera.matrixWorld);
+        if (b && eye.distanceTo(b.center) - b.radius > pf) return;
+      }
       const st = geometry.userData.lapChunks, w = e(object.matrixWorld);
       // (the track's meshes stand where they were built; anything moved, or a VR eye, as it was)
       if (!st || st.length !== nC + 1 || camera.userData.xrFrustum || w[12] || w[13] || w[14] || w[0] !== 1 || w[5] !== 1 || w[10] !== 1) {
         return direct.call(this, camera, scene, geometry, material, object, group);
       }
-      const runs = inView(camera), dr = geometry.drawRange, s0 = dr.start, n0 = dr.count, s1 = s0 + n0;
+      const v = inView(camera), far = geometry.userData.lapFar;
+      let runs = v.runs;
+      if (far && camera.isPerspectiveCamera) { runs = v.far.get(far); if (!runs) v.far.set(far, (runs = runsOf(v, far))); }
+      const dr = geometry.drawRange, s0 = dr.start, n0 = dr.count, s1 = s0 + n0;
       try {
         for (let q = 0; q < runs.length; q += 2) {
           const a = Math.max(st[runs[q]], s0), b = Math.min(st[runs[q + 1]], s1);
@@ -944,14 +968,15 @@ export class Track {
   // a lap's InstancedMesh (its instances laid in the lap's order) cut into pieces of about PIECE_M along it, each its
   // own mesh with its own bounds, sharing the geometry and material: the lap's whole one was always in view, so drawn
   // whole (the Pyramid Run's studs, pilasters, emitters, vents and lamps: 2.7 M triangles a frame)
-  pieces(im) {
-    const per = Math.max(1, Math.round((im.count * PIECE_M) / this.length)), out = new THREE.Group();
+  pieces(im, len = PIECE_M, far = 0) {
+    const per = Math.max(1, Math.round((im.count * len) / this.length)), out = new THREE.Group();
     for (let k0 = 0; k0 < im.count; k0 += per) {
       const k1 = Math.min(im.count, k0 + per), p = new THREE.InstancedMesh(im.geometry, im.material, k1 - k0);
       p.instanceMatrix.array.set(im.instanceMatrix.array.subarray(k0 * 16, k1 * 16));
       if (im.instanceColor) p.instanceColor = new THREE.InstancedBufferAttribute(im.instanceColor.array.slice(k0 * 3, k1 * 3), 3);
       p.castShadow = im.castShadow; p.receiveShadow = im.receiveShadow; p.renderOrder = im.renderOrder; p.layers.mask = im.layers.mask;
       p.computeBoundingSphere();
+      if (far) p.userData.lapFar = far;
       out.add(p);
     }
     return out;
@@ -973,6 +998,12 @@ export class Track {
     };
     // deck top (u across), and the underside + sides (a hard edge at each corner: duplicate points per face)
     const top = this.sweep([[-W, 0, 0, 0, 1], [W, 0, 1, 0, 1]], 40);
+    // its surface's directions given (across, and along the lap: w +1), not worked out per pixel from how its uv
+    // changes: uv counts the whole lap, and 56 km along the Pyramid Run a float could not tell one pixel's from the
+    // next's - the relief and the barriers' mirror bent with the noise (specks, rings that crawled)
+    const tg = new Float32Array(top.attributes.position.count * 4);
+    for (let i = 0; i <= this.n; i++) { const R = this.R[i % this.n]; for (let c = 0; c < 2; c++) tg.set([R.x, R.y, R.z, 1], (i * 2 + c) * 4); }
+    top.setAttribute('tangent', new THREE.BufferAttribute(tg, 4));
     // the maps are made on the GPU (bakeDeck, deck.js) once the renderer exists; the built layout (deck.js
     // DECK_LAYOUT) is worked out per pixel, and with Settings "Road relief" (deckRelief) the view ray is marched down
     // through its heights near the camera - where it meets the deck, its maps and its layout are read (DECK_MARCH).
@@ -996,6 +1027,8 @@ export class Track {
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
           'uniform float deckRelief, deckSheen, deckMirror, rdOrigin;\nvarying vec2 vRdUv;\nvarying float vRdL;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
+        // (scaled as three's frame from the uv was: across by the uv's 40 m along over its width across)
+        .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>\n  tbn[0] *= ${Math.min(1, 40 / this.W).toFixed(5)};`)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
   diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
   diffuseColor.rgb = diffuseColor.rgb * rdTone * (1.0 - rdS.a) + rdS.rgb;
@@ -1034,12 +1067,16 @@ export class Track {
     vec3 Vv = normalize(vViewPosition), Nn = normalize(tbn[2]), Rr = reflect(-Vv, Nn);
     float ra = dot(Rr, normalize(tbn[0])), ru = dot(Rr, normalize(tbn[2])), rz = dot(Rr, normalize(tbn[1]));
     float x = (vRdUv.x - 0.5) * deckW, dx = ${(WALL_T * 0.5).toFixed(2)} + 0.5 * deckW - sign(ra) * x;
-    float t = dx / max(abs(ra), 1e-3), h = ru * t, soft = 0.1 + 0.05 * t;
+    // (each part spread over at least what one pixel spans of it - fh, fa: where the ray runs nearly along the wall, the
+    // place it meets the barrier races across the pixels, and the beams and the band's edges aliased into rings and
+    // steps that crawled as the camera moved - "those reflections at the edges looking awful"; past two beams' widths
+    // a pixel, the beams are their average)
+    float t = dx / max(abs(ra), 1e-3), h = ru * t, fh = fwidth(h), soft = 0.1 + 0.05 * t + fh;
     float lo = ${(WALL_H + COPE).toFixed(2)}, hi = ${FIELD_H.toFixed(2)};
     float lit = smoothstep(lo - soft, lo + soft, h) * (1.0 - smoothstep(hi - soft, hi + soft, h));
-    float tw = 0.06 + 0.03 * t, tq = (h - hi) / tw, top = exp(-tq * tq) * 0.04 / tw;
-    float along = vRdL + rz * t, dp = abs(mod(along, 16.0) - 8.0), bw = 0.3 + 0.03 * t;
-    float beam = exp(-dp * dp / (bw * bw)) * 0.2 / bw;
+    float tw = 0.06 + 0.03 * t + fh, tq = (h - hi) / tw, top = exp(-tq * tq) * 0.04 / tw;
+    float along = vRdL + rz * t, fa = fwidth(along), dp = abs(mod(along, 16.0) - 8.0), bw = 0.3 + 0.03 * t;
+    float beam = mix(exp(-dp * dp / (bw * bw)) * 0.2 / bw, 0.0222, smoothstep(0.5 * bw, 2.0 * bw, fa));
     float F = 0.04 + 0.96 * pow(1.0 - clamp(dot(Vv, Nn), 0.0, 1.0), 5.0);
     float k = (lit * (0.16 + beam) + top) * F * step(0.0, ru) * exp(-t / 35.0) * (1.0 - deckFlat) * deckMirror;
     totalEmissiveRadiance += vec3(${g3(TH.field)}) * k;
@@ -1262,8 +1299,11 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     out.fields = this.fields();
     out.pylons = this.fieldPylons();
     // (the lap-long instanced fittings in pieces, each culled by itself)
-    for (const k of ['ribs', 'vents', 'studs', 'pylons']) out[k] = this.pieces(out[k]);
-    out.lamps = out.lamps.map((m) => this.pieces(m));
+    // and each small part drawn out to where it is a quarter of a pixel across at 4K (its size x ~6,000; the lit ones
+    // further): past it, it could only add specks - the road, walls, barrier, strips and lane lights go to the horizon
+    for (const [k, len, far] of [['studs', 500, 1500], ['ribs', 500, 2000], ['vents', 500, 2000], ['pylons', 1000, 4000]]) out[k] = this.pieces(out[k], len, far);
+    out.lamps = out.lamps.map((m) => this.pieces(m, 2000, 5000));
+    for (const [m, far] of [[out.conduits, 1000], [out.stripHousing, 1000], [out.laneHousing, 1500], [out.fascia, 3000]]) m.forEach((x) => (x.geometry.userData.lapFar = far));
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }

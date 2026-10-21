@@ -224,6 +224,28 @@ export class DeckSSRPass extends Pass {
     this.wide = 6;                                         // (the last blur's reach, texels of the half-size target)
     this.gloss = 0.07;                                     // the coating's blur: the reflected ray's spread (rad)
     this.maskRT = new THREE.WebGLRenderTarget(1, 1, { depthTexture: new THREE.DepthTexture(1, 1) });
+    // the nearest surface in each 8 x 8 block of the depth (and a texel round it): where the march's point is still in
+    // front of it, nothing there can be hit and the depth itself is not read - the steps and every hit as they were, a
+    // read of a small map that stays in the cache instead of the full one (the march was 2.5 ms at 4K, against 1.2 for
+    // the coarser one before "they move in waves")
+    this.nearRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.FloatType, format: THREE.RedFormat, depthBuffer: false,
+      minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, generateMipmaps: false });
+    this.nearest = new FullScreenQuad(new THREE.ShaderMaterial({
+      uniforms: { tDepth: { value: null }, near: { value: 0.1 }, far: { value: 1000 } },
+      vertexShader: /* glsl */`void main() { gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader: /* glsl */`
+        #include <packing>
+        uniform sampler2D tDepth; uniform float near, far;
+        void main() {
+          ivec2 sz = textureSize(tDepth, 0), o = ivec2(floor(gl_FragCoord.xy)) * 8;
+          float z = -1e9;
+          for (int j = -1; j <= 8; j++) for (int i = -1; i <= 8; i++) {
+            ivec2 t = clamp(o + ivec2(i, j), ivec2(0), sz - 1);
+            z = max(z, perspectiveDepthToViewZ(texelFetch(tDepth, t, 0).x, near, far));
+          }
+          gl_FragColor = vec4(z + 0.001 + 1e-5 * abs(z), 0.0, 0.0, 1.0);
+        }`,
+    }));
     const half = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
     this.ssrRT = half();
     this.blurRT = half();
@@ -231,11 +253,11 @@ export class DeckSSRPass extends Pass {
     this.ssr = new FullScreenQuad(new THREE.ShaderMaterial({
       uniforms: { tColor: { value: null }, tDepth: { value: null }, tNormal: { value: null }, tMask: { value: null },
         proj: { value: new THREE.Matrix4() }, invProj: { value: new THREE.Matrix4() }, near: { value: 0.1 }, far: { value: 1000 },
-        frame: { value: 0 } },
+        frame: { value: 0 }, tNear: { value: null } },
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
       fragmentShader: /* glsl */`
         #include <packing>
-        uniform sampler2D tColor, tDepth, tNormal, tMask; uniform mat4 proj, invProj; uniform float near, far, frame;
+        uniform sampler2D tColor, tDepth, tNormal, tMask, tNear; uniform mat4 proj, invProj; uniform float near, far, frame;
         varying vec2 vUv;
         float viewZ(vec2 uv) { return perspectiveDepthToViewZ(texture2D(tDepth, uv).x, near, far); }
         vec3 viewPos(vec2 uv, float vz) {
@@ -258,6 +280,7 @@ export class DeckSSRPass extends Pass {
           // settled while the camera moved)
           float step = 0.16 + length(P) * 0.004;
           float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+          vec2 dsz = vec2(textureSize(tDepth, 0));
           vec3 Q = P + N * 0.05 + R * step * jit, prev = Q;
           vec2 hit = vec2(-1.0);
           float conf = 0.0;
@@ -267,6 +290,7 @@ export class DeckSSRPass extends Pass {
             step *= 1.035;
             vec2 s = project(Q);
             if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0 || Q.z > -near) break;
+            if (Q.z >= texelFetch(tNear, min(ivec2(s * dsz), ivec2(dsz) - 1) / 8, 0).x) continue;     // (in front of all round here: no hit)
             float sz = viewZ(s), diff = sz - Q.z;
             float thick = step * 3.0 + 0.4;
             if (diff > 0.0 && diff < thick) {
@@ -455,6 +479,12 @@ export class DeckSSRPass extends Pass {
     u.invProj.value.copy(cam.projectionMatrixInverse);
     u.near.value = cam.near; u.far.value = cam.far;
     u.frame.value = this.frame = (this.frame + 1) % 64;
+    const di = u.tDepth.value.image, nw = Math.ceil(di.width / 8), nh = Math.ceil(di.height / 8);
+    if (this.nearRT.width !== nw || this.nearRT.height !== nh) this.nearRT.setSize(nw, nh);
+    Object.assign(this.nearest.material.uniforms, { tDepth: { value: u.tDepth.value }, near: { value: cam.near }, far: { value: cam.far } });
+    renderer.setRenderTarget(this.nearRT);
+    this.nearest.render(renderer);
+    u.tNear.value = this.nearRT.texture;
     renderer.setRenderTarget(this.ssrRT);
     this.ssr.render(renderer);
     // temporal: last frame's result, reprojected and clamped, blended with this frame's

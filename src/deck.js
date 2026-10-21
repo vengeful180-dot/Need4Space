@@ -32,13 +32,15 @@ const COMMON = /* glsl */`
     float c = h12(mod(i + vec2(0.0, 1.0), per)), d = h12(mod(i + vec2(1.0, 1.0), per));
     return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
   }
-  // fbm over metres: f cells a metre at the first octave, periodic over the texture
+  // fbm over metres: f cells a metre at the first octave, periodic over the texture. An octave finer than two texels
+  // goes in as its mean: baked, it could only come out as noise from texel to texel (the chips' 32 and 64 cells a metre
+  // on 2.7 cm texels: the kerbs' worn flecks came out jagged, in moire bands, glittering along the road's edges)
   float fbm(vec2 m, float f, int oct, float salt) {
     float s = 0.0, a = 0.5, n = 0.0;
     for (int o = 0; o < 7; o++) {
       if (o >= oct) break;
       vec2 per = max(vec2(1.0), floor(size * f + 0.5));
-      s += a * vnoise(m / size * per + vec2(salt * 13.7 + float(o) * 5.31, salt * 7.3 - float(o) * 3.17), per);
+      s += a * (o > 0 && f * texel > 0.5 ? 0.5 : vnoise(m / size * per + vec2(salt * 13.7 + float(o) * 5.31, salt * 7.3 - float(o) * 3.17), per));
       n += a; a *= 0.5; f *= 2.0;
     }
     return s / n;
