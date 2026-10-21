@@ -645,8 +645,16 @@ export class FX {
 
   // a boost pad fires: a deck shockwave, a fountain of hot motes, and (for the player) a kick for the camera / streaks
   padBurst(at, basis, player) {
-    this.wave(at, basis, new THREE.Color(2.2, 0.9, 0.15), 16, 0.55);
+    // (it was a flat ring spreading over the deck - "stop using paint effects": the pad's own light on the hull over
+    // it, the air above it bent for a moment - the player's)
     const up = new THREE.Vector3(0, 1, 0).applyMatrix4(new THREE.Matrix4().extractRotation(basis));
+    if (player) {
+      this.flash.position.copy(at).addScaledVector(up, 1.2);
+      this.flashVel.set(0, 0, 0);
+      this.flash.color.setRGB(1.0, 0.5, 0.12);
+      this.flashT = Math.max(this.flashT, 0.4);
+      this.shock(at.clone().addScaledVector(up, 0.8), null, 9, 0.006, 0.35);
+    }
     const fwd = new THREE.Vector3(0, 0, -1).applyMatrix4(new THREE.Matrix4().extractRotation(basis));
     const c1 = new THREE.Color(1.0, 0.55, 0.12), c2 = new THREE.Color(1.0, 0.85, 0.5), P = new THREE.Vector3(), V = new THREE.Vector3();
     for (let i = 0; i < 70; i++) {

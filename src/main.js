@@ -601,6 +601,7 @@ async function boot() {
     const samples = v.aa === 'high' ? 8 : v.aa === 'fast' ? 2 : v.aa === 'smaa1' ? 0 : 4;   // the scene's MSAA (a new target when it changes)
     if (scenePass.msaa.samples !== samples) { scenePass.msaa.samples = samples; scenePass.msaa.dispose(); }
     ssr.enabled = !!track && v.ao && v.reflections;
+    if (track?.deckU) track.deckU.deckRelief.value = v.roadRelief !== false ? 1 : 0;   // the deck's built detail in depth
     streaks.enabled = v.streaks;
     shafts.enabled = !!world.lightShafts && v.shafts !== false;
     lens.allowed = v.lensWater !== false;

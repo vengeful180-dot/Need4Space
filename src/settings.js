@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true };
+  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true, roadRelief: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -18,14 +18,14 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
 // AO at half resolution, medium shadows, no deck reflections, the heaviest weather left out.
 const PRESET_KEYS = ['laptop', 'scale', 'aa', 'ao', 'aoRes', 'reflections', 'shadows', 'streaks', 'blur', 'shafts', 'iceSnow', 'iceDust',
   'iceGeysers', 'wreckFx', 'wreckMist', 'sandFx', 'dustDevils', 'heatHaze', 'caveFx', 'engineHeat', 'engineTrails', 'seaReflect',
-  'shockwaves', 'showroom', 'umbraTime'];
+  'shockwaves', 'showroom', 'umbraTime', 'roadRelief'];
 export const PRESETS = {
   low: { laptop: true, scale: 1, aa: 'smaa1', ao: false, aoRes: 'auto', reflections: false, shadows: 'off', streaks: false, blur: false,
     shafts: false, iceSnow: false, iceDust: false, iceGeysers: false, wreckFx: false, wreckMist: false, sandFx: false, dustDevils: false,
-    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false, umbraTime: false },
+    heatHaze: false, caveFx: false, engineHeat: false, engineTrails: 'ribbon', seaReflect: false, shockwaves: false, showroom: false, umbraTime: false, roadRelief: false },
   balanced: { laptop: false, scale: 1, aa: 'fast', ao: true, aoRes: 'half', reflections: false, shadows: 'medium', streaks: true, blur: true,
     shafts: true, iceSnow: true, iceDust: false, iceGeysers: true, wreckFx: true, wreckMist: false, sandFx: true, dustDevils: false,
-    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true, umbraTime: true },
+    heatHaze: false, caveFx: true, engineHeat: true, engineTrails: 'puffs', seaReflect: true, shockwaves: true, showroom: true, umbraTime: true, roadRelief: false },
   high: Object.fromEntries(PRESET_KEYS.map((k) => [k, DEFAULTS[k]])),
 };
 // no row of their own any more: the race's mechanics and the ships' look as the game has them, for everyone, whatever
@@ -61,6 +61,7 @@ const ROWS = [
   ['canyonAO', 'Canyon shading (ice, desert; needs AO)', [[true, 'On'], [false, 'Off']]],
   ['bloom', 'Bloom', [[true, 'On'], [false, 'Off']]],
   ['reflections', 'Deck reflections (needs AO)', [[true, 'On'], [false, 'Off']]],
+  ['roadRelief', 'Road relief (depth in its seams, gutters and joints)', [[true, 'On'], [false, 'Off']]],
   ['streaks', 'Light streaks', [[true, 'On'], [false, 'Off']]],
   ['blur', 'Speed blur', [[true, 'On'], [false, 'Off']]],
   ['shafts', 'Light shafts (forest moon, ice planet, desert)', [[true, 'On'], [false, 'Off']]],

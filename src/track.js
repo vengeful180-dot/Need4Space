@@ -5,7 +5,9 @@
 import * as THREE from 'three';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clamp, damp, smoothstep, mulberry32, noise2, fbm } from './noise.js';
-import { bakeDeckMaps } from './deck.js';
+import { bakeDeckMaps, DECK_LAYOUT } from './deck.js';
+import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial } from './fittings.js';
+import { Q } from './quality.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { rockMaterial } from './rock.js';
 import { hullMaterial, hullBox, HULL_SIDE, HULL_UNDER, HULL_GIRDER } from './hull.js';
@@ -110,6 +112,148 @@ const SPECULAR_AA = /* glsl */`
     material.roughness = sqrt(min(material.roughness * material.roughness + kr, 1.0));
   }`;
 
+// The deck's first lines in main() (deck.js DECK_LAYOUT): where the view ray meets the deck. With Settings "Road relief",
+// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -4.2 cm; 8 steps looking
+// down, up to 28 grazing, then the crossing interpolated), its reach eased out from 30 m so nothing pops; past that, or
+// switched off, the surface itself. There the deck's maps are read (with the surface's own gradients - the meeting point
+// jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
+const DECK_MARCH = /* glsl */`
+  vec2 rdUv = vRdUv, rdDx = dFdx(vRdUv), rdDy = dFdy(vRdUv), rdFw, rdSlope, rdRM;
+  vec4 rdS;
+  float rdTone;
+  {
+    vec2 m0 = vec2(vRdUv.x * deckW, vRdUv.y * 40.0), mh = m0;
+    rdFw = max(fwidth(m0), vec2(1e-5));
+    float dist = length(vViewPosition);
+    #ifndef DECK_LITE
+    if (deckRelief > 0.5 && dist < 48.0) {
+      vec3 pV = -vViewPosition, dpx = dFdx(pV), dpy = dFdy(pV), n = normalize(vNormal);
+      vec3 q1p = cross(dpy, n), q0p = cross(n, dpx);
+      float det = dot(dpx, q1p);
+      if (abs(det) > 1e-14) {
+        // metres across and along per metre in view space; the ray's drift across the deck per metre of depth
+        vec3 gx = (q1p * rdDx.x + q0p * rdDy.x) * (deckW / det), gy = (q1p * rdDx.y + q0p * rdDy.y) * (40.0 / det);
+        vec3 V = normalize(vViewPosition);
+        float vz = dot(V, n);
+        vec2 o = -vec2(dot(V, gx), dot(V, gy)) / max(vz, 0.12) * (1.0 - smoothstep(30.0, 48.0, dist));
+        int N = int(mix(28.0, 8.0, clamp(vz, 0.0, 1.0)));
+        float dz = 0.051 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
+        mh = m0 + o * 0.042;
+        for (int i = 1; i <= 28; i++) {
+          if (i > N) break;
+          float z = 0.009 - dz * float(i), d = z - rdHeight(m0 - o * z, rdFw, false);
+          if (d <= 0.0) { mh = m0 - o * mix(zPrev, z, dPrev / max(dPrev - d, 1e-6)); break; }
+          zPrev = z; dPrev = d;
+        }
+        rdUv = vec2(mh.x / deckW, mh.y / 40.0);
+      }
+    }
+    #endif
+    #ifdef USE_ROUGHNESSMAP
+      vec4 rdT = textureGrad(roughnessMap, rdUv, rdDx, rdDy);
+    #else
+      vec4 rdT = vec4(0.5);
+    #endif
+    rdS = rdSurface(mh, rdFw, rdT.r, rdT.b, rdRM, rdTone);
+    vec2 e = max(rdFw * 0.5, vec2(0.0008));
+    #ifdef DECK_LITE
+      const bool rdFine = false;                     // (Laptop mode: the screws in the colour only)
+    #else
+      const bool rdFine = true;
+    #endif
+    float h0 = rdHeight(mh, rdFw, rdFine);
+    rdSlope = vec2(rdHeight(mh + vec2(e.x, 0.0), rdFw, rdFine) - h0, rdHeight(mh + vec2(0.0, e.y), rdFw, rdFine) - h0) / e;
+  }
+`;
+
+// A section along one wall (s = 1: the right, facing -x; -1: the left) from points (o, y): o metres out from the wall's
+// inner face (x = W) toward the track, listed bottom to top; flat faces between them (null: none there - a gap); smooth:
+// each point its own normal (o, y, u, nx, ny: a round profile, nx along +x) instead of hard edges
+function sideSection(s, W, pts, smooth = false) {
+  const sec = [];
+  const at = (p) => [W - p[0], p[1]];
+  if (smooth) {
+    for (const p of pts) sec.push([...at(p), p[2], p[3], p[4]]);
+  } else {
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k], b = pts[k + 1];
+      if (!a || !b) continue;
+      const [ax, ay] = at(a), [bx, by] = at(b), l = Math.hypot(bx - ax, by - ay);
+      const nx = -(by - ay) / l, ny = (bx - ax) / l;                 // (the direction turned a quarter: the face's side)
+      sec.push([ax, ay, k / (pts.length - 1), nx, ny], [bx, by, (k + 1) / (pts.length - 1), nx, ny, 'cut']);
+    }
+    sec[sec.length - 1].length = 5;
+  }
+  if (s > 0) return sec;
+  // (the left wall: mirrored, and listed the other way round so it still faces the track)
+  const m = sec.map(([x, y, u, nx, ny, f]) => [-x, y, u, -nx, ny, f]), r = m.map((p) => p.slice(0, 5)).reverse();
+  m.forEach((p, k) => { if (p[5] === 'cut') r[m.length - 2 - k][5] = 'cut'; });
+  return r;
+}
+// a round profile on the wall: centre o out from it at height y, radius r, n sides (smooth: o, y, u, normal o, y)
+function conduitRing(o, y, r, n) {
+  const pts = [];
+  for (let k = 0; k <= n; k++) {
+    const a = -(k / n) * Math.PI * 2;                             // (round the way that faces it outward)
+    pts.push([o - Math.cos(a) * r, y + Math.sin(a) * r, k / n, Math.cos(a), Math.sin(a)]);   // (x = W - o: out along +cos)
+  }
+  return pts;
+}
+// the lane light's channel across the deck at x: foot - chamfer - rounded rim - inner wall - floor, and back
+function laneSection(x) {
+  const P = [[-0.22, -0.001], [-0.195, 0.016], [-0.165, 0.025], [-0.145, 0.025], [-0.125, 0.009], [0.125, 0.009],
+    [0.145, 0.025], [0.165, 0.025], [0.195, 0.016], [0.22, -0.001]];
+  const nrm = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy); return [-dy / l, dx / l]; };
+  const u = (p) => (p[0] + 0.22) / 0.44, sec = [];
+  // hard edges at the foot, either end of the floor; the rim's three faces share their normals at their joins
+  const face = P.slice(0, -1).map((a, k) => nrm(a, P[k + 1]));
+  const avg = (a, b) => { const x = a[0] + b[0], y = a[1] + b[1], l = Math.hypot(x, y); return [x / l, y / l]; };
+  const pt = (k, n, cut) => sec.push([x + P[k][0], P[k][1], u(P[k]), n[0], n[1], ...(cut ? ['cut'] : [])]);
+  pt(0, face[0]); pt(1, avg(face[0], face[1])); pt(2, avg(face[1], face[2])); pt(3, avg(face[2], face[3])); pt(4, face[3], true);
+  pt(4, face[4]); pt(5, face[4], true);
+  pt(5, face[5]); pt(6, avg(face[5], face[6])); pt(7, avg(face[6], face[7])); pt(8, avg(face[7], face[8])); pt(9, face[8]);
+  return sec;
+}
+// the housings' finish: kind 'lane' (dark anodised: a screw in each rim every metre, a joint every 4 m), 'strip'
+// (satin aluminium: a joint every 3 m) or 'conduit' (dark painted: a galvanised clamp every 1.5 m, a coupling every
+// 6 m). Their sweeps' v is metres along the lap, u across the profile
+function housingMaterial(kind) {
+  const look = { lane: [0x15171b, 0.32, 0.75], strip: [0x8d939b, 0.38, 0.85], conduit: [0x2a2d31, 0.5, 0.45] }[kind];
+  const mat = new THREE.MeshStandardMaterial({ color: look[0], roughness: look[1], metalness: look[2] });
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vHu;')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vHu = uv;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vHu;\nfloat hsIn(float sd) { float f = max(fwidth(sd), 1e-5); return clamp(0.5 - sd / f, 0.0, 1.0); }\nfloat hsR, hsM;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+  hsR = ${look[1].toFixed(2)}; hsM = ${look[2].toFixed(2)};
+  {
+    float al = mod(vHu.y, 12.0), fa = fwidth(vHu.y);
+    ${kind === 'lane' ? `
+    // (a joint every 4 m; a screw head on each rim's crown every metre: u 0.148 and 0.852 of the 44 cm profile)
+    float j = abs(al - 4.0 * floor(al / 4.0 + 0.5)) - 0.002;
+    diffuseColor.rgb *= 1.0 - 0.75 * hsIn(j) * (1.0 - smoothstep(0.01, 0.03, fa));
+    vec2 q = vec2((min(abs(vHu.x - 0.148), abs(vHu.x - 0.852))) * 0.44, (fract(al) - 0.5));
+    float k = 1.0 - smoothstep(0.004, 0.01, fa), head = hsIn(length(q) - 0.007) * k, sock = hsIn(length(q) - 0.0028) * k;
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.31, 0.32), head * (1.0 - sock));
+    diffuseColor.rgb *= 1.0 - 0.85 * sock;
+    hsR = mix(hsR, 0.3, head);` : kind === 'strip' ? `
+    float j = abs(al - 3.0 * floor(al / 3.0 + 0.5)) - 0.0025;
+    diffuseColor.rgb *= 1.0 - 0.8 * hsIn(j) * (1.0 - smoothstep(0.01, 0.03, fa));` : `
+    // (the clamps 3.5 cm wide, galvanised; the couplings 9 cm, a dark ring at each end)
+    float c = abs(al - 1.5 * floor(al / 1.5 + 0.5)), cp = abs(al - 6.0 * floor(al / 6.0 + 0.5));
+    float far = 1.0 - smoothstep(0.01, 0.04, fa);
+    float clamp1 = hsIn(c - 0.0175) * far, coup = hsIn(cp - 0.045) * far, ring = hsIn(abs(cp - 0.045) - 0.002) * far;
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.34, 0.35, 0.36), max(clamp1, coup));
+    diffuseColor.rgb *= 1.0 - 0.8 * ring;
+    hsR = mix(hsR, 0.42, max(clamp1, coup)); hsM = mix(hsM, 0.85, max(clamp1, coup));`}
+  }`)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = hsR;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = hsM;');
+  };
+  mat.customProgramCacheKey = () => 'track-housing-' + kind;
+  return mat;
+}
+
 function canvasTex(w, h, draw, srgb = true) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -128,20 +272,6 @@ function speckle(g, w, h, n, cols, size, seed = 7) {
     const s = size * (0.5 + r());
     g.fillRect(r() * w, r() * h, s, s);
   }
-}
-
-function chevronTexture() {
-  return canvasTex(256, 512, (g, w, h) => {
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = 'rgba(255,255,255,1)';
-    for (let k = 0; k < 4; k++) {
-      const y = h - (k + 0.6) * h / 4;
-      g.beginPath();
-      g.moveTo(w * 0.08, y + h * 0.1); g.lineTo(w * 0.5, y - h * 0.03); g.lineTo(w * 0.92, y + h * 0.1);
-      g.lineTo(w * 0.92, y + h * 0.17); g.lineTo(w * 0.5, y + h * 0.04); g.lineTo(w * 0.08, y + h * 0.17);
-      g.closePath(); g.fill();
-    }
-  }, false);
 }
 
 // the energy barrier above the walls: a hex field, scrolling, brighter where the ship is near
@@ -648,17 +778,50 @@ export class Track {
     };
     // deck top (u across), and the underside + sides (a hard edge at each corner: duplicate points per face)
     const top = this.sweep([[-W, 0, 0, 0, 1], [W, 0, 1, 0, 1]], 40);
-    // the maps are made on the GPU (bakeDeck, deck.js) once the renderer exists
+    // the maps are made on the GPU (bakeDeck, deck.js) once the renderer exists; the built layout (deck.js
+    // DECK_LAYOUT) is worked out per pixel, and with Settings "Road relief" (deckRelief) the view ray is marched down
+    // through its heights near the camera - where it meets the deck, its maps and its layout are read (DECK_MARCH).
+    // The circuits' own patches (moss, frost, sand, puddles) go in after it, at the "// deck: ..." marks.
+    // (The aggregate's normal was once added at 'mapN.xy *= normalScale;' - text three only puts in after this hook,
+    // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
-    const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.08 });
+    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckGlow: { value: new THREE.Vector3(...TH.strip) } };
+    const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.22 });
+    const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
+      `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
     deckMat.onBeforeCompile = (sh) => {
       sh.uniforms.detailMap = detail.map;
       sh.uniforms.detailNormal = detail.normal;
       sh.uniforms.detailRep = { value: new THREE.Vector2(this.W / 4, 40 / 4) };
+      Object.assign(sh.uniforms, this.deckU);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vRdUv;')
+        .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;');
       sh.fragmentShader = sh.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;')
-        .replace('#include <map_fragment>', '#include <map_fragment>\n  diffuseColor.rgb *= 0.72 + 0.56 * texture2D(detailMap, vMapUv * detailRep).r;')
-        .replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale;\n  mapN.xy += (texture2D(detailNormal, vNormalMapUv * detailRep).xy * 2.0 - 1.0) * 0.45;')
+        .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
+          'uniform float deckRelief;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0;\n' + DECK_LAYOUT)
+        .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
+        .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
+  diffuseColor.rgb *= mix(0.85 + 0.3 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
+  diffuseColor.rgb = diffuseColor.rgb * rdTone * (1.0 - rdS.a) + rdS.rgb;
+// deck: themes`))
+        .replace('#include <roughnessmap_fragment>', grad('#include <roughnessmap_fragment>', 'vRoughnessMapUv', `
+  roughnessFactor = clamp(roughnessFactor * rdRoughK, 0.05, 1.0) * (1.0 - rdS.a) + rdRM.x;
+// deck: after rough`))
+        .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+  metalnessFactor = metalnessFactor * (1.0 - rdS.a) + rdRM.y;
+// deck: after metal`)
+        .replace('#include <normal_fragment_maps>', grad('#include <normal_fragment_maps>', 'vNormalMapUv', `
+  #ifdef USE_NORMALMAP_TANGENTSPACE
+  {
+    // the aggregate's grain (on the plates' paint, not the steel) and the layout's slopes; flattened under a theme's
+    // cover (sand, moss, rime: deckFlat)
+    vec2 dn = (textureGrad(detailNormal, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).xy * 2.0 - 1.0) * 0.35 * (1.0 - rdS.a);
+    normal = normalize(mix(normal, normalize(tbn[2]), deckFlat));
+    normal = normalize(normal + (normalize(tbn[0]) * (dn.x - rdSlope.x) + normalize(tbn[1]) * (dn.y - rdSlope.y)) * (1.0 - deckFlat));
+  }
+  #endif
+// deck: after normal`))
+        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += rdEmit;   // (the light inlays)')
         .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n' + SPECULAR_AA);
     };
     if (TH.moss || TH.seaMoss) {
@@ -690,7 +853,7 @@ vec2 deckRipple(vec2 p, float t) {
   }
   return g;
 }`)
-          .replace('#include <map_fragment>', `#include <map_fragment>
+          .replace('// deck: themes', `// deck: themes
   {
     float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = vMapUv.y * 40.0, edge = ${(this.W / 2).toFixed(1)} - x;
     float n1 = texture2D(detailMap, vec2(along / 23.0, x / 9.0)).r, n2 = texture2D(detailMap, vec2(along / 3.7, x / 2.9) + 0.31).r;
@@ -714,11 +877,12 @@ vec2 deckRipple(vec2 p, float t) {
     }
     #endif` : ''}
     diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.035, 0.06, 0.015), vec3(0.08, 0.11, 0.025), n2), deckMoss);
+    deckFlat = max(deckFlat, 0.7 * deckMoss);
   }`)
-          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.95, deckMoss) * (1.0 - 0.3 * deckSeaWet);\n  roughnessFactor = mix(roughnessFactor, 0.035, deckPuddle);')
-          .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor *= 1.0 - deckPuddle;')
+          .replace('// deck: after rough', '// deck: after rough\n  roughnessFactor = mix(roughnessFactor, 0.95, deckMoss) * (1.0 - 0.3 * deckSeaWet);\n  roughnessFactor = mix(roughnessFactor, 0.035, deckPuddle);')
+          .replace('// deck: after metal', '// deck: after metal\n  metalnessFactor *= 1.0 - deckPuddle;')
           // (a puddle's face: flat - the deck's own grain gone under it - and ringed by the drops near the camera)
-          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+          .replace('// deck: after normal', `// deck: after normal
   if (deckPuddle > 0.001) {
     vec3 nP = nonPerturbedNormal;
     #if defined( USE_NORMALMAP_TANGENTSPACE ) && defined( USE_FOG )
@@ -739,7 +903,7 @@ float deckFrost = 0.0;
 float frH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float frN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(frH(i), frH(i + vec2(1, 0)), f.x), mix(frH(i + vec2(0, 1)), frH(i + vec2(1, 1)), f.x), f.y); }`)
-          .replace('#include <map_fragment>', `#include <map_fragment>
+          .replace('// deck: themes', `// deck: themes
   {
     // (v split into whole 400 m and the rest: along the lap it runs to ~10 km and the noise wants small numbers)
     float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(this.W / 2).toFixed(1)} - x;
@@ -751,8 +915,9 @@ float frN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       * smoothstep(0.35, 0.6, frN(vec2(along / 90.0, 2.9)));
     deckFrost = clamp(smoothstep(0.35, 0.6, base * 0.9 + (n2 - 0.5) * 0.3) + tongue * (0.55 + 0.45 * n2), 0.0, 1.0);
     diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.24, 0.32, 0.43), vec3(0.48, 0.58, 0.72), n2), deckFrost * 0.7);
+    deckFlat = max(deckFlat, 0.5 * deckFrost);
   }`)
-          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.85, deckFrost);')
+          .replace('// deck: after rough', '// deck: after rough\n  roughnessFactor = mix(roughnessFactor, 0.85, deckFrost);')
           // (a low sun's glint off the deck held to a glow: racing into the sunset it greyed the whole road)
           .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n  reflectedLight.directSpecular = min(reflectedLight.directSpecular, vec3(0.6));');
       };
@@ -768,7 +933,7 @@ float deckSand = 0.0;
 float snH(vec2 p) { vec3 q = fract(vec3(p.xyx) * 0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y) * q.z); }
 float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(snH(i), snH(i + vec2(1, 0)), f.x), mix(snH(i + vec2(0, 1)), snH(i + vec2(1, 1)), f.x), f.y); }`)
-          .replace('#include <map_fragment>', `#include <map_fragment>
+          .replace('// deck: themes', `// deck: themes
   {
     // (v split into whole 400 m and the rest: along the lap it runs to ~14 km and the noise wants small numbers)
     float x = abs(vMapUv.x - 0.5) * ${this.W.toFixed(1)}, along = mod(vMapUv.y * 40.0, 400.0), edge = ${(this.W / 2).toFixed(1)} - x;
@@ -781,14 +946,14 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     deckSand = clamp(smoothstep(0.35, 0.6, base * 0.9 + (n2 - 0.5) * 0.3) + tongue * (0.35 + 0.5 * n2), 0.0, 1.0);
     diffuseColor.rgb *= vec3(2.3, 1.9, 1.4);
     diffuseColor.rgb = mix(diffuseColor.rgb, mix(vec3(0.4, 0.22, 0.1), vec3(0.54, 0.33, 0.16), n2), deckSand * 0.85);
+    deckFlat = max(deckFlat, 0.8 * deckSand);
   }`)
-          .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = mix(roughnessFactor, 0.92, deckSand);')
-          .replace('mapN.xy *= normalScale;', 'mapN.xy *= normalScale * (1.0 - 0.8 * deckSand);')
+          .replace('// deck: after rough', '// deck: after rough\n  roughnessFactor = mix(roughnessFactor, 0.92, deckSand);')
           // (a low sun's glint off the deck held to a glow: racing into the sunset it greyed the whole road)
           .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n  reflectedLight.directSpecular = min(reflectedLight.directSpecular, vec3(0.8));');
       };
     }
-    deckMat.customProgramCacheKey = () => (TH.seaMoss ? 'feather-deck-seamoss' : TH.moss ? 'feather-deck-moss' : TH.frost ? 'feather-deck-frost' : TH.sand ? 'feather-deck-sand' : 'feather-deck');
+    deckMat.customProgramCacheKey = () => (TH.seaMoss ? 'feather-deck-seamoss' : TH.moss ? 'feather-deck-moss' : TH.frost ? 'feather-deck-frost' : TH.sand ? 'feather-deck-sand' : 'feather-deck') + (Q.lite ? '-lite' : '');
     this.deckMat = deckMat;
     out.deck = new THREE.Mesh(top, deckMat);
     const E = W + WALL_T;
@@ -821,10 +986,18 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
         }`,
     });
     const strip = (s) => {
-      const sec = [[s * (W - 0.02), WALL_H - 0.28, 0, -s, 0], [s * (W - 0.02), WALL_H - 0.1, 1, -s, 0]];
+      const sec = [[s * (W - 0.018), WALL_H - 0.29, 0, -s, 0], [s * (W - 0.018), WALL_H - 0.09, 1, -s, 0]];
       return this.sweep(s > 0 ? sec : rev(sec), 10);
     };
     out.strips = [new THREE.Mesh(strip(-1), stripMat), new THREE.Mesh(strip(1), stripMat)];
+    // its housing: an aluminium extrusion screwed to the wall - a lip 3 cm proud above and below the diffuser, chamfered
+    // back to the wall, a joint every 3 m; and under it a cable conduit (the strip's and the studs' feed), a clamp
+    // every 1.5 m and a coupling every 6 m
+    out.stripHousing = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [
+      [0, WALL_H - 0.345], [0.03, WALL_H - 0.33], [0.03, WALL_H - 0.3], [0.018, WALL_H - 0.29], null,
+      [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip')));
+    out.conduits = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, conduitRing(0.06, 0.42, 0.045, 10), true), 1),
+      housingMaterial('conduit')));
     // energy barriers
     this.fieldMat = fieldMaterial();
     const field = (s) => this.sweep([[s * (W + WALL_T * 0.5), WALL_H, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
@@ -838,6 +1011,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     }
     out.gantries = this.gantries();
     out.lanes = this.laneLights();
+    out.laneHousing = this.laneHousing;
     out.studs = this.studs();
     out.girders = this.girders(metal);
     out.startLine = this.startLine();
@@ -854,8 +1028,8 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }
-    for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.fields, ...out.gantries, ...out.pads,
-      ...out.lanes, out.studs, ...out.girders, out.startLine, ...out.chevrons, ...out.lamps, ...out.trims,
+    for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.stripHousing, ...out.conduits, ...out.fields, ...out.gantries, ...out.pads,
+      ...out.lanes, ...out.laneHousing, out.studs, ...out.girders, out.startLine, ...out.chevrons, ...out.lamps, ...out.trims,
       ...out.lips, ...out.flips, ...out.tunnel, ...out.gates, ...out.towers, ...out.cave]) scene.add(m);
     this.parts = out;
     return out;
@@ -1375,9 +1549,10 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return [tm, gm];
   }
 
-  // lane lights, built like fixtures: a dark metal housing set in the deck, a capsule lens (saturated blue edge,
-  // white-hot HDR core, anti-aliased ends) every 8 m, a soft pool of their light on the deck round them, and a pulse
-  // chasing forward (speed reads off it)
+  // lane lights, built like fixtures: a dark metal channel bolted to the deck (a chamfered foot, a rounded rim 2.5 cm
+  // proud, its walls sloping in to the lens 1 cm up; a screw in each rim every metre, a joint every 4 m), a capsule
+  // lens (saturated blue edge, white-hot HDR core, anti-aliased ends) every 8 m, a soft pool of their light on the deck
+  // round them, and a pulse chasing forward (speed reads off it)
   laneLights() {
     const SEG = /* glsl */`
       float capsule(float x, float s) {                    // distance (m) to the light's capsule in its 8 m period
@@ -1395,7 +1570,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
         void main() {
           // (fwidth(d) leaps where the period wraps - d jumps 4 m there - and lit a flickering dashed bar across the
           // housing 0.7 m before each light; elsewhere it never exceeds the coordinates' own fwidth)
-          float x = (vUv.x - 0.5) * 0.36, d = capsule(x, vUv.y), aa = min(fwidth(d), fwidth(x) + fwidth(vUv.y)) * 1.3 + 1e-4;
+          float x = (vUv.x - 0.5) * 0.25, d = capsule(x, vUv.y), aa = min(fwidth(d), fwidth(x) + fwidth(vUv.y)) * 1.3 + 1e-4;
           float lens = 1.0 - smoothstep(0.055 - aa, 0.055 + aa, d);
           float core = 1.0 - smoothstep(0.016 - aa, 0.016 + aa, d);
           float halo = exp(-d * d / 0.004) * 0.5;
@@ -1425,33 +1600,35 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
           gl_FragColor = vec4(${g3(TH.spill)} * spill * 0.16 * chase, 1.0);
         }`,
     });
-    const housing = new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.3, metalness: 0.7,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-    const out = [];
+    const housing = housingMaterial('lane'), out = [];
+    this.laneHousing = [];
     for (const x of [-11, 11]) {
-      const h = new THREE.Mesh(this.sweep([[x - 0.15, 0.012, 0, 0, 1], [x + 0.15, 0.012, 1, 0, 1]], 1), housing);
+      // (the channel's profile, across: flat faces with hard edges at the foot and the floor, the rim rounded)
+      const h = new THREE.Mesh(this.sweep(laneSection(x), 1), housing);
       h.receiveShadow = true;
-      const spill = new THREE.Mesh(this.sweep([[x - 2, 0.014, 0, 0, 1], [x + 2, 0.014, 1, 0, 1]], 1), this.spillMat);
-      const lens = new THREE.Mesh(this.sweep([[x - 0.18, 0.018, 0, 0, 1], [x + 0.18, 0.018, 1, 0, 1]], 1), this.laneMat);
+      // (the pool under the rim - drawn just over the deck, hidden where the channel stands - the lens over its floor)
+      const spill = new THREE.Mesh(this.sweep([[x - 2, 0.003, 0, 0, 1], [x + 2, 0.003, 1, 0, 1]], 1), this.spillMat);
+      const lens = new THREE.Mesh(this.sweep([[x - 0.125, 0.0105, 0, 0, 1], [x + 0.125, 0.0105, 1, 0, 1]], 1), this.laneMat);
       spill.renderOrder = 1; lens.renderOrder = 2;
-      for (const m of [h, spill, lens]) { m.frustumCulled = false; out.push(m); }
+      for (const m of [spill, lens]) { m.frustumCulled = false; out.push(m); }
+      h.frustumCulled = false;
+      this.laneHousing.push(h);
     }
-    this.laneHousing = out.filter((m) => m.material === housing);
     return out;
   }
 
-  // small LED studs inside both kerbs every 6 m
+  // road studs inside both kerbs every 6 m (fittings.js: a cast body on a bolted plate, a lens in each sloped end)
   studs() {
     const every = Math.round(6 / this.step), n = Math.floor(this.n / every) * 2;
-    const im = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.05, 0.4),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.stud) }), n);
+    const im = new THREE.InstancedMesh(studGeometry(), fittingMaterial('stud', TH.stud), n);
+    im.receiveShadow = true;
     const M = new THREE.Matrix4(), W = this.W / 2 - 2.4;
     let k = 0;
     for (let i = 0; i + every <= this.n; i += every) {
       if (this.inGap(i * this.step, 2)) continue;
       for (const side of [-1, 1]) {
         M.makeBasis(this.R[i], this.U[i], this.T[i].clone().negate())
-          .setPosition(this.P[i].clone().addScaledVector(this.R[i], side * W).addScaledVector(this.U[i], 0.03));
+          .setPosition(this.P[i].clone().addScaledVector(this.R[i], side * W));
         im.setMatrixAt(k++, M);
       }
     }
@@ -1596,16 +1773,12 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return [bm, pm];
   }
 
-  // lamp posts on the walls every 60 m (alternating sides), each a post, an arm over the track and a lit lens
+  // lamp posts on the walls every 60 m (alternating sides), each built like a street light (fittings.js): a bolted base
+  // plate with gussets, a tapered post, a curved arm out over the track and a finned head, its LED diffuser underneath
   lampPosts() {
     const every = Math.round(60 / this.step), n = Math.floor(this.n / every);
     const X = this.W / 2 + WALL_T / 2;
-    const postG = new THREE.BoxGeometry(0.22, 4.2, 0.22).translate(0, 2.1, 0);
-    const armG = new THREE.BoxGeometry(1.8, 0.18, 0.3).translate(-0.8, 4.15, 0);
-    const lensG = new THREE.BoxGeometry(0.9, 0.06, 0.24).translate(-1.15, 4.04, 0);
-    const merge = (a, b) => { const g = mergeTwo(a, b); g.deleteAttribute('uv'); return g; };
-    const mm = new THREE.InstancedMesh(merge(postG, armG), new THREE.MeshStandardMaterial({ color: 0x4a5058, roughness: 0.5, metalness: 0.6 }), n);
-    const lm = new THREE.InstancedMesh(lensG, new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.lamp) }), n);
+    const mm = new THREE.InstancedMesh(lampGeometry(), fittingMaterial('lamp', TH.lamp), n);
     const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
     let used = 0;
     for (let k = 0; k < n; k++) {
@@ -1614,12 +1787,11 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       this.basisAt(i, M);
       M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H));
       if (side < 0) M.multiply(turn);                   // (turned round, not mirrored: see the towers)
-      mm.setMatrixAt(used, M);
-      lm.setMatrixAt(used++, M);
+      mm.setMatrixAt(used++, M);
     }
-    mm.count = lm.count = used;
-    mm.castShadow = true;
-    return [mm, lm];
+    mm.count = used;
+    mm.castShadow = mm.receiveShadow = true;
+    return [mm];
   }
 
   // a lit trim along the deck's outer sides (it reads the track's line from other parts of the circuit)
@@ -1632,62 +1804,27 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     });
   }
 
-  // boost pads: chevrons scrolling forward and pulsing, a bright frame, light pillars rising from both edges; a pad
-  // flares when a ship takes it (flash per instance, decays in Track.update)
+  // boost pads, built (fittings.js): a steel frame on the deck round a glass bed, LED chevrons under it - a light
+  // running through them the way to go, all of them flaring when a ship takes the pad (flash per instance, decays in
+  // Track.update)
   padMeshes() {
-    const tex = chevronTexture();
     const n = this.pads.length;
     this.padFlashA = new THREE.InstancedBufferAttribute(new Float32Array(n), 1);
-    this.padMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-      uniforms: { map: { value: tex }, time: { value: 0 } },
-      vertexShader: /* glsl */`attribute float flash; varying float vF; varying vec2 vUv;
-        void main() { vUv = uv; vF = flash; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`,
-      fragmentShader: /* glsl */`
-        uniform sampler2D map; uniform float time; varying float vF; varying vec2 vUv;
-        void main() {
-          float m = texture2D(map, vec2(vUv.x, fract(vUv.y - time * 1.3))).a;
-          float d = max(abs(vUv.x - 0.5) * 2.0, abs(vUv.y - 0.5) * 2.0);
-          float rim = smoothstep(0.86, 0.95, d) * (1.0 - smoothstep(0.97, 1.0, d));
-          float pulse = 0.7 + 0.3 * sin(time * 7.0 - vUv.y * 10.0);
-          vec3 c = vec3(1.0, 0.42, 0.05) * (m * pulse * (0.9 + 2.5 * vF) + rim * 0.9 + 0.06 + vF * 0.5);
-          gl_FragColor = vec4(c * 1.4, 1.0);
-        }`,
-    });
-    const geo = new THREE.PlaneGeometry(8, 16).rotateX(-Math.PI / 2);
+    this.padTime = { value: 0 };
+    const geo = padGeometry();
     geo.setAttribute('flash', this.padFlashA);
-    const im = new THREE.InstancedMesh(geo, this.padMat, n);
-    // light pillars: thin vertical sheets along both long edges, fading upward
-    this.beamMat = new THREE.ShaderMaterial({
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      uniforms: { time: { value: 0 } },
-      vertexShader: /* glsl */`attribute float flash; varying float vF; varying vec2 vUv;
-        void main() { vUv = uv; vF = flash; gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0); }`,
-      fragmentShader: /* glsl */`uniform float time; varying float vF; varying vec2 vUv;
-        void main() {
-          float up = pow(1.0 - vUv.y, 2.2), ends = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x);
-          float rise = 0.75 + 0.25 * sin(vUv.y * 14.0 - time * 9.0);
-          gl_FragColor = vec4(vec3(1.0, 0.5, 0.1) * up * ends * rise * (0.25 + 1.6 * vF), 1.0);
-        }`,
-    });
-    const beam = (x) => new THREE.PlaneGeometry(16, 3.2).rotateY(Math.PI / 2).translate(x, 1.6, 0);
-    const bgeo = mergeTwo(beam(-4), beam(4));
-    bgeo.setAttribute('flash', this.padFlashA);
-    const bm = new THREE.InstancedMesh(bgeo, this.beamMat, n);
+    const im = new THREE.InstancedMesh(geo, padMaterial(this.padTime), n);
     const M = new THREE.Matrix4(), f = {};
     this.pads.forEach((p, k) => {
       this.frame(p.s, f);
       p.at = f.P.clone().addScaledVector(f.R, p.x).addScaledVector(f.U, 0.04);
       p.basis = new THREE.Matrix4().makeBasis(f.R, f.U, f.T.clone().negate());
-      M.copy(p.basis).setPosition(p.at);
+      M.copy(p.basis).setPosition(f.P.clone().addScaledVector(f.R, p.x));     // (the pad stands on the deck)
       im.setMatrixAt(k, M);
-      bm.setMatrixAt(k, M);
     });
-    im.renderOrder = 1;
-    bm.renderOrder = 2;
-    im.frustumCulled = bm.frustumCulled = false;
-    return [im, bm];
+    im.receiveShadow = true;
+    im.frustumCulled = false;
+    return [im];
   }
 
   padFlash(i) { this.padFlashA.array[i] = 1; }
@@ -1795,10 +1932,9 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     for (const m of this.flipMats || []) m.uniforms.time.value = t;
     if (this.beaconMat) this.beaconMat.color.setRGB(5, 2.2, 0.3).multiplyScalar(0.15 + 0.85 * (Math.sin(t * 6) > 0 ? 1 : 0));
     this.fieldMat.uniforms.shipPos.value.copy(shipPos);
-    this.padMat.uniforms.time.value = t;
+    this.padTime.value = t;
     this.laneMat.uniforms.time.value = t;
     this.spillMat.uniforms.time.value = t;
-    this.beamMat.uniforms.time.value = t;
     // (the pads' flashes fading: sent to the GPU only while one is lit, and the frame it goes out)
     const fl = this.padFlashA.array;
     let lit = false;
