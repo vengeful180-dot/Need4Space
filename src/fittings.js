@@ -216,7 +216,7 @@ uniform float ftTime;`)
     else {
       ftCol = vec3(0.02); ftRough = 0.1; ftMetal = 0.0;
       float led = 0.0;
-      for (int k = -1; k <= 1; k++) led = max(led, exp(-pow((vFit.x - float(k) * 0.05) / 0.018, 2.0)));
+      for (int k = -1; k <= 1; k++) { float lq = (vFit.x - float(k) * 0.05) / 0.018; led = max(led, exp(-lq * lq)); }
       ftEmit = (0.8 + 1.8 * led) * vGlow;
     }` : `
     // the lamp: base and post painted dark (a service door in the post, facing away from the track), the arm and the

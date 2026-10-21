@@ -330,10 +330,10 @@ function fieldMaterial() {
         float fill = smoothstep(0.5, 0.0, c1.x) * (0.25 + 0.75 * pow(0.5 + 0.5 * sin(time * 1.3 + cv * 40.0), 4.0)) * far;
         float dp = abs(mod(al, 16.0) - 8.0);                // (to the nearest emitter: they stand at 8 m + 16 m steps)
         float beam = exp(-dp * dp / 0.06) * 1.1 + exp(-dp * dp / 5.0) * 0.4, density = 0.4 + 0.6 * exp(-dp * dp / 18.0);
-        float top = exp(-pow((1.0 - h) / 0.012, 2.0)), base = exp(-h / 0.04) * 0.5, fade = mix(1.0, 0.4, h);
+        float tq = (1.0 - h) / 0.012, top = exp(-tq * tq), base = exp(-max(h, 0.0) / 0.04) * 0.5, fade = mix(1.0, 0.4, h);
         float near = exp(-pow(distance(vW, shipPos) / 22.0, 2.0));
-        float graze = pow(1.0 - abs(dot(normalize(cameraPosition - vW), normalize(vN))), 3.0);
-        float run = exp(-pow((fract(al / 160.0 - time * 0.375) - 0.5) * 160.0 / 3.0, 2.0));
+        float gz = max(0.0, 1.0 - abs(dot(normalize(cameraPosition - vW), normalize(vN)))), graze = gz * gz * gz;
+        float rq = (fract(al / 160.0 - time * 0.375) - 0.5) * 160.0 / 3.0, run = exp(-rq * rq);
         // impacts: a wave racing out through the field at 18 m/s - a bright front, every cell lighting as it reaches
         // the cell's centre and fading after it (the further from the blow, the fainter), the cells round the point of
         // contact white-hot
@@ -341,10 +341,13 @@ function fieldMaterial() {
         for (int k = 0; k < 4; k++) {
           float age = time - hits[k].w, d = distance(vW, hits[k].xyz), dc = distance(wc, hits[k].xyz);
           if (age < 0.0 || age > 1.6) continue;
-          ring += exp(-pow((d - age * 18.0) / 1.4, 2.0)) * exp(-age * 2.2) * hitS[k];
+          float rd = (d - age * 18.0) / 1.4;
+          ring += exp(-rd * rd) * exp(-age * 2.2) * hitS[k];
           flash += exp(-d * d / 6.0) * exp(-age * 7.0) * hitS[k];
           float a = age - dc / 18.0;
-          cells += step(0.0, a) * exp(-a * 3.2) * exp(-dc / 16.0) * hitS[k];
+          // (only once the wave is there: exp of the time still to come overflowed to infinity far off, times 0 a NaN -
+          // the whole barrier went blank for a blow's 1.6 s and its animation never showed)
+          cells += a > 0.0 ? exp(-a * 3.2) * exp(-dc / 16.0) * hitS[k] : 0.0;
           core += exp(-dc * dc / 4.0) * exp(-age * 4.0) * hitS[k];
         }
         float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
