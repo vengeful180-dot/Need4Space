@@ -150,6 +150,8 @@ export class LayeredRenderPass extends Pass {
     c.fov = cam.fov; c.aspect = cam.aspect; c.zoom = cam.zoom; c.near = near; c.far = far;
     c.layers.mask = cam.layers.mask & ~skip;
     c.updateProjectionMatrix();
+    const j = cam.userData.jitter;                         // (TAAPass: this frame's shift of a fraction of a pixel)
+    if (j) { c.projectionMatrix.elements[8] += j[0]; c.projectionMatrix.elements[9] += j[1]; c.projectionMatrixInverse.copy(c.projectionMatrix).invert(); }
     c.matrixWorld.copy(cam.matrixWorld);
     c.matrixWorldInverse.copy(cam.matrixWorldInverse);
     return c;
@@ -444,6 +446,170 @@ export class DeckSSRPass extends Pass {
     c.tColor.value = readBuffer.texture; c.tSSR.value = this.ssrRT.texture; c.strength.value = this.strength;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.comp.render(renderer);
+  }
+}
+
+// Temporal anti-aliasing (Settings "Anti-aliasing": MSAA 4x + TAA). MSAA and SMAA smooth the edges of shapes only: a
+// pattern inside a surface finer than the pixels (the deck's joints far off, a barrier's cells, a slit of light on a
+// post) lit or missed each pixel as the camera moved, and shimmered ("most of stuff flickers when moving a bit"). Each
+// frame the camera is shifted by another fraction of a pixel (jitter(): a Halton 2,3 sequence over 8 frames - the scene
+// pass's slices take the same shift) and every pixel blends its new sample with what it held last frame, fetched from
+// where that point of the world was then (the AO pass's depth, last frame's camera). The history is clipped to the
+// new neighbourhood's colours, and dropped where last frame's depth there was of something else - what moves by itself
+// (the ships, sparks) or comes into view does not ghost. Blended in a tone-mapped space (a light's core does not smear);
+// the history read through a sharp cubic filter (a bilinear fetch blurred it a little more every frame); the faster
+// the picture moves under a pixel the more of the new frame is kept.
+export class TAAPass extends Pass {
+  constructor(camera, gtao) {
+    super();
+    Object.assign(this, { camera, gtao });
+    const target = (o = {}) => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, depthBuffer: false, ...o });
+    this.histA = target();
+    this.histB = target();
+    this.prevDepth = target({ format: THREE.RedFormat, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+    this.prevViewProj = new THREE.Matrix4();
+    this.unjittered = new THREE.Matrix4();
+    this.invUnjittered = new THREE.Matrix4();
+    this.valid = false;
+    this.k = 0; this.w = 1; this.h = 1;
+    const quad = (uniforms, fragmentShader) => new FullScreenQuad(new THREE.ShaderMaterial({ uniforms, fragmentShader,
+      vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }` }));
+    this.resolve = quad({ tCur: { value: null }, tHist: { value: null }, tDepth: { value: null }, tPrevDepth: { value: null },
+      invProj: { value: new THREE.Matrix4() }, camWorld: { value: new THREE.Matrix4() }, prevViewProj: { value: new THREE.Matrix4() },
+      texel: { value: new THREE.Vector2() }, valid: { value: 0 } }, /* glsl */`
+      uniform sampler2D tCur, tHist, tDepth, tPrevDepth; uniform mat4 invProj, camWorld, prevViewProj;
+      uniform vec2 texel; uniform float valid;
+      varying vec2 vUv;
+      vec3 tm(vec3 c) { return c / (1.0 + max(c.r, max(c.g, c.b))); }
+      vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - max(c.r, max(c.g, c.b))); }
+      vec3 ycc(vec3 c) { return vec3(0.25 * c.r + 0.5 * c.g + 0.25 * c.b, 0.5 * c.r - 0.5 * c.b, -0.25 * c.r + 0.5 * c.g - 0.25 * c.b); }
+      vec3 rgb(vec3 y) { return vec3(y.x + y.y - y.z, y.x + y.z, y.x - y.y - y.z); }
+      // the history through a Catmull-Rom filter, in five taps
+      vec3 history(vec2 uv) {
+        vec2 res = 1.0 / texel, pos = uv * res, c = floor(pos - 0.5) + 0.5, f = pos - c;
+        vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f)), w1 = 1.0 + f * f * (-2.5 + 1.5 * f), w2 = f * (0.5 + f * (2.0 - 1.5 * f)), w3 = f * f * (-0.5 + 0.5 * f);
+        vec2 w12 = w1 + w2, t0 = (c - 1.0) * texel, t3 = (c + 2.0) * texel, t12 = (c + w2 / w12) * texel;
+        float a = w12.x * w0.y, b = w0.x * w12.y, m = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
+        vec3 r = texture2D(tHist, vec2(t12.x, t0.y)).rgb * a + texture2D(tHist, vec2(t0.x, t12.y)).rgb * b + texture2D(tHist, t12).rgb * m
+          + texture2D(tHist, vec2(t3.x, t12.y)).rgb * d + texture2D(tHist, vec2(t12.x, t3.y)).rgb * e;
+        return max(r / (a + b + m + d + e), vec3(0.0));
+      }
+      void main() {
+        vec3 cur = texture2D(tCur, vUv).rgb;
+        // the neighbourhood (tone-mapped, YCoCg): its mean and spread; the nearest depth round it (an edge's history
+        // follows the thing in front)
+        vec3 m1 = vec3(0.0), m2 = vec3(0.0);
+        float dn = 1.0;
+        for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+          vec2 o = vec2(float(x), float(y)) * texel;
+          vec3 c = ycc(tm(texture2D(tCur, vUv + o).rgb));
+          m1 += c; m2 += c * c;
+          dn = min(dn, texture2D(tDepth, vUv + o).x);
+        }
+        m1 /= 9.0;
+        vec3 sg = sqrt(max(m2 / 9.0 - m1 * m1, 0.0));
+        // where this point was last frame (the sky: its direction only)
+        vec4 v = invProj * vec4(vUv * 2.0 - 1.0, min(dn, 0.999999) * 2.0 - 1.0, 1.0);
+        v.xyz /= v.w;
+        vec3 W = (camWorld * vec4(v.xyz, 1.0)).xyz;
+        vec4 pc = prevViewProj * vec4(W, 1.0);
+        vec2 puv = pc.xy / pc.w * 0.5 + 0.5;
+        float keep = valid;
+        if (pc.w <= 0.0 || puv.x < 0.0 || puv.x > 1.0 || puv.y < 0.0 || puv.y > 1.0) keep = 0.0;
+        // last frame's depth there: of this point, or of something else (moved by itself, or uncovered)
+        if (dn < 1.0) {
+          float want = pc.w, lo = 1e9, hi = 0.0;
+          for (int y = 0; y <= 1; y++) for (int x = 0; x <= 1; x++) {
+            float z = texture2D(tPrevDepth, puv + (vec2(float(x), float(y)) - 0.5) * texel).x;
+            lo = min(lo, z); hi = max(hi, z);
+          }
+          float tol = 0.03 * want + 0.05;
+          if (want < lo - tol || want > hi + tol) keep = 0.0;
+        }
+        vec3 n = ycc(tm(cur));
+        if (keep < 0.5) { gl_FragColor = vec4(cur, 1.0); return; }
+        vec3 h = ycc(tm(history(puv)));
+        // clipped toward the neighbourhood's mean, into its box (mean +- 1.25 sigma)
+        vec3 ext = 1.25 * sg + 1e-4, dv = h - m1, u = abs(dv / ext);
+        float mx = max(u.x, max(u.y, u.z));
+        if (mx > 1.0) h = m1 + dv / mx;
+        float px = length((puv - vUv) / texel), a = mix(0.1, 0.35, smoothstep(2.0, 40.0, px));
+        // (something bright that was not there - a spark, a speed line, a muzzle of light: in at once, not averaged
+        // away with the frames before it)
+        float lc = dot(cur, vec3(0.2126, 0.7152, 0.0722)), lh = itm(rgb(h)).g;
+        a = max(a, 0.75 * smoothstep(1.0, 3.0, lc) * smoothstep(2.0, 6.0, lc / max(lh, 1e-3)));
+        gl_FragColor = vec4(itm(rgb(mix(h, n, a))), 1.0);
+      }`);
+    this.copy = quad({ tIn: { value: null } }, /* glsl */`uniform sampler2D tIn; varying vec2 vUv; void main() { gl_FragColor = texture2D(tIn, vUv); }`);
+    this.depthOut = quad({ tDepth: { value: null }, invProj: { value: new THREE.Matrix4() } }, /* glsl */`
+      uniform sampler2D tDepth; uniform mat4 invProj; varying vec2 vUv;
+      void main() {
+        float d = texture2D(tDepth, vUv).x;
+        vec4 v = invProj * vec4(vUv * 2.0 - 1.0, min(d, 0.999999) * 2.0 - 1.0, 1.0);
+        gl_FragColor = vec4(d >= 1.0 ? 1e4 : -v.z / v.w, 0.0, 0.0, 1.0);    // (the view distance along the axis: clip w)
+      }`);
+  }
+
+  setSize(w, h) {
+    if (w === this.w && h === this.h) return;
+    for (const t of [this.histA, this.histB, this.prevDepth]) t.setSize(w, h);
+    this.w = w; this.h = h;
+    this.valid = false;
+  }
+
+  // before the frame is drawn: the camera shifted by this frame's fraction of a pixel (LayeredRenderPass.slice takes the
+  // same shift)
+  jitter() {
+    const cam = this.camera;
+    if (!this.enabled || cam.userData.jitter) return;
+    const hal = (i, b) => { let f = 1, r = 0; while (i > 0) { f /= b; r += f * (i % b); i = Math.floor(i / b); } return r; };
+    this.k = (this.k + 1) % 8;
+    const jx = (hal(this.k + 1, 2) - 0.5) * 2 / this.w, jy = (hal(this.k + 1, 3) - 0.5) * 2 / this.h;
+    this.unjittered.copy(cam.projectionMatrix);
+    this.invUnjittered.copy(cam.projectionMatrixInverse);
+    cam.projectionMatrix.elements[8] += jx;
+    cam.projectionMatrix.elements[9] += jy;
+    cam.projectionMatrixInverse.copy(cam.projectionMatrix).invert();
+    cam.userData.jitter = [jx, jy];
+  }
+
+  unjitter() {
+    const cam = this.camera;
+    if (!cam.userData.jitter) return;
+    cam.projectionMatrix.copy(this.unjittered);
+    cam.projectionMatrixInverse.copy(this.invUnjittered);
+    cam.userData.jitter = null;
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    const cam = this.camera, depth = this.gtao.normalRenderTarget.depthTexture;
+    // the depth is the AO pass's: with the AO off there is none this frame - the picture as drawn, no history
+    const live = this.gtao.enabled && !!cam.userData.jitter;            // (a half-size AO depth serves too)
+    const cp = cam.matrixWorld.elements, moved = this.lastCam ? Math.hypot(cp[12] - this.lastCam[0], cp[13] - this.lastCam[1], cp[14] - this.lastCam[2]) : 0;
+    const turned = this.lastCam ? cp[8] * this.lastCam[3] + cp[9] * this.lastCam[4] + cp[10] * this.lastCam[5] : 1;
+    if (moved > 30 || turned < 0.94 || !live) this.valid = false;     // (a cut: last frame's history is of somewhere else)
+    this.lastCam = [cp[12], cp[13], cp[14], cp[8], cp[9], cp[10]];
+    const u = this.resolve.material.uniforms;
+    u.tCur.value = readBuffer.texture; u.tHist.value = this.histA.texture;
+    u.tDepth.value = depth; u.tPrevDepth.value = this.prevDepth.texture;
+    u.invProj.value.copy(this.invUnjittered); u.camWorld.value.copy(cam.matrixWorld);
+    u.prevViewProj.value.copy(this.prevViewProj);
+    u.texel.value.set(1 / this.w, 1 / this.h);
+    u.valid.value = this.valid ? 1 : 0;
+    renderer.setRenderTarget(this.histB);
+    this.resolve.render(renderer);
+    [this.histA, this.histB] = [this.histB, this.histA];
+    if (live) {
+      const d = this.depthOut.material.uniforms;
+      d.tDepth.value = depth; d.invProj.value.copy(this.invUnjittered);
+      renderer.setRenderTarget(this.prevDepth);
+      this.depthOut.render(renderer);
+    }
+    this.prevViewProj.multiplyMatrices(this.unjittered, cam.matrixWorldInverse);
+    this.valid = live;
+    this.copy.material.uniforms.tIn.value = this.histA.texture;
+    renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+    this.copy.render(renderer);
   }
 }
 

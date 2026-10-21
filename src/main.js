@@ -28,7 +28,7 @@ import { TouchControls, isTouch } from './touch.js';
 import { FX } from './fx.js';
 import { HUD } from './hud.js';
 import { GameAudio } from './audio.js';
-import { agxPass, speedBlurPass, LayeredRenderPass, DeckSSRPass, StreakPass, BloomPass, ResamplePass, ShaftPass, LensWaterPass, GradePass, EngineHeatPass, ShockPass } from './post.js';
+import { agxPass, speedBlurPass, LayeredRenderPass, DeckSSRPass, TAAPass, StreakPass, BloomPass, ResamplePass, ShaftPass, LensWaterPass, GradePass, EngineHeatPass, ShockPass } from './post.js';
 import { Settings, savedSettings } from './settings.js';
 import { Race, Driver } from './race.js';
 import { Menu } from './menu.js';
@@ -444,6 +444,10 @@ async function boot() {
     ssr.setReflector(track.parts.deck);
     composer.addPass(ssr);
   } else ssr.enabled = false;
+  // temporal anti-aliasing (Settings: MSAA 4x + TAA) on the lit picture, before the glows (post.js TAAPass)
+  const taa = new TAAPass(camera, gtao);
+  taa.enabled = false;
+  composer.addPass(taa);
   // light shafts through the gaps of what stands in front of the sun (a map with air: the forest moon)
   const shafts = new ShaftPass();
   composer.addPass(shafts);
@@ -600,6 +604,7 @@ async function boot() {
     gtao.enabled = v.ao;
     canyonAO.value = v.canyonAO ? 1 : 0;
     smaa.enabled = v.aa !== 'msaa';
+    taa.enabled = v.aa === 'taa';
     const samples = v.aa === 'high' ? 8 : v.aa === 'fast' ? 2 : v.aa === 'smaa1' ? 0 : 4;   // the scene's MSAA (a new target when it changes)
     if (scenePass.msaa.samples !== samples) { scenePass.msaa.samples = samples; scenePass.msaa.dispose(); }
     ssr.enabled = !!track && v.ao && v.reflections;
@@ -770,7 +775,7 @@ async function boot() {
   let acc = 0, last = performance.now();
   // the Ship screen's showroom (showroom.js): its studio through the same picture - the scene pass pointed at it, the
   // passes that only belong on a circuit off - and everything put back after
-  const circuitOnly = () => [ssr, shafts, heat, shock, streaks, blur, world.heat, grade, lens].filter(Boolean);
+  const circuitOnly = () => [ssr, taa, shafts, heat, shock, streaks, blur, world.heat, grade, lens].filter(Boolean);
   const drawShowroom = () => {
     showroom.update();
     const keepPass = { sky: scenePass.sky, skyCam: scenePass.skyCam, scene: scenePass.scene, camera: scenePass.camera };
@@ -813,7 +818,8 @@ async function boot() {
     scene.updateMatrixWorld(); shipLook(); world.preRender?.(renderer);
     shock.set(fx.shocks, camera);
     shock.enabled = shock.n > 0;
-    composer.render();
+    taa.jitter();
+    try { composer.render(); } finally { taa.unjitter(); }
   };
   // drawn between the last two physics steps: at 144 Hz a frame got 0, 1 or 2 steps of 8.3 ms, and everything that
   // moves juddered against the camera
