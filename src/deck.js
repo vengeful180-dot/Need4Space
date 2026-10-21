@@ -189,8 +189,8 @@ export function bakeDeckMaps(renderer, res = Q.tier === 'low' ? 2048 : 4096, det
 //   kerb    - from there to 1.6 m: cast blocks 8 mm proud, chamfered, red / white every 4 m with a 1.2 cm gap between,
 //             fine anti-slip grooves across the top, worn through in flecks (more along both edges)
 //   panels  - between the kerbs, an odd number of columns ~5.9 m wide (the middle line on a panel, not a gap); rows 8 m
-//             long, every other column staggered half a row, a third of the panels split in two. Gaps 12 cm wide and 10 cm
-//             deep, their lips chamfered 4 cm and worn bright. A hex bolt (5 cm) near each corner. Each panel its own
+//             long, every other column staggered half a row, a third of the panels split in two. Gaps 20 cm wide and 14 cm
+//             deep, their lips chamfered 5 cm and worn bright. A hex bolt (5 cm) near each corner. Each panel its own
 //             shade and finish, and one of five kinds: armour (its centre inset 2 cm inside a 30 cm border), a vent
 //             (slots across its centre, 4.5 cm deep), a raised plate (its centre 1.5 cm proud, bevelled), tread plate
 //             (raised diamonds) or a round hatch (a 1.1 m lid in a 2 cm groove, eight bolts, a recessed handle)
@@ -232,12 +232,13 @@ RdPanel rdPanel(vec2 m) {
   P.n = n;
   return P;
 }
-// the gap's depth at de from the panel's edge (inside >= 0): the lip chamfered 45 deg over 4 cm, the wall down to 10 cm
-// (12 cm across: at 5 cm the joints read as no gaps at all - "make those gapes bigger and more visible")
+// the gap's depth at de from the panel's edge (inside >= 0): the lip chamfered 45 deg over 5 cm, the wall down to 14 cm
+// (20 cm across: at 5 cm the joints read as no gaps at all - "make those gapes bigger and more visible" - and at 12 cm
+// "this looks like perfectly flat from a distance")
 float rdGap(float de, float f) {
-  float lip = 1.0 - smoothstep(0.06 - 0.5 * f, 0.10 + 0.5 * f, de);
-  float wall = 1.0 - smoothstep(0.06 - 0.5 * f, 0.06 + 0.5 * f, de);
-  return -(0.04 * lip + 0.06 * wall);
+  float lip = 1.0 - smoothstep(0.10 - 0.5 * f, 0.15 + 0.5 * f, de);
+  float wall = 1.0 - smoothstep(0.10 - 0.5 * f, 0.10 + 0.5 * f, de);
+  return -(0.05 * lip + 0.09 * wall);
 }
 float rdHeight(vec2 m, vec2 f, bool fine) {
   float x = clamp(m.x, 0.0, deckW), xe = min(x, deckW - x), yl = mod(m.y, 40.0), fr = max(f.x, f.y), h = 0.0;
@@ -286,7 +287,7 @@ float rdHeight(vec2 m, vec2 f, bool fine) {
       h += 0.002 * (1.0 - smoothstep(0.08, 0.14, min(c.x, c.y))) * (1.0 - smoothstep(0.004, 0.012, fr));
     }
     // a hex bolt near each corner, its head 6 mm proud
-    if (fine) h += 0.006 * rdIn(rdHex(q - (P.hs - 0.15), 0.025), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
+    if (fine) h += 0.006 * rdIn(rdHex(q - (P.hs - 0.24), 0.025), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
   }
   return h;
 }
@@ -329,9 +330,10 @@ vec4 rdSurface(vec2 m, vec2 f, float chip, float broad, out vec2 rm, out float t
     // nearest edge (along the track for the joints across it: those go under a pixel first), and gone to the plain
     // panel once the gap is under about half a pixel - thinner, the joints hopped between pixel rows as the camera
     // crept along ("the road ahead at the distance ... looks like a wave")
-    float fe = P.hs.x - q.x < P.hs.y - q.y ? f.x : f.y, jf = 1.0 - smoothstep(0.1, 0.24, fe);
-    float lip = rdIn(de - 0.10, fe) * (1.0 - rdIn(de - 0.06, fe)) * jf, gap = rdIn(de - 0.06, fe) * jf;
-    rdOver(c, rm, STEEL * (1.15 + 0.35 * chip), vec2(0.45, 0.8), lip * 0.9);
+    float fe = P.hs.x - q.x < P.hs.y - q.y ? f.x : f.y, jf = 1.0 - smoothstep(0.2, 0.45, fe);
+    // (the bright lips fade out once they are under about a pixel - thinner, they glinted; the dark gap stays longer)
+    float lip = rdIn(de - 0.15, fe) * (1.0 - rdIn(de - 0.10, fe)) * jf * (1.0 - smoothstep(0.03, 0.08, fe)), gap = rdIn(de - 0.10, fe) * jf;
+    rdOver(c, rm, STEEL * (1.5 + 0.4 * chip), vec2(0.42, 0.85), lip * 0.95);
     rdOver(c, rm, DARK, vec2(0.6, 0.3), gap);
     if (P.kind == 0.0 || P.kind == 2.0) {
       // the inset's (or the raised plate's) bevel catching the light; the centre a shade apart
@@ -361,7 +363,7 @@ vec4 rdSurface(vec2 m, vec2 f, float chip, float broad, out vec2 rm, out float t
       rdOver(c, rm, STEEL * 1.4, vec2(0.42, 0.8), dia * 0.5);
     }
     // the corner bolts: bare steel
-    float bolt = rdIn(rdHex(q - (P.hs - 0.15), 0.025), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
+    float bolt = rdIn(rdHex(q - (P.hs - 0.24), 0.025), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
     rdOver(c, rm, STEEL * (1.2 + 0.4 * chip), vec2(0.42, 0.85), bolt);
     // the paint: the edge lines and the dashed middle line, chipped
     float pnt = max(rdLine(abs(xe - 1.9), 0.15, f.x), rdLine(abs(x - deckW * 0.5), 0.15, f.x) * rdIn(abs(mod(m.y, 20.0) - 5.0) - 5.0, f.y));

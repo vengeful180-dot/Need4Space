@@ -300,6 +300,11 @@ export function padGeometry() {
   const bar = [[-A - 0.34, L - 0.05], [A + 0.34, L - 0.05], [A + 0.34, L + 0.34], [-A - 0.34, L + 0.34]];
   B.prism([[-A - 0.34, 0], [A + 0.34, 0], [A + 0.34, 0.14], [A + 0.2, 0.17], [-A - 0.2, 0.17], [-A - 0.34, 0.14]], V(1, 0, 0), Y, V(0, 0, -1),
     bar[0][1], bar[2][1], P.frame, { parts: [P.frame, P.frame, P.edge, P.strip, P.edge, P.frame], glowEdges: [3] });
+  // on the bar's ends, the sign's projectors: a housing each, its lens lit on top (padSignGeometry: the light they throw)
+  for (const sx of [-1, 1]) {
+    B.prism([[sx * 4.05 - 0.13, 0.17], [sx * 4.05 + 0.13, 0.17], [sx * 4.05 + 0.13, 0.3], [sx * 4.05 - 0.13, 0.3]], V(1, 0, 0), Y, V(0, 0, -1),
+      L - 0.02, L + 0.28, P.frame, { parts: [P.frame, P.frame, P.strip, P.frame], glowEdges: [2] });
+  }
   // the glass, 5 cm under the rim's top
   top(hole, 0.03, P.glass, 0);
   // the chevron blades, each arm a wedge: its top sloping from the glass at its back up to its front edge (a quad: the
@@ -330,6 +335,54 @@ export function padGeometry() {
     }
   }
   return B.geometry();
+}
+
+// ---- the pad's sign ("the boost pads are also still not visible at all": flat on the deck, a pad is a sliver from the
+// chase camera until it is close): a field of light thrown up by the launch bar's projectors, standing over its front
+// 4.3 m high and as wide as the pad, facing the ships coming - three chevrons rising through it (the way to go is on),
+// the projectors' beams up its sides fading as they rise, scan lines; light only, the ships fly through it. Origin as the
+// pad's (y up, z back)
+export function padSignGeometry() {
+  const g = new THREE.PlaneGeometry(8.1, 4.3).translate(0, 0.3 + 2.15, -8.13);
+  g.setAttribute('sp', new THREE.Float32BufferAttribute(g.attributes.position.array.filter((_, i) => i % 3 !== 2), 2));
+  return g;
+}
+export function padSignMaterial(time, colour = [1.0, 0.42, 0.05]) {
+  const C = colour.map((x) => x.toFixed(3)).join(', ');
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    uniforms: { padTime: time },
+    vertexShader: /* glsl */`
+      attribute vec2 sp; attribute float flash;
+      varying vec2 vP; varying float vFlash;
+      void main() {
+        vP = sp; vFlash = flash;
+        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: /* glsl */`
+      uniform float padTime; varying vec2 vP; varying float vFlash;
+      float band(float d, float w) { float f = max(fwidth(d), 1e-4); return 1.0 - smoothstep(w - f, w + f, d); }
+      void main() {
+        vec3 C = vec3(${C}), HOT = vec3(1.0, 0.86, 0.55);
+        float x = vP.x, ax = abs(x), y = vP.y - 0.3, H = 4.3, v = y / H;
+        // the projectors' beams up the sides, fading as they rise
+        float bx = 4.05 - ax, fb = max(fwidth(bx), 0.02);
+        float beam = exp(-bx * bx / (fb * fb * 2.0 + 0.002)) * 0.04 / (fb + 0.02) * (1.0 - smoothstep(0.0, 0.85, v));
+        // three chevrons rising (^: the way on), each 36 cm thick, its upper edge hot
+        float u = y + 0.6 * ax, c = fract((u - padTime * 1.6) / 1.45), fc = max(fwidth(c), 1e-4);
+        float chev = smoothstep(0.0, fc * 1.5, c) * (1.0 - smoothstep(0.25 - fc * 1.5, 0.25, c)) * (1.0 - smoothstep(3.0, 3.5, ax));
+        float crest = smoothstep(0.12, 0.25, c) * chev;
+        float rise = smoothstep(0.0, 0.15, v) * (1.0 - smoothstep(0.45, 1.0, v)) * (1.0 - smoothstep(2.4, 3.4, ax) * 0.6);
+        // its top edge, scan lines, the field's faint fill; a flicker
+        float top = 0.0;                                    // (no edge round it: light thrown up, not a screen)
+        float sl = mix(0.82 + 0.18 * sin((y - padTime * 0.9) * 104.7), 1.0, smoothstep(0.004, 0.012, fwidth(y)));
+        float fill = 0.06 * (1.0 - v) * (1.0 - v) * smoothstep(4.05, 3.0, ax);
+        float flick = 0.93 + 0.07 * sin(padTime * 41.0 + y * 2.0);
+        vec3 c3 = (C * (chev * 1.6 * rise + fill) + mix(C, HOT, 0.6) * (crest * 1.4 * rise + beam * 2.0 + top * 1.6)) * sl * flick;
+        c3 += mix(C, HOT, 0.5) * vFlash * (0.25 * (1.0 - v) * smoothstep(4.05, 3.0, ax) + chev * rise + beam) * 2.5;
+        gl_FragColor = vec4(c3, 1.0);
+      }`,
+  });
 }
 
 // its material: the rim and plinths dark anodised steel, their chamfers worn bright, a screw every metre along the

@@ -222,6 +222,7 @@ export class DeckSSRPass extends Pass {
     Object.assign(this, { scene, camera, gtao, layer });
     this.strength = 1.0;
     this.wide = 6;                                         // (the last blur's reach, texels of the half-size target)
+    this.gloss = 0.07;                                     // the coating's blur: the reflected ray's spread (rad)
     this.maskRT = new THREE.WebGLRenderTarget(1, 1, { depthTexture: new THREE.DepthTexture(1, 1) });
     const half = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
     this.ssrRT = half();
@@ -251,16 +252,19 @@ export class DeckSSRPass extends Pass {
           if (abs(perspectiveDepthToViewZ(md, near, far) - vz) > 0.25) return;       // something stands on the deck here
           vec3 P = viewPos(vUv, vz), N = normalize(texture2D(tNormal, vUv).xyz * 2.0 - 1.0), V = normalize(P);
           vec3 R = normalize(reflect(V, N));
-          float step = 0.4 + length(P) * 0.01;
-          // interleaved gradient noise, a new pattern each frame: the steps' aliasing becomes noise the history averages
-          float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy + frame * 5.588238, vec2(0.06711056, 0.00583715))));
+          // fine steps growing slowly (they were 2.5x the length, growing 7 % a step: where a hit fell between two of them
+          // the reflection showed bands that slid as the camera moved - "they move in waves"), started a fraction of a
+          // step on by a dither that stays put from frame to frame (a new one each frame was grain the history never
+          // settled while the camera moved)
+          float step = 0.16 + length(P) * 0.004;
+          float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
           vec3 Q = P + N * 0.05 + R * step * jit, prev = Q;
           vec2 hit = vec2(-1.0);
           float t = 0.0, conf = 0.0;
-          for (int i = 0; i < 56; i++) {
+          for (int i = 0; i < 96; i++) {
             prev = Q;
             Q += R * step;
-            step *= 1.07;
+            step *= 1.035;
             vec2 s = project(Q);
             if (s.x < 0.0 || s.x > 1.0 || s.y < 0.0 || s.y > 1.0 || Q.z > -near) break;
             float sz = viewZ(s), diff = sz - Q.z;
@@ -268,12 +272,12 @@ export class DeckSSRPass extends Pass {
             if (diff > 0.0 && diff < thick) {
               conf = 1.0 - smoothstep(0.55, 1.0, diff / thick);    // behind a thin edge: fades, not switches
               vec3 a = prev, b = Q;                         // refine between the last two points
-              for (int k = 0; k < 6; k++) {
+              for (int k = 0; k < 8; k++) {
                 vec3 m = (a + b) * 0.5;
                 if (viewZ(project(m)) > m.z) b = m; else a = m;
               }
               hit = project(b);
-              t = float(i) / 56.0;
+              t = float(i) / 96.0;
               break;
             }
           }
@@ -284,23 +288,28 @@ export class DeckSSRPass extends Pass {
           float rayLen = distance(viewPos(hit, viewZ(hit)), P);
           // ("increase ... reflection distance a bit": the reflection's length 30 -> 55 m, the deck's distance 160 -> 260 m)
           float fade = smoothstep(0.0, 0.12, edge) * (1.0 - smoothstep(0.45, 0.95, t)) * smoothstep(0.3, -0.1, R.z)
-            * exp(-rayLen / 55.0) * (1.0 - smoothstep(100.0, 260.0, -P.z));
+            * exp(-rayLen / 80.0) * (1.0 - smoothstep(140.0, 260.0, -P.z));
+          // ("the reflections on the ground are the most lacking": capped at 16 % of what they showed, the far road at a
+          // grazing angle - where a real deck mirrors most - stayed near black): the coating's Fresnel, 6 % looking down
+          // to ~40 % at a glance
           float F = 0.04 + 0.96 * pow(1.0 - clamp(dot(-V, N), 0.0, 1.0), 5.0);
-          float w = min(F, 0.45) * 0.35 * fade * conf;
+          float w = (0.04 + 0.6 * F) * fade * conf;
           vec3 hc = texture2D(tColor, hit).rgb;
           hc /= 1.0 + dot(hc, vec3(0.2126, 0.7152, 0.0722)) / 5.0;    // a lamp's core reflects, it doesn't sparkle (or bloom)
           gl_FragColor = vec4(hc * w, w > 0.0 ? rayLen : 0.0);         // (alpha: the ray's length, for the history)
         }`,
     }));
-    this.histA = half();
-    this.histB = half();
+    // (with their mip levels: the glossy spread reads each pixel's at the level of its blur)
+    const mipped = () => new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
+    this.histA = mipped();
+    this.histB = mipped();
     this.prevViewProj = new THREE.Matrix4();
     this.frame = 0;
     this.valid = false;
     this.resolve = new FullScreenQuad(new THREE.ShaderMaterial({
       uniforms: { tCur: { value: null }, tHist: { value: null }, tDepth: { value: null }, tMask: { value: null },
         invProj: { value: new THREE.Matrix4() }, camWorld: { value: new THREE.Matrix4() }, prevViewProj: { value: new THREE.Matrix4() },
-        near: { value: 0.1 }, far: { value: 1000 }, texel: { value: new THREE.Vector2() }, blend: { value: 0.9 }, valid: { value: 0 } },
+        near: { value: 0.1 }, far: { value: 1000 }, texel: { value: new THREE.Vector2() }, blend: { value: 0.93 }, valid: { value: 0 } },
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
       fragmentShader: /* glsl */`
         #include <packing>
@@ -331,9 +340,11 @@ export class DeckSSRPass extends Pass {
           vec4 pc = prevViewProj * vec4(Vw, 1.0);
           vec2 puv = pc.xy / pc.w * 0.5 + 0.5;
           if (valid < 0.5 || pc.w <= 0.0 || puv.x < 0.0 || puv.x > 1.0 || puv.y < 0.0 || puv.y > 1.0) { gl_FragColor = cur; return; }
-          vec4 h = texture2D(tHist, puv);
+          vec4 h = textureLod(tHist, puv, 0.0);
           h.rgb = clamp(h.rgb, m1 - 1.5 * sg, m1 + 1.5 * sg);
-          gl_FragColor = vec4(mix(cur.rgb, h.rgb, blend), cur.a);
+          // (the ray's length too, which sets the blur: taken raw, it jumped from frame to frame and the blur with it)
+          float a = cur.a > 0.0 && h.a > 0.0 ? mix(cur.a, h.a, blend) : max(cur.a, h.a);
+          gl_FragColor = vec4(mix(cur.rgb, h.rgb, blend), a);
         }`,
     }));
     this.blur = new FullScreenQuad(new THREE.ShaderMaterial({
@@ -347,11 +358,46 @@ export class DeckSSRPass extends Pass {
           gl_FragColor = c;
         }`,
     }));
-    this.comp = new FullScreenQuad(new THREE.ShaderMaterial({
-      uniforms: { tColor: { value: null }, tSSR: { value: null }, strength: { value: 1 } },
+    // the glossy spread, per pixel: radius r = the ray's length x the coating's spread, seen from the deck's distance
+    // (k: the target's focal length x the spread), read from the history's mip level that is already blurred that
+    // wide, and stretched 3x down the screen by seven taps r apart - each tap a blur r wide, so they overlap. (Thirteen
+    // taps over the full width at the base level were up to 14 texels apart: the reflection came apart into bands that
+    // slid as the camera moved - "they move in waves when camera moves")
+    this.gloss2 = new FullScreenQuad(new THREE.ShaderMaterial({
+      uniforms: { tIn: { value: null }, tDepth: { value: null }, texel: { value: new THREE.Vector2() }, near: { value: 0.1 }, far: { value: 1000 },
+        k: { value: 1 }, maxR: { value: 24 } },
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
-      fragmentShader: /* glsl */`uniform sampler2D tColor, tSSR; uniform float strength; varying vec2 vUv;
-        void main() { vec4 c = texture2D(tColor, vUv); gl_FragColor = vec4(c.rgb + texture2D(tSSR, vUv).rgb * strength, c.a); }`,
+      fragmentShader: /* glsl */`
+        #include <packing>
+        uniform sampler2D tIn, tDepth; uniform vec2 texel; uniform float near, far, k, maxR; varying vec2 vUv;
+        void main() {
+          vec4 c0 = textureLod(tIn, vUv, 0.0);
+          float d = texture2D(tDepth, vUv).x, dist = max(1.0, -perspectiveDepthToViewZ(d, near, far));
+          float len = c0.a > 0.0 ? c0.a : 0.0;
+          float r = clamp(1.5 + len * k / dist, 1.0, maxR);     // (at least 1.5 texels: sharper, the march's noise showed)
+          float lod = log2(r);
+          vec3 sum = vec3(0.0); float ws = 0.0;
+          for (int i = -3; i <= 3; i++) {
+            float y = float(i) / 3.0, w = exp(-y * y * 2.0);
+            sum += textureLod(tIn, vUv + vec2(0.0, y * r * 3.0) * texel, lod).rgb * w; ws += w;
+          }
+          gl_FragColor = vec4(sum / ws, c0.a);
+        }`,
+    }));
+    this.comp = new FullScreenQuad(new THREE.ShaderMaterial({
+      uniforms: { tColor: { value: null }, tSSR: { value: null }, tDepth: { value: null }, tMask: { value: null }, strength: { value: 1 },
+        near: { value: 0.1 }, far: { value: 1000 } },
+      vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`,
+      fragmentShader: /* glsl */`
+        #include <packing>
+        uniform sampler2D tColor, tSSR, tDepth, tMask; uniform float strength, near, far; varying vec2 vUv;
+        void main() {
+          vec4 c = texture2D(tColor, vUv);
+          // (on the deck only: the blurred reflection spread onto the ships' undersides and the walls' feet)
+          float vz = perspectiveDepthToViewZ(texture2D(tDepth, vUv).x, near, far), mz = perspectiveDepthToViewZ(texture2D(tMask, vUv).x, near, far);
+          float deck = 1.0 - smoothstep(0.15, 0.4, abs(mz - vz));
+          gl_FragColor = vec4(c.rgb + texture2D(tSSR, vUv).rgb * strength * deck, c.a);
+        }`,
     }));
   }
 
@@ -425,25 +471,22 @@ export class DeckSSRPass extends Pass {
     [this.histA, this.histB] = [this.histB, this.histA];
     this.prevViewProj.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
     this.valid = true;
+    // the glossy spread: sharp where a reflection meets what it reflects (a hull over the deck), softer the further its
+    // ray went, stretched 3x down the screen (a light on a satin road is a streak); then one small even pass to take
+    // the march's steps off (a blur the same everywhere had turned every reflection into a soft blob)
+    const g = this.gloss2.material.uniforms, fpx = (this.h / 2) / Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+    g.tDepth.value = u.tDepth.value; g.near.value = cam.near; g.far.value = cam.far;
+    g.k.value = this.gloss * fpx;
+    g.tIn.value = this.histA.texture; g.texel.value.set(1 / this.w, 1 / this.h);
+    renderer.setRenderTarget(this.ssrRT); this.gloss2.render(renderer);
     const b = this.blur.material.uniforms;
-    b.tIn.value = this.histA.texture; b.dir.value.set(1 / this.w, 0);
+    b.tIn.value = this.ssrRT.texture; b.dir.value.set(1 / this.w, 0);
     renderer.setRenderTarget(this.blurRT); this.blur.render(renderer);
     b.tIn.value = this.blurRT.texture; b.dir.value.set(0, 1 / this.h);
     renderer.setRenderTarget(this.ssrRT); this.blur.render(renderer);
-    b.tIn.value = this.ssrRT.texture; b.dir.value.set(2.5 / this.w, 0);
-    renderer.setRenderTarget(this.blurRT); this.blur.render(renderer);
-    b.tIn.value = this.blurRT.texture; b.dir.value.set(0, 2.5 / this.h);
-    renderer.setRenderTarget(this.ssrRT); this.blur.render(renderer);
-    // and a wider one: a satin deck's reflection is soft, and what a fast camera's rays pick up differently from frame
-    // to frame (an edge, a lamp, a gate's arch) spreads out instead of flickering
-    for (const k of this.wide ? [this.wide] : []) {
-      b.tIn.value = this.ssrRT.texture; b.dir.value.set(k / this.w, 0);
-      renderer.setRenderTarget(this.blurRT); this.blur.render(renderer);
-      b.tIn.value = this.blurRT.texture; b.dir.value.set(0, k / this.h);
-      renderer.setRenderTarget(this.ssrRT); this.blur.render(renderer);
-    }
     const c = this.comp.material.uniforms;
     c.tColor.value = readBuffer.texture; c.tSSR.value = this.ssrRT.texture; c.strength.value = this.strength;
+    c.tDepth.value = u.tDepth.value; c.tMask.value = this.maskRT.depthTexture; c.near.value = cam.near; c.far.value = cam.far;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.comp.render(renderer);
   }

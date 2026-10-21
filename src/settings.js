@@ -10,7 +10,7 @@ export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: tru
   damage: true, shipBlast: true, slamCam: true, shockwaves: true, rivalMix: 'mixed',
   deckLight: true, hullShadows: true, engineFaces: 'dark', shipPaint: 'gloss', shipTrim: 'dark', shipAccents: true,
   seaLife: true, seaReflect: true, oceanStorm: true, shipWet: true, kraken: true, oceanRain: true, oceanPillars: true, xrScale: 0.8,
-  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true, roadRelief: true, taaSharp: 0.8, trackShadows: 'baked' };
+  pilots: true, netPing: true, netChat: true, netCount: true, globalChat: true, slamNote: true, umbraAura: true, umbraTime: true, umbraArcs: true, pyrRuins: true, pyrTomb: true, pyrShadows: true, hyperBoost: true, roadRelief: true, taaSharp: 0.8, trackShadows: 'baked', padSign: true, barrierGlow: true };
 // Graphics quality presets ("low, which would be laptop, balanced in between, and high the actual default"): each sets
 // the rows below at once; a row changed by hand afterwards shows the preset as Custom. Low is Laptop mode (quality.js:
 // the lite shaders and fewer lights as well - tested on a Core Ultra 5 235U; the render scale stays at 100 %), High
@@ -64,6 +64,8 @@ const ROWS = [
   ['bloom', 'Bloom', [[true, 'On'], [false, 'Off']]],
   ['reflections', 'Deck reflections (needs AO)', [[true, 'On'], [false, 'Off']]],
   ['roadRelief', 'Road relief (depth in its seams, gutters and joints)', [[true, 'On'], [false, 'Off']]],
+  ['padSign', 'Boost pad signs', [[true, 'On'], [false, 'Off']]],
+  ['barrierGlow', 'Barrier glow on the road', [[true, 'On'], [false, 'Off']]],
   ['streaks', 'Light streaks', [[true, 'On'], [false, 'Off']]],
   ['blur', 'Speed blur', [[true, 'On'], [false, 'Off']]],
   ['shafts', 'Light shafts (forest moon, ice planet, desert)', [[true, 'On'], [false, 'Off']]],

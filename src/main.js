@@ -647,6 +647,8 @@ async function boot() {
     if (scenePass.msaa.samples !== samples) { scenePass.msaa.samples = samples; scenePass.msaa.dispose(); }
     ssr.enabled = !!track && v.ao && v.reflections;
     if (track?.deckU) track.deckU.deckRelief.value = v.roadRelief !== false ? 1 : 0;   // the deck's built detail in depth
+    if (track?.parts?.pads[1]) track.parts.pads[1].visible = v.padSign !== false;      // the boost pads' signs of light
+    if (track?.deckU) track.deckU.deckMirror.value = v.barrierGlow !== false ? 1 : 0;   // the barriers mirrored in the deck
     streaks.enabled = v.streaks;
     shafts.enabled = !!world.lightShafts && v.shafts !== false;
     lens.allowed = v.lensWater !== false;

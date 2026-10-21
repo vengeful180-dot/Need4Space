@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clamp, damp, smoothstep, mulberry32, noise2, fbm } from './noise.js';
 import { bakeDeckMaps, DECK_LAYOUT } from './deck.js';
-import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial, pylonGeometry, pilasterGeometry, ventGeometry } from './fittings.js';
+import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial, padSignGeometry, padSignMaterial, pylonGeometry, pilasterGeometry, ventGeometry } from './fittings.js';
 import { Q } from './quality.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { rockMaterial } from './rock.js';
@@ -118,7 +118,7 @@ const SPECULAR_AA = /* glsl */`
   }`;
 
 // The deck's first lines in main() (deck.js DECK_LAYOUT): where the view ray meets the deck. With Settings "Road relief",
-// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -10.5 cm; 8 steps looking
+// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -14.5 cm; 8 steps looking
 // down, up to 28 grazing, then the crossing interpolated), its reach eased out from 30 m so nothing pops; past that, or
 // switched off, the surface itself; the crossing refined by halving between the last two steps. There the deck's maps are read (with the surface's own gradients - the meeting point
 // jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
@@ -142,8 +142,8 @@ const DECK_MARCH = /* glsl */`
         float vz = dot(V, n);
         vec2 o = -vec2(dot(V, gx), dot(V, gy)) / max(vz, 0.12) * (1.0 - smoothstep(30.0, 48.0, dist));
         int N = int(mix(28.0, 8.0, clamp(vz, 0.0, 1.0)));
-        float dz = 0.114 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
-        mh = m0 + o * 0.105;
+        float dz = 0.154 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
+        mh = m0 + o * 0.145;
         for (int i = 1; i <= 28; i++) {
           if (i > N) break;
           float z = 0.009 - dz * float(i), d = z - rdHeight(m0 - o * z, rdFw, false);
@@ -871,7 +871,7 @@ export class Track {
     // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
     // deckSheen: the plates' reflection at a glancing angle (1: a plain dielectric's)
-    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckSheen: { value: 0.3 } };
+    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckSheen: { value: 0.3 }, deckMirror: { value: 1 } };
     const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.5 });
     const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
       `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
@@ -884,7 +884,7 @@ export class Track {
         .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
-          'uniform float deckRelief, deckSheen;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
+          'uniform float deckRelief, deckSheen, deckMirror;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT + TRACK_SUN_GLSL)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
   diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
@@ -911,6 +911,30 @@ export class Track {
 // deck: after normal`))
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += rdEmit;   // (the light inlays)\n'
           + '  staticSun = trackSun((vRdUv.x - 0.5) * deckW, 0.0, vRdUv.y * 40.0);   // (the fittings\' baked shadows)')
+        // the barriers' glow mirrored in the deck. They are light, not in the depth the screen-space reflections march,
+        // so they never showed in them, and the far road - where a deck at a glance mirrors most - looked dull ("the
+        // reflections on the ground are the most lacking"). The reflected ray is followed to the barrier's plane on the
+        // side it goes to and lit where it meets the field (over the wall and coping up to its top), its top edge and
+        // its emitters' beams every 16 m brighter; the coating blurs it more the further the ray goes; Fresnel weights it.
+        // Exact for a straight stretch; faded over 35 m of ray (where the track bends away, and so it lies along the walls).
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+  #ifdef USE_NORMALMAP_TANGENTSPACE
+  {
+    // (off the deck's plane, not the bevels' and the grain's normals: off those every pixel saw another spot - it glinted)
+    vec3 Vv = normalize(vViewPosition), Nn = normalize(tbn[2]), Rr = reflect(-Vv, Nn);
+    float ra = dot(Rr, normalize(tbn[0])), ru = dot(Rr, normalize(tbn[2])), rz = dot(Rr, normalize(tbn[1]));
+    float x = (vRdUv.x - 0.5) * deckW, dx = ${(WALL_T * 0.5).toFixed(2)} + 0.5 * deckW - sign(ra) * x;
+    float t = dx / max(abs(ra), 1e-3), h = ru * t, soft = 0.1 + 0.05 * t;
+    float lo = ${(WALL_H + COPE).toFixed(2)}, hi = ${FIELD_H.toFixed(2)};
+    float lit = smoothstep(lo - soft, lo + soft, h) * (1.0 - smoothstep(hi - soft, hi + soft, h));
+    float tw = 0.06 + 0.03 * t, tq = (h - hi) / tw, top = exp(-tq * tq) * 0.04 / tw;
+    float along = vRdUv.y * 40.0 + rz * t, dp = abs(mod(along, 16.0) - 8.0), bw = 0.3 + 0.03 * t;
+    float beam = exp(-dp * dp / (bw * bw)) * 0.2 / bw;
+    float F = 0.04 + 0.96 * pow(1.0 - clamp(dot(Vv, Nn), 0.0, 1.0), 5.0);
+    float k = (lit * (0.16 + beam) + top) * F * step(0.0, ru) * exp(-t / 35.0) * (1.0 - deckFlat) * deckMirror;
+    totalEmissiveRadiance += vec3(${g3(TH.field)}) * k;
+  }
+  #endif`)
         // the plates' coating reflects at deckSheen of a plain dielectric's strength (a dull, dusty finish: looking toward
         // a low sun the whole deck turned silver-white - "the sun reflection is too powerful"); the bare steel, and a
         // theme's puddles, in full
@@ -2040,7 +2064,14 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     });
     im.receiveShadow = true;
     im.frustumCulled = false;
-    return [im];
+    // and its sign of light standing over the front (Settings "Boost pad signs")
+    const sg = padSignGeometry();
+    sg.setAttribute('flash', this.padFlashA);
+    const sign = new THREE.InstancedMesh(sg, padSignMaterial(this.padTime), n);
+    for (let k = 0; k < n; k++) { im.getMatrixAt(k, M); sign.setMatrixAt(k, M); }
+    sign.frustumCulled = false;
+    sign.renderOrder = 3;
+    return [im, sign];
   }
 
   padFlash(i) { this.padFlashA.array[i] = 1; }
