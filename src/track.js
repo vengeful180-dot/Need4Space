@@ -21,6 +21,7 @@ const DECK = 1.8;                    // deck thickness
 const WALL_H = 1.2, WALL_T = 0.7;    // solid wall
 const FIELD_H = 5.0;                 // energy barrier top
 const COPE = 0.08;                   // the wall's coping (its cap) over the wall's top
+const PYLON_EVERY = 8;               // the energy barrier's emitters: every 8 frames, from frame 4
 const GANTRY_EVERY = 300;            // m
 
 // The circuit, as control points: x, y, z (m) and bank (deg, + = right edge down, eased the short way round between
@@ -293,10 +294,10 @@ function speckle(g, w, h, n, cols, size, seed = 7) {
 // energy running along it every 160 m; brighter where a ship is near.
 // A blow on it (Track.fieldHit: "make the fields react when hit, cool animation", then "barely visible and very boring"):
 // tracked in the barrier's own metres along the lap, so it rides beside the ship that struck it round every bend (at
-// speed the point of contact was behind the chase camera in a tenth of a second). A shockwave tears out from the ship
-// at 30 m/s - on a barrier 3.7 m tall, a bright band racing ahead along the wall and one falling behind - bending the
-// cells as it passes; a white-hot core beside the ship; behind it a trail of cells flashing on and fading, their edges
-// crackling (each edge flickering on its own clock). Each side has its own material: a blow lights its own wall.
+// speed the point of contact was behind the chase camera in a tenth of a second). A swell spreads out round the ship
+// to 4.5 m and stays with it, bending the cells at its rim; a white-hot core beside the ship; behind it a trail of
+// cells flashing on and fading, their edges crackling (each edge flickering on its own clock). Each side has its own
+// material: a blow lights its own wall.
 // shared: { time, shipPos } uniform objects, the same for both sides
 function fieldMaterial(shared) {
   return new THREE.ShaderMaterial({
@@ -325,16 +326,19 @@ function fieldMaterial(shared) {
         const float HF = ${(FIELD_H - WALL_H - COPE).toFixed(2)};
         float h = vUv.y, al = mod(vUv.x, 4800.0), alr = vUv.x;      // 0 at the coping, 1 at the top; metres along
         vec2 p = vec2(al, h * HF);
-        // the blows: the shockwave round each one's centre now (it rides along with the ship, metres along the lap)
+        // the blows: each one's swell round its centre now (it rides along with the ship, metres along the lap) - out to
+        // 4.5 m within half a second and no further, lit right through to its brighter rim: one glow wrapped round the
+        // ship (a ring running on ahead of it came apart from the rest)
         float ring = 0.0;
         vec2 bend = vec2(0.0);
         for (int k = 0; k < 8; k++) {
           float age = time - hits[k].w;
           if (age < 0.0 || age > 2.6) continue;
           vec2 d = vec2(alr - (hits[k].x + hits[k].y * age), p.y - 0.3);
-          float L = length(d), rq = (L - (1.0 + age * 9.0)) / 1.4, w = exp(-rq * rq) * exp(-age * 1.8) * (1.0 - smoothstep(1.2, 2.6, age)) * hitS[k];
-          ring += w;
-          bend += d / max(L, 0.01) * w * 0.35;                  // (the cells pushed out by the wave)
+          float L = length(d), R = 1.0 + 3.5 * (1.0 - exp(-age * 5.0)), rq = (L - R) / 0.9, rim = exp(-rq * rq);
+          float w = exp(-age * 1.2) * (1.0 - smoothstep(1.2, 2.6, age)) * hitS[k];
+          ring += (rim + 0.45 * (1.0 - smoothstep(R - 0.6, R + 0.6, L))) * w;
+          bend += d / max(L, 0.01) * rim * w * 0.35;            // (the cells pushed out at its rim)
         }
         vec2 pb = p - bend;
         vec3 c1 = hexCell(pb / 0.9), c2 = hexCell((pb + vec2(0.0, time * 0.25)) / 0.35);
@@ -1101,7 +1105,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     out.gates = this.lightGates();
     out.towers = this.L.towers ? this.towers(metal) : [];
     out.cave = this.L.meteor ? this.cave() : [];
-    // the energy barriers (after the gantries and the lamps: they stand clear of them) and their emitters
+    // the energy barriers and their emitters (after the gantries: the emitters keep clear of their pillars)
     out.fields = this.fields();
     out.pylons = this.fieldPylons();
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
@@ -1744,22 +1748,34 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   // connected to anything"): each pillar on a base plate bolted to the wall top, its foot clamped down the outside
   // of the wall and the deck's side, tapered, with a light strip on its inner face; a truss beam (two chords, posts,
   // diagonals) across the top carrying a light bar. The first one (the start) is lit red.
+  // The energy barrier runs on through each pillar: a slot 30 cm wide up the pillar's foot to over the barrier's top,
+  // the pillar standing on two legs either side of it, each on its own base plate, the emitters lit down the slot's
+  // mouths and along its roof.
   gantries() {
     const X = this.W / 2 + WALL_T / 2, E = this.W / 2 + WALL_T, TOP = 15.3, BOT = 13.6;
+    const FOOT = WALL_H + COPE + 0.25, SLOT = FIELD_H + 0.3, MID = WALL_H + 6.45;     // (the plates' top, the slot's roof, the lower pillar's top)
     const box = (w, h, d, x, y, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
     const strut = (a, b, w) => {
       const dir = b.clone().sub(a), len = dir.length(), g = new THREE.BoxGeometry(w, len, w);
       g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize()));
       return g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
     };
-    const frame = [], glow = [];
+    const frame = [], glow = [], emit = [];
     for (const sd of [-1, 1]) {
-      frame.push(box(1.5, 0.25, 3.2, sd * X, WALL_H + 0.125));                         // base plate on the wall top
-      frame.push(box(0.5, DECK + WALL_H + 0.2, 2.6, sd * (E + 0.25), (WALL_H - DECK) / 2)); // clamp down the outside
-      frame.push(box(1.3, 6.2, 1.7, sd * X, WALL_H + 0.25 + 3.1));                      // pillar, lower
-      frame.push(box(1.0, 6.4, 1.35, sd * X, WALL_H + 0.25 + 6.2 + 3.2));               // pillar, upper
+      for (const o of [-1, 1]) {
+        const x = sd * X + o * 0.45;
+        frame.push(box(0.6, 0.25, 3.2, x, FOOT - 0.125));                               // base plate on the coping
+        frame.push(box(0.5, SLOT - FOOT, 1.7, sd * X + o * 0.4, (SLOT + FOOT) / 2));     // leg
+        // (an emitter strip down each leg's front and back, beside the slot)
+        for (const z of [-1, 1]) emit.push(box(0.06, SLOT - FOOT - 0.3, 0.03, sd * X + o * 0.2, (SLOT + FOOT) / 2, z * 0.86));
+      }
+      emit.push(box(0.06, 0.03, 1.6, sd * X, SLOT - 0.005));                            // and along the slot's roof
+      frame.push(box(0.5, DECK + WALL_H + COPE + 0.1, 2.6, sd * (E + 0.25), (WALL_H + COPE - DECK - 0.1) / 2)); // clamp down the outside
+      frame.push(box(1.3, MID - SLOT, 1.7, sd * X, (MID + SLOT) / 2));                  // pillar, lower, over the slot
+      frame.push(box(1.0, 6.4, 1.35, sd * X, MID + 3.2));                               // pillar, upper
       frame.push(box(1.7, 0.5, 2.0, sd * X, BOT - 0.25));                               // the beam's seat
-      glow.push(box(0.1, 9.5, 0.28, sd * (X - 0.66), WALL_H + 5.5));                    // light strip, inner face
+      // light strips on the inner faces, lower and upper pillar (one strip ran on 16 cm off the narrower upper one)
+      for (const [y0, y1, x] of [[FOOT + 0.4, MID - 0.25, X - 0.66], [MID + 0.25, 11.45, X - 0.51]]) glow.push(box(0.1, y1 - y0, 0.28, sd * x, (y0 + y1) / 2));
     }
     const span = 2 * X, bays = 10;
     frame.push(box(span + 1.0, 0.6, 1.2, 0, TOP));                                      // top chord
@@ -1785,16 +1801,18 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     }
     const fm = new THREE.InstancedMesh(merge(frame), new THREE.MeshStandardMaterial({ color: 0x5a616b, roughness: 0.5, metalness: 0.65 }), this.gantryIdx.length);
     const gm = new THREE.InstancedMesh(merge(glow), new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.gantry) }), this.gantryIdx.length);
+    const em = new THREE.InstancedMesh(merge(emit), new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.field).multiplyScalar(2.5) }), this.gantryIdx.length);
     const M = new THREE.Matrix4();
     this.gantryIdx.forEach((i, k) => {
       this.basisAt(i, M);
       fm.setMatrixAt(k, M);
       gm.setMatrixAt(k, M);
+      em.setMatrixAt(k, M);
       gm.setColorAt(k, k === 0 ? new THREE.Color(2.6, 0.25, 0.2) : new THREE.Color(1, 1, 1));
     });
     fm.castShadow = true;
     fm.receiveShadow = true;
-    return [fm, gm];
+    return [fm, gm, em];
   }
 
   // the start / finish line: a band of checks across the deck
@@ -1893,23 +1911,16 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return im;
   }
 
-  // the energy barriers over both walls (fieldMaterial; a material each: a blow lights its own side). Each stops 2 m
-  // short of every gantry and of every lamp post on its side and starts again 2 m past it - a gap round what stands on
-  // the coping, both ends lit (it ran straight through them); over a cut in the deck it stops too. endD: metres along
-  // to the nearest end (its glow)
+  // the energy barriers over both walls (fieldMaterial; a material each: a blow lights its own side), running on
+  // through the gantries' pillars (a slot up each one's foot: gantries()) and in front of the lamp posts; over a cut in
+  // the deck they stop, both ends lit. endD: metres along to the nearest end (its glow)
   fields() {
     const shared = { time: { value: 0 }, shipPos: { value: new THREE.Vector3() } };
     this.fieldMats = [fieldMaterial(shared), fieldMaterial(shared)];
     this.fieldMat = this.fieldMats[0];
-    const W = this.W / 2, n = this.n, solid = this.solid;
+    const W = this.W / 2, n = this.n, mask = this.solid;
     return [-1, 1].map((s, k) => {
-      const mask = solid.slice();
-      const cut = (i) => { for (const j of [i - 1, i]) mask[((j % n) + n) % n] = false; };
-      for (const g of this.gantryIdx || []) cut(g);
-      for (const l of this.lampAt || []) if (l.side === s) cut(l.i);
-      this.solid = mask;
       const g = this.sweep([[s * (W + WALL_T * 0.5), WALL_H + COPE, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
-      this.solid = solid;
       // u along the track for the hex pattern: swap the sweep's (u, v) so x runs along the track
       const uv = g.attributes.uv;
       for (let i = 0; i < uv.count; i++) { const a = uv.getX(i), b = uv.getY(i); uv.setXY(i, b, a); }
@@ -1933,20 +1944,18 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     });
   }
 
-  // the energy barrier's emitters on the coping every 16 m, both sides (fittings.js): not where a lamp post or a
-  // gantry stands (the barrier has a gap there), nor over a cut
+  // the energy barrier's emitters on the coping every 16 m, both sides (fittings.js): not within a frame of a gantry
+  // (its pillar's slot is the emitter there), nor over a cut
   fieldPylons() {
-    const every = 8, n = Math.ceil(this.n / every) * 2, X = this.W / 2 + WALL_T / 2, gEvery = Math.round(GANTRY_EVERY / this.step);
+    const every = PYLON_EVERY, n = Math.ceil(this.n / every) * 2, X = this.W / 2 + WALL_T / 2;
     this.pylonTime = { value: 0 };
     const im = new THREE.InstancedMesh(pylonGeometry(FIELD_H - WALL_H - COPE + 0.2), fittingMaterial('pylon', TH.field, this.pylonTime), n);
-    const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI), lampEvery = Math.round(60 / this.step);
+    const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
     let k = 0;
     for (let i = 4; i < this.n; i += every) {
       if (this.inGap(i * this.step, 4)) continue;
-      if ((this.gantryIdx || []).some((g) => Math.abs(((i - g) % this.n + this.n * 1.5) % this.n - this.n / 2) < 4)) continue;
+      if ((this.gantryIdx || []).some((g) => Math.abs(((i - g) % this.n + this.n * 1.5) % this.n - this.n / 2) < 2)) continue;
       for (const side of [-1, 1]) {
-        const li = Math.round(i / lampEvery);
-        if (Math.abs(i - li * lampEvery) < 2 && side === (li % 2 ? 1 : -1)) continue;
         this.basisAt(i, M);
         M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H + COPE));
         if (side < 0) M.multiply(turn);
@@ -1959,21 +1968,23 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   }
 
   // lamp posts on the walls every 60 m (alternating sides), each built like a street light (fittings.js): a bolted base
-  // plate with gussets, a tapered post, a curved arm out over the track and a finned head, its LED diffuser underneath
+  // plate with gussets, a tapered post, a curved arm out over the track and a finned head, its LED diffuser underneath.
+  // Each stands on the coping's outer half, 20 cm behind the energy barrier (its arm reaches over the barrier's top),
+  // and a frame or two along from where it would meet an emitter (fieldPylons)
   lampPosts() {
     const every = Math.round(60 / this.step), n = Math.floor(this.n / every);
-    const X = this.W / 2 + WALL_T / 2;
+    const X = this.W / 2 + WALL_T / 2 + 0.2;
     const mm = new THREE.InstancedMesh(lampGeometry(), fittingMaterial('lamp', TH.lamp), n);
     const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
     let used = 0;
     for (let k = 0; k < n; k++) {
-      const i = k * every, side = k % 2 ? 1 : -1;
+      const d = ((k * every - 4) % PYLON_EVERY + PYLON_EVERY) % PYLON_EVERY;
+      const i = k * every + (d < 2 ? 2 - d : d > PYLON_EVERY - 2 ? PYLON_EVERY - 2 - d : 0), side = k % 2 ? 1 : -1;
       if (this.inGap(i * this.step, 6) || this.inLoop(i * this.step, 10) || this.inTunnel(i * this.step, 5) || this.inCave(i * this.step, 20) || this.inCanopy(i * this.step, 8)) continue;
       this.basisAt(i, M);
       M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H + COPE));
       if (side < 0) M.multiply(turn);                   // (turned round, not mirrored: see the towers)
       mm.setMatrixAt(used++, M);
-      (this.lampAt ||= []).push({ i, side });
     }
     mm.count = used;
     mm.castShadow = mm.receiveShadow = true;

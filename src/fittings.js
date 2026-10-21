@@ -125,12 +125,10 @@ export function studGeometry() {
 export const LAMP = { plate: 0, post: 1, arm: 2, head: 3, fin: 4, reflector: 5, lens: 6 };
 export function lampGeometry() {
   const B = new Builder(), P = LAMP, X = V(1, 0, 0), Y = V(0, 1, 0), Z = V(0, 0, 1);
-  // the base plate (44 x 44 cm, 3 cm), four gussets welded between it and the post
-  B.prism([[-0.22, 0], [0.22, 0], [0.22, 0.03], [-0.22, 0.03]], X, Y, Z, -0.22, 0.22, P.plate);
-  for (let k = 0; k < 4; k++) {
-    const a = (k / 4) * Math.PI * 2 + Math.PI / 4, out = V(Math.cos(a), 0, Math.sin(a)), side = V(-Math.sin(a), 0, Math.cos(a));
-    B.prism([[0.09, 0.03], [0.2, 0.03], [0.09, 0.2]], out, Y, side, -0.008, 0.008, P.plate);
-  }
+  // the base plate (26 cm across, 44 along, 3 cm: it stands on the coping's outer half, behind the energy barrier), a
+  // gusset welded between it and the post fore and aft
+  B.prism([[-0.13, 0], [0.13, 0], [0.13, 0.03], [-0.13, 0.03]], X, Y, Z, -0.22, 0.22, P.plate);
+  for (const sz of [-1, 1]) B.prism([[0.09, 0.03], [0.2, 0.03], [0.09, 0.2]], V(0, 0, sz), Y, V(-sz, 0, 0), -0.008, 0.008, P.plate);
   // the post, tapered; a collar at its top, capped round the arm that rises out of it
   B.tube(0.11, 0.03, 0.075, 3.9, 16, P.post);
   B.tube(0.095, 3.86, 0.095, 4.0, 16, P.arm);
@@ -138,18 +136,19 @@ export function lampGeometry() {
   // the arm: up out of the collar and over toward the track in a curve, on to the head rising a little, into its end
   const path = [];
   for (let k = 0; k <= 8; k++) { const a = (k / 8) * Math.PI / 2; path.push(V(-0.55 * (1 - Math.cos(a)), 3.95 + 0.48 * Math.sin(a), 0)); }
-  path.push(V(-1.0, 4.455, 0), V(-1.3, 4.455, 0));
+  path.push(V(-1.2, 4.455, 0), V(-1.5, 4.455, 0));
   B.pipe(path, 0.045, 12, P.arm);
   // the head: a chamfered housing 1 m long, open below, its diffuser 2 cm up inside the rim, reflector walls round it
-  // (profile across it in z-y, swept along -x: edge 2 the diffuser, 1 and 3 the reflector walls)
+  // (profile across it in z-y, swept along -x: edge 2 the diffuser, 1 and 3 the reflector walls). It hangs 1.35 m in
+  // from the post (the post stands 20 cm behind the barrier: the light lands where it did)
   const yb = 4.38;
   const prof = [[-0.16, 0], [-0.13, 0], [-0.12, 0.02], [0.12, 0.02], [0.13, 0], [0.16, 0], [0.16, 0.08], [0.12, 0.13],
     [-0.12, 0.13], [-0.16, 0.08]].map(([z, y]) => [z, y + yb]);
   const parts = prof.map((_, i) => (i === 2 ? P.lens : i === 1 || i === 3 ? P.reflector : P.head));
-  B.prism(prof, Z, Y, X, -1.95, -0.95, P.head, { parts, glowEdges: [2] });
+  B.prism(prof, Z, Y, X, -2.15, -1.15, P.head, { parts, glowEdges: [2] });
   // the cooling fins along its top: 6 mm thick, 3 cm tall, every 12 cm
   for (let k = 0; k < 8; k++) {
-    const x = -1.03 - k * 0.12;
+    const x = -1.23 - k * 0.12;
     B.prism([[-0.12, yb + 0.13], [0.12, yb + 0.13], [0.11, yb + 0.16], [-0.11, yb + 0.16]], Z, Y, X, x - 0.003, x + 0.003, P.fin);
   }
   return B.geometry();
@@ -225,7 +224,7 @@ uniform float ftTime;`)
     if (pt == 0 || pt == 1) {
       ftCol = vec3(0.16, 0.17, 0.18); ftRough = 0.55; ftMetal = 0.5;
       if (pt == 0) {
-        float bolt = ftIn(ftHex(abs(vFit.xz) - vec2(0.17), 0.016)) * step(0.029, vFit.y);
+        float bolt = ftIn(ftHex(abs(vFit.xz) - vec2(0.07, 0.17), 0.016)) * step(0.029, vFit.y);
         ftCol = mix(ftCol, vec3(0.34, 0.35, 0.36), bolt); ftRough = mix(ftRough, 0.35, bolt);
       } else {
         vec2 d = vec2(atan(vFit.z, vFit.x) * length(vFit.xz), vFit.y - 0.75);
@@ -237,7 +236,7 @@ uniform float ftTime;`)
     else if (pt == 5) { ftCol = vec3(0.85, 0.85, 0.86); ftRough = 0.12; ftMetal = 1.0; }
     else {
       ftCol = vec3(0.03); ftRough = 0.2; ftMetal = 0.0;
-      vec2 c = vec2((fract((vFit.x + 0.95) / 0.125) - 0.5) * 0.125, (fract((vFit.z + 0.12) / 0.12) - 0.5) * 0.12);
+      vec2 c = vec2((fract((vFit.x + 1.15) / 0.125) - 0.5) * 0.125, (fract((vFit.z + 0.12) / 0.12) - 0.5) * 0.12);
       ftEmit = (0.55 + 2.6 * exp(-dot(c, c) / (0.022 * 0.022))) * vGlow;
     }`}
     diffuseColor.rgb = ftCol;
