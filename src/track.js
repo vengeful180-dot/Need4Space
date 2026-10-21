@@ -26,6 +26,8 @@ const PYLON_EVERY = 8;               // the energy barrier's emitters: every 8 f
 const WALL_PUSH = { psi: 0.035, v: 2.5 };   // the barrier pushing a ship off: its nose at least this far from the wall's line (rad), off at this (m/s)
 export const WALL_PROFILE = { h: WALL_H + COPE, t: WALL_T };   // (the walls up to the coping's top, their thickness: trackshadow.js)
 const GANTRY_EVERY = 300;            // m
+const CHUNK_M = 128;                 // the lap-long meshes drawn in stretches this long, only those in view (cullChunks)
+const PIECE_M = 2000;                // the lap's instanced fittings cut into pieces this long, each culled by itself (pieces)
 
 // The circuit, as control points: x, y, z (m) and bank (deg, + = right edge down, eased the short way round between
 // points). Named points carry the features: the gaps follow the two crests (a kicker throws the ship over the cut),
@@ -96,16 +98,6 @@ export function layout(points, rest) {
   const ctrl = [], at = {};
   for (const [x, y, z, bank = 0, name = null] of points) { if (name) at[name] = ctrl.length; ctrl.push([x, y, z, bank]); }
   return { ctrl, at, loops: [], gaps: [], tunnels: [], caves: [], pads: [], gates: [], flips: [], blocks: [], towers: false, meteor: false, ...rest };
-}
-
-function mergeTwo(a, b) {
-  const g = new THREE.BufferGeometry(), A = a.toNonIndexed(), B = b.toNonIndexed();
-  for (const k of ['position', 'normal', 'uv']) {
-    const x = A.attributes[k], y = B.attributes[k], arr = new Float32Array(x.array.length + y.array.length);
-    arr.set(x.array); arr.set(y.array, x.array.length);
-    g.setAttribute(k, new THREE.BufferAttribute(arr, x.itemSize));
-  }
-  return g;
 }
 
 // Geometric specular anti-aliasing (Kaplanyan & Hoffman 2016): the normal's variation inside a pixel widens the
@@ -201,6 +193,11 @@ function sideSection(s, W, pts, smooth = false) {
   m.forEach((p, k) => { if (p[5] === 'cut') r[m.length - 2 - k][5] = 'cut'; });
   return r;
 }
+// sections swept as one, nothing joining them (a cut after each but the last): both sides of the track in one mesh, a
+// draw where there were two
+const joined = (...secs) => secs.flatMap((s, k) => (k < secs.length - 1 ? [...s.slice(0, -1), [...s[s.length - 1].slice(0, 5), 'cut']] : s));
+// both walls' sections at once (sideSection)
+const bothSides = (W, pts, smooth = false) => joined(sideSection(-1, W, pts, smooth), sideSection(1, W, pts, smooth));
 // a round profile on the wall: centre o out from it at height y, radius r, n sides (smooth: o, y, u, normal o, y)
 function conduitRing(o, y, r, n) {
   const pts = [];
@@ -778,7 +775,7 @@ export class Track {
 
   // a ribbon of cross-section points swept along the track: section = [[x, y, u], ...], normals per segment side
   sweep(section, vScale, closeLoop = true) {
-    const pos = [], nrm = [], uv = [], trk = [], idx = [], n = this.n, m = section.length;
+    const pos = [], nrm = [], uv = [], trk = [], idx = [], n = this.n, m = section.length, B = this.chunkFrames(), starts = [];
     for (let i = 0; i <= n; i++) {
       const k = i % n, P = this.P[k], U = this.U[k], R = this.R[k];
       for (let c = 0; c < m; c++) {
@@ -790,6 +787,7 @@ export class Track {
       }
     }
     for (let i = 0; i < n; i++) {
+      if (i % B === 0) starts.push(idx.length);
       if (!this.solid[i]) continue;                    // a cut in the deck: nothing there
       for (let c = 0; c < m - 1; c++) {
         if (section[c][5] === 'cut') continue;          // a hard edge between two faces of the section
@@ -797,6 +795,7 @@ export class Track {
         idx.push(a, b, d, b, e, d);                    // counter-clockwise seen from the face's normal side
       }
     }
+    starts.push(idx.length);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
@@ -804,6 +803,7 @@ export class Track {
     g.setAttribute('trk', new THREE.Float32BufferAttribute(trk, 4));
     g.setIndex(idx);
     g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * section.slice(0, -1).filter(p => p[5] !== 'cut').length;
+    g.userData.lapChunks = this.chunked(starts, Math.max(...section.map((p) => Math.hypot(p[0], p[1]))));
     return g;
   }
 
@@ -812,7 +812,7 @@ export class Track {
   // mirror: the same faces drawn on the left (swapped ends keep them facing out)
   hullSweep(faces, mirror = false) {
     if (mirror) faces = faces.map((f) => ({ ...f, a: f.b, b: f.a }));
-    const F = faces.length, n = this.n, pos = [], nrm = [], huv = [], hf = [], ht = [], trk = [], idx = [];
+    const F = faces.length, n = this.n, pos = [], nrm = [], huv = [], hf = [], ht = [], trk = [], idx = [], B = this.chunkFrames(), starts = [];
     const fw = faces.map((f) => Math.hypot(f.b[0] - f.a[0], f.b[1] - f.a[1]));
     for (let i = 0; i <= n; i++) {
       const k = i % n, P = this.P[k], U = this.U[k], R = this.R[k];
@@ -829,12 +829,14 @@ export class Track {
       });
     }
     for (let i = 0; i < n; i++) {
+      if (i % B === 0) starts.push(idx.length);
       if (!this.solid[i]) continue;                    // a cut in the deck: nothing there
       for (let c = 0; c < F; c++) {
         const a = (i * F + c) * 2, b = a + 1, d = a + 2 * F, e = d + 1;
         idx.push(a, b, d, b, e, d);
       }
     }
+    starts.push(idx.length);
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
@@ -844,7 +846,95 @@ export class Track {
     g.setAttribute('trk', new THREE.Float32BufferAttribute(trk, 4));
     g.setIndex(idx);
     g.userData.xrChunkIndices = Math.max(1, Math.floor(160 / this.step)) * 6 * F;
+    g.userData.lapChunks = this.chunked(starts, Math.max(...faces.flatMap((f) => [Math.hypot(...f.a), Math.hypot(...f.b)])));
     return g;
+  }
+
+  // ---- drawing only what is seen. A lap-long mesh is always in view somewhere, so the camera's culling kept every one
+  // whole: each view, shadow map and pass drew the whole lap (the Pyramid Run's 56 km: 14 M triangles a frame, two
+  // thirds of them out of sight). The sweeps note where each stretch of CHUNK_M starts in their triangles (chunked);
+  // cullChunks draws, per draw and per camera, only the stretches whose bounds are in that camera's view - the shadow
+  // maps, the AO's normals and the sea's mirror each draw what they see - and VR's eyes keep their own (xr.js)
+  chunkFrames() { return Math.max(1, Math.round(CHUNK_M / this.step)); }
+  chunked(starts, reach) {
+    this.chunkReach = Math.max(this.chunkReach || 0, reach);
+    return Int32Array.from(starts);
+  }
+  cullChunks(renderer) {
+    // the stretches' bounds, and of groups of SUPER of them (most of a lap is out of a view: tested a group at a time)
+    const B = this.chunkFrames(), nC = Math.ceil(this.n / B), SUPER = 16, nS = Math.ceil(nC / SUPER), GAP = 3;
+    const cs = new Float32Array(nC * 4), ss = new Float32Array(nS * 4);
+    const box = new THREE.Box3(), sph = new THREE.Sphere();
+    for (const [out, len, per] of [[cs, nC, B], [ss, nS, B * SUPER]]) {
+      for (let c = 0; c < len; c++) {
+        box.makeEmpty();
+        for (let i = c * per; i <= Math.min(this.n, (c + 1) * per); i++) box.expandByPoint(this.P[i % this.n]);
+        box.getBoundingSphere(sph);
+        out.set([sph.center.x, sph.center.y, sph.center.z, sph.radius], c * 4);
+      }
+    }
+    // each camera's runs of stretches in view (gaps of up to GAP stretches drawn through: a draw costs more than they
+    // do), kept while its view is the same (a camera draws many meshes in a row)
+    const fr = new THREE.Frustum(), pv = new THREE.Matrix4(), views = new WeakMap(), mask = new Uint8Array(nC);
+    const seen = (arr, c, r) => { sph.center.fromArray(arr, c * 4); sph.radius = arr[c * 4 + 3] + r; return fr.intersectsSphere(sph); };
+    const inView = (camera) => {
+      pv.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      let v = views.get(camera);
+      if (v && v.pv.equals(pv)) return v.runs;
+      if (!v) views.set(camera, (v = { pv: new THREE.Matrix4(), runs: [] }));
+      v.pv.copy(pv);
+      fr.setFromProjectionMatrix(pv);
+      const r = this.chunkReach + 2;
+      mask.fill(0);
+      for (let g = 0; g < nS; g++) {
+        if (!seen(ss, g, r)) continue;
+        for (let c = g * SUPER; c < Math.min(nC, (g + 1) * SUPER); c++) mask[c] = seen(cs, c, r) ? 1 : 0;
+      }
+      v.runs.length = 0;
+      for (let c = 0; c < nC; c++) {
+        if (!mask[c]) continue;
+        let k = c + 1;
+        for (;;) {
+          while (k < nC && mask[k]) k++;
+          let j = k;
+          while (j < nC && j - k < GAP && !mask[j]) j++;
+          if (j < nC && mask[j] && j - k <= GAP) k = j; else break;
+        }
+        v.runs.push(c, k);
+        c = k;
+      }
+      return v.runs;
+    };
+    const direct = renderer.renderBufferDirect, e = (m) => m.elements;
+    renderer.renderBufferDirect = function (camera, scene, geometry, material, object, group) {
+      const st = geometry.userData.lapChunks, w = e(object.matrixWorld);
+      // (the track's meshes stand where they were built; anything moved, or a VR eye, as it was)
+      if (!st || st.length !== nC + 1 || camera.userData.xrFrustum || w[12] || w[13] || w[14] || w[0] !== 1 || w[5] !== 1 || w[10] !== 1) {
+        return direct.call(this, camera, scene, geometry, material, object, group);
+      }
+      const runs = inView(camera), dr = geometry.drawRange, s0 = dr.start, n0 = dr.count, s1 = s0 + n0;
+      try {
+        for (let q = 0; q < runs.length; q += 2) {
+          const a = Math.max(st[runs[q]], s0), b = Math.min(st[runs[q + 1]], s1);
+          if (b > a) { dr.start = a; dr.count = b - a; direct.call(this, camera, scene, geometry, material, object, group); }
+        }
+      } finally { dr.start = s0; dr.count = n0; }
+    };
+  }
+  // a lap's InstancedMesh (its instances laid in the lap's order) cut into pieces of about PIECE_M along it, each its
+  // own mesh with its own bounds, sharing the geometry and material: the lap's whole one was always in view, so drawn
+  // whole (the Pyramid Run's studs, pilasters, emitters, vents and lamps: 2.7 M triangles a frame)
+  pieces(im) {
+    const per = Math.max(1, Math.round((im.count * PIECE_M) / this.length)), out = new THREE.Group();
+    for (let k0 = 0; k0 < im.count; k0 += per) {
+      const k1 = Math.min(im.count, k0 + per), p = new THREE.InstancedMesh(im.geometry, im.material, k1 - k0);
+      p.instanceMatrix.array.set(im.instanceMatrix.array.subarray(k0 * 16, k1 * 16));
+      if (im.instanceColor) p.instanceColor = new THREE.InstancedBufferAttribute(im.instanceColor.array.slice(k0 * 3, k1 * 3), 3);
+      p.castShadow = im.castShadow; p.receiveShadow = im.receiveShadow; p.renderOrder = im.renderOrder; p.layers.mask = im.layers.mask;
+      p.computeBoundingSphere();
+      out.add(p);
+    }
+    return out;
   }
 
   meshes(scene) {
@@ -1082,12 +1172,12 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     const metal = trackSunPatch(hullMaterial(TH.moss ? { moss: true, key: 'hull-moss' } : {}), this.tsU);
     out.under = new THREE.Mesh(under, metal);
     // walls: inner face, top, outer face, both sides
-    const wall = (s) => this.hullSweep([
+    const wall = (s) => [
       { a: [s * W, 0], b: [s * W, WALL_H], n: [-s, 0], kind: HULL_SIDE },
       { a: [s * W, WALL_H], b: [s * E, WALL_H], n: [0, 1], kind: HULL_SIDE },
       { a: [s * E, WALL_H], b: [s * E, 0], n: [s, 0], kind: HULL_SIDE },
-    ], s < 0);
-    out.walls = [new THREE.Mesh(wall(-1), metal), new THREE.Mesh(wall(1), metal)];
+    ].map((f) => (s < 0 ? { ...f, a: f.b, b: f.a } : f));            // (the left one's mirrored: listed the other way round)
+    out.walls = [new THREE.Mesh(this.hullSweep([...wall(-1), ...wall(1)]), metal)];
     // a glowing strip along the top of each wall's inner face. 2 cm off the face: past ~250 m the depth buffer (near
     // 0.2, far 30 km) no longer told them apart and the strip flickered in and out along the far walls ("the light line
     // flicker in and out of existance in some places") - drawn a few depth steps toward the camera, at any distance
@@ -1103,17 +1193,15 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     });
     const strip = (s) => {
       const sec = [[s * (W - 0.018), WALL_H - 0.29, 0, -s, 0], [s * (W - 0.018), WALL_H - 0.09, 1, -s, 0]];
-      return this.sweep(s > 0 ? sec : rev(sec), 10);
+      return s > 0 ? sec : rev(sec);
     };
-    out.strips = [new THREE.Mesh(strip(-1), stripMat), new THREE.Mesh(strip(1), stripMat)];
+    out.strips = [new THREE.Mesh(this.sweep(joined(strip(-1), strip(1)), 10), stripMat)];
     // its housing: an aluminium extrusion screwed to the wall - a lip 3 cm proud above and below the diffuser, chamfered
     // back to the wall, a joint every 3 m; and under it a cable conduit (the strip's and the studs' feed), a clamp
     // every 1.5 m and a coupling every 6 m
-    out.stripHousing = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [
+    out.stripHousing = [new THREE.Mesh(this.sweep(bothSides(W, [
       [0, WALL_H - 0.345], [0.03, WALL_H - 0.33], [0.03, WALL_H - 0.3], [0.018, WALL_H - 0.29], null,
-      [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip', this.tsU)));
-    out.conduits = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, conduitRing(0.06, 0.42, 0.045, 10), true), 1),
-      housingMaterial('conduit', this.tsU)));
+      [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip', this.tsU))];
     // the outside of the road ("the outside of the roads on the edges you didnt change anything there", then "still looks
     // without depth, only like a paint over"): the wall capped with a chamfered coping (3.5 cm over its inner face, 5 cm
     // over its outer one); down its outer side a structure 20-30 cm deep - a top chord under the coping, a band at the
@@ -1121,15 +1209,17 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // pilaster through them every 6 m (edgePilasters), a louvred vent between two of them every 24 m (edgeVents); the
     // energy barrier rising from emitters on the coping (fieldPylons)
     const O = -WALL_T;
-    out.cap = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[0, WALL_H - 0.03], [0.035, WALL_H - 0.03],
+    out.cap = [new THREE.Mesh(this.sweep(bothSides(W, [[0, WALL_H - 0.03], [0.035, WALL_H - 0.03],
       [0.035, WALL_H + 0.04], [0, WALL_H + COPE], [O, WALL_H + COPE], [O - 0.05, WALL_H + 0.04], [O - 0.05, WALL_H - 0.06],
-      [O, WALL_H - 0.06]]), 1), housingMaterial('cap', this.tsU)));
-    out.fascia = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[O, WALL_H - 0.14], [O - 0.2, WALL_H - 0.2],
+      [O, WALL_H - 0.06]]), 1), housingMaterial('cap', this.tsU))];
+    out.fascia = [new THREE.Mesh(this.sweep(bothSides(W, [[O, WALL_H - 0.14], [O - 0.2, WALL_H - 0.2],
       [O - 0.2, WALL_H - 0.42], [O, WALL_H - 0.48], null, [O, 0.2], [O - 0.2, 0.14], [O - 0.2, -0.14], [O, -0.2], null,
       [O, -0.33], [O - 0.06, -0.36], [O - 0.06, -0.39], [O - 0.035, -0.4], null, [O - 0.035, -0.6], [O - 0.06, -0.61],
-      [O - 0.06, -0.64], [O, -0.67], null, [O, -1.55], [O - 0.25, -1.62], [O - 0.25, -1.88], [O, -1.95]]), 1), housingMaterial('fascia', this.tsU)));
-    out.outerPipes = [-1, 1].map((s) => new THREE.Mesh(mergeTwo(this.sweep(sideSection(s, W, conduitRing(O - 0.09, -0.95, 0.06, 10), true), 1),
-      this.sweep(sideSection(s, W, conduitRing(O - 0.09, -1.25, 0.06, 10), true), 1)), housingMaterial('conduit', this.tsU)));
+      [O - 0.06, -0.64], [O, -0.67], null, [O, -1.55], [O - 0.25, -1.62], [O - 0.25, -1.88], [O, -1.95]]), 1), housingMaterial('fascia', this.tsU))];
+    // the conduit under the strip's housing and the two pipes down the outer side, both sides: one mesh
+    const rings = [conduitRing(0.06, 0.42, 0.045, 10), conduitRing(O - 0.09, -0.95, 0.06, 10), conduitRing(O - 0.09, -1.25, 0.06, 10)];
+    out.conduits = [new THREE.Mesh(this.sweep(joined(...[-1, 1].flatMap((s) => rings.map((r) => sideSection(s, W, r, true)))), 1),
+      housingMaterial('conduit', this.tsU))];
     out.ribs = this.edgePilasters();
     out.vents = this.edgeVents();
     out.gantries = this.gantries();
@@ -1151,11 +1241,14 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // the energy barriers and their emitters (after the gantries: the emitters keep clear of their pillars)
     out.fields = this.fields();
     out.pylons = this.fieldPylons();
+    // (the lap-long instanced fittings in pieces, each culled by itself)
+    for (const k of ['ribs', 'vents', 'studs', 'pylons']) out[k] = this.pieces(out[k]);
+    out.lamps = out.lamps.map((m) => this.pieces(m));
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }
     for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.stripHousing, ...out.conduits, ...out.cap, ...out.fascia,
-      out.ribs, out.vents, ...out.outerPipes, out.pylons, ...out.fields, ...out.gantries, ...out.pads,
+      out.ribs, out.vents, out.pylons, ...out.fields, ...out.gantries, ...out.pads,
       ...out.lanes, ...out.laneHousing, out.studs, ...out.girders, out.startLine, ...out.chevrons, ...out.lamps, ...out.trims,
       ...out.lips, ...out.flips, ...out.tunnel, ...out.gates, ...out.towers, ...out.cave]) scene.add(m);
     this.parts = out;
@@ -1729,13 +1822,15 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     });
     const housing = housingMaterial('lane', this.tsU), out = [];
     this.laneHousing = [];
-    for (const x of [-11, 11]) {
+    {
+      // (both lanes, x -11 and 11, in one mesh each)
+      const X = [-11, 11];
       // (the channel's profile, across: flat faces with hard edges at the foot and the floor, the rim rounded)
-      const h = new THREE.Mesh(this.sweep(laneSection(x), 1), housing);
+      const h = new THREE.Mesh(this.sweep(joined(...X.map((x) => laneSection(x))), 1), housing);
       h.receiveShadow = true;
       // (the pool under the rim - drawn just over the deck, hidden where the channel stands - the lens over its floor)
-      const spill = new THREE.Mesh(this.sweep([[x - 2, 0.003, 0, 0, 1], [x + 2, 0.003, 1, 0, 1]], 1), this.spillMat);
-      const lens = new THREE.Mesh(this.sweep([[x - 0.125, 0.0105, 0, 0, 1], [x + 0.125, 0.0105, 1, 0, 1]], 1), this.laneMat);
+      const spill = new THREE.Mesh(this.sweep(joined(...X.map((x) => [[x - 2, 0.003, 0, 0, 1], [x + 2, 0.003, 1, 0, 1]])), 1), this.spillMat);
+      const lens = new THREE.Mesh(this.sweep(joined(...X.map((x) => [[x - 0.125, 0.0105, 0, 0, 1], [x + 0.125, 0.0105, 1, 0, 1]])), 1), this.laneMat);
       spill.renderOrder = 1; lens.renderOrder = 2;
       for (const m of [spill, lens]) { m.frustumCulled = false; out.push(m); }
       h.frustumCulled = false;
@@ -1765,12 +1860,13 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
 
   // what holds the deck up: two box girders along its belly and a cross-rib every 24 m
   girders(metal) {
-    const D = DECK, g = (x) => this.hullSweep([
+    const D = DECK, g = (x) => [
       { a: [x - 1, -D], b: [x - 1, -D - 2.4], n: [-1, 0], kind: HULL_SIDE },
       { a: [x - 1, -D - 2.4], b: [x + 1, -D - 2.4], n: [0, -1], kind: HULL_GIRDER },
       { a: [x + 1, -D - 2.4], b: [x + 1, -D], n: [1, 0], kind: HULL_SIDE },
-    ], true);                // (listed the deck's other way round: drawn as they were, the girders were inside out)
-    const beams = [new THREE.Mesh(g(-12), metal), new THREE.Mesh(g(12), metal)];
+    ];
+    // (both in one mesh; listed the deck's other way round: drawn as they were, the girders were inside out)
+    const beams = [new THREE.Mesh(this.hullSweep([...g(-12), ...g(12)], true), metal)];
     const every = Math.round(24 / this.step), n = Math.floor(this.n / every);
     const ribs = new THREE.InstancedMesh(hullBox(this.W + 1, 0.9, 1.0).translate(0, -D - 0.45, 0), metal, n);
     const M = new THREE.Matrix4();
@@ -2038,10 +2134,8 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
   edgeTrims() {
     const E = this.W / 2 + WALL_T + 0.035;               // (in its channel: the fascia's lips round it)
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.trim), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
-    return [-1, 1].map((sd) => {
-      const sec = [[sd * E, -0.6, 0, sd, 0], [sd * E, -0.4, 1, sd, 0]];
-      return new THREE.Mesh(this.sweep(sd > 0 ? sec.slice().reverse() : sec, 10), mat);
-    });
+    const sec = (sd) => { const s = [[sd * E, -0.6, 0, sd, 0], [sd * E, -0.4, 1, sd, 0]]; return sd > 0 ? s.reverse() : s; };
+    return [new THREE.Mesh(this.sweep(joined(sec(-1), sec(1)), 10), mat)];            // (both sides: one mesh)
   }
 
   // boost pads, built (fittings.js): a steel frame on the deck round a glass bed, LED chevrons under it - a light

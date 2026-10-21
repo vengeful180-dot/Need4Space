@@ -441,6 +441,7 @@ async function boot() {
   // reflections on the deck (uses the AO pass's depth and normals: off with AO)
   const ssr = new DeckSSRPass(scene, camera, gtao);
   if (track) {
+    track.cullChunks(renderer);                          // (the lap-long meshes drawn only where in view: track.js)
     track.parts.deck.layers.enable(5);
     ssr.setReflector(track.parts.deck);
     composer.addPass(ssr);
