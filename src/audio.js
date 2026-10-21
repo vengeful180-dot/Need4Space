@@ -674,12 +674,19 @@ export class GameAudio {
     if (sv > 0.35) this.take('soft', o, { gain: sv });
   }
   // the energy barrier taking a hit: a force-field zap, a low metal thunk, and a plate when it's hard
+  // a hull knocking the wall: its weight - a deep thump through the structure (a sub drop under a slowed heavy
+  // impact), heavy steel on steel pitched down with the blow, for a real one the structure's rattle, and the barrier's
+  // answer a low push of air, not a zap; every take a little off its pitch so no two knocks are the same (it was a
+  // force-field zap over a sci-fi ping: "less arcade more realistic")
   wall(pos, v, player) {
     if (!this.ctx || this.far(pos) || !this.gate(player ? 'wallP' : 'wall', player ? 0.12 : 0.2)) return;
-    const sv = clamp(v / 25, 0.15, 1) * (player ? 1 : 0.7), o = this.out(pos, player ? 30 : 20, 1);
-    if (!this.take('field', o, { gain: 0.35 + 0.65 * sv, rate: 1.1 - 0.2 * sv })) { this.zap(o, sv); return; }
-    this.take('sciMetal', o, { gain: 0.3 + 0.7 * sv });
-    if (sv > 0.3) this.take('plateHeavy', o, { gain: 0.6 * sv, rate: 0.95 });
+    const sv = clamp(v / 25, 0.15, 1) * (player ? 1 : 0.7), o = this.out(pos, player ? 30 : 20, 1), t = this.ctx.currentTime;
+    const j = () => 0.94 + Math.random() * 0.12;
+    this.tone(t, 0.55, o, { f: 64, f1: 30, v: 0.6 * sv, tau: 0.16 });
+    if (!this.take('soft', o, { gain: 0.45 + 0.55 * sv, rate: 0.62 * j() })) { this.clang(pos, sv); return; }
+    this.take('metalHeavy', o, { gain: 0.2 + 0.6 * sv, rate: (0.8 - 0.14 * sv) * j() });
+    if (sv > 0.45) this.take('crunch', o, { gain: 0.4 * (sv - 0.3), rate: 0.72 * j() });
+    this.burst(t, 0.5, o, { type: 'lowpass', f: 420, f1: 90, q: 0.7, v: 0.35 * sv, tau: 0.18, buf: this.pink });
   }
   bump(pos, v) { this.hit(pos, clamp(v / 15, 0.15, 1)); }
   scrape(pos, v) { this.hit(pos, clamp(v / 20, 0.1, 0.8), true); }

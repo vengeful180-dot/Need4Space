@@ -14,6 +14,7 @@ export class CameraRig {
     this.orbit = { yaw: 2.35, pitch: 0.2, dist: 24 };
     this.anchor = null;
     this.shake = 0;
+    this.thud = 0; this.thudV = 0; this.thudSide = 1;    // a heavy knock (main.js): a dip and roll toward it
     this.t = 0;
     this.idle = 0;
     this.rollFollow = 0.6;        // 1 on the track: the camera rolls with the deck through banks and the corkscrew
@@ -141,7 +142,15 @@ export class CameraRig {
     // shake: impacts, boost, scraping - smooth noise, never a strobe
     this.shake = Math.max(0, this.shake - dt * 1.8);
     this.punch = Math.max(0, (this.punch || 0) - dt * 3);    // an attack landing: a zoom punch (main.js)
-    const amp = this.shake * 0.5 + boost * 0.04 * smoothstep(80, 200, speed) + flight.scrape * 0.12;
+    const amp = this.shake * 0.35 + boost * 0.04 * smoothstep(80, 200, speed) + flight.scrape * 0.12;
+    // a heavy knock: a slow damped swing - the camera dips and leans toward the wall, then settles
+    this.thudV += (-26 * this.thud - 2 * 0.45 * Math.sqrt(26) * this.thudV) * dt;
+    this.thud += this.thudV * dt;
+    if (Math.abs(this.thud) > 1e-4 && this.mode !== 'orbit') {
+      const r = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+      cam.position.addScaledVector(camUp, -0.35 * this.thud).addScaledVector(r, this.thudSide * 0.25 * this.thud);
+      camUp.applyAxisAngle(new THREE.Vector3().subVectors(lookAt, cam.position).normalize(), -this.thudSide * 0.03 * this.thud);
+    }
     if (amp > 0 && this.mode !== 'orbit') {
       const t = this.t * 9;
       cam.position.x += (noise2(t, 1.3) - 0.5) * amp;

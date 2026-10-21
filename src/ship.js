@@ -2306,7 +2306,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
   //  touchdown. Each axis is a spring (stiffness k, damping ratio z), so nothing snaps.
   animate(dt, c) {
     const a = (this.anim ||= { lean: 0, leanV: 0, yaw: 0, yawV: 0, sway: 0, swayV: 0, pitch: 0, pitchV: 0, lift: 0, liftV: 0,
-      yawOff: 0, jolt: 0, hum: 0, t: Math.random() * 50 });
+      yawOff: 0, jolt: 0, hum: 0, t: Math.random() * 50, hS: 0, hSV: 0, hR: 0, hRV: 0, hY: 0, hYV: 0 });
     const spring = (key, target, k, z) => {
       a[key + 'V'] += (k * (target - a[key]) - 2 * z * Math.sqrt(k) * a[key + 'V']) * dt;
       a[key] += a[key + 'V'] * dt;
@@ -2329,6 +2329,11 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     this.accelKick = Math.max(0, (this.accelKick || 0) - dt * 1.6);
     if (c.land) a.liftV -= Math.min(c.land, 30) * 0.09;
     spring('lift', 0, 60, 0.35);
+    // a knock's own springs, slow and heavy (hit()): the hull's weight carrying it on into the blow, sagging and rolling,
+    // settling over half a second with one slow swing back
+    spring('hS', 0, 9, 0.45);
+    spring('hR', 0, 11, 0.4);
+    spring('hY', 0, 14, 0.5);
     // the nose glancing off a wall turns the racer's heading in one physics step: the hull takes that turn over a
     // few frames instead of snapping (the offset decays away in ~0.2 s)
     if (c.yawKick) a.yawOff += c.yawKick;
@@ -2356,8 +2361,8 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
       levP = P * 0.014 * Math.cos(u * 2.2 + 0.6);
       levR = P * 0.011 * Math.sin(u * 1.45 + 2.0);
     }
-    this.visual.position.set(a.sway + jx + Math.sin(t * 61.0) * hz, a.lift + bob + buzz + jy + Math.sin(t * 53.0 + 1.0) * hz + lev, 0);
-    this.visual.rotation.set(a.pitch + rockX + levP, a.yaw + a.yawOff, a.lean + rockZ + jr + levR, 'YXZ');
+    this.visual.position.set(a.sway + a.hS + jx + Math.sin(t * 61.0) * hz, a.lift + a.hY + bob + buzz + jy + Math.sin(t * 53.0 + 1.0) * hz + lev, 0);
+    this.visual.rotation.set(a.pitch + rockX + levP, a.yaw + a.yawOff, a.lean + a.hR + rockZ + jr + levR, 'YXZ');
     // the low side stays clear of the deck however hard it leans ("when they steer the engines hit the ground"), and
     // the ends and corners where the deck turns under the hull (a twist, a loop - c.deckHeight: each point's height
     // over the deck at its own place along the track; else the deck is the plane under the middle): the hull's
@@ -2407,11 +2412,14 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     const a = this.anim;
     if (!a) return;
     const k = Math.min(1.5, strength) * (1 - 0.6 * a.jolt);           // knocks in quick succession don't pile up
-    a.swayV += dir.x * 2.2 * k;
-    a.leanV += -dir.x * 0.9 * k;          // rolls away from the side that was hit
-    a.yawV += -dir.x * 0.35 * k + dir.z * 0.1 * k;
-    a.pitchV += dir.z * 0.25 * k;
-    a.jolt = Math.min(1, a.jolt + k * 0.6);
+    // with weight: the hull carries on into the blow (dir points away from it) and sags, rolls into it, and swings back
+    // slowly on the knock's own springs - it was kicked straight away, a fake punch
+    a.hSV += -dir.x * 1.1 * k;
+    a.hRV += dir.x * 0.75 * k;
+    a.hYV -= 0.9 * k;
+    a.yawV += -dir.x * 0.2 * k + dir.z * 0.08 * k;
+    a.pitchV += dir.z * 0.2 * k - 0.12 * k;
+    a.jolt = Math.min(1, a.jolt + k * 0.45);
     // the shield answers in proportion to the blow; a weaker knock while it is still lit doesn't restart its wave
     // (grinding along a wall knocks every quarter second)
     const su = this.shield.material.uniforms, amt = Math.min(1, 0.2 + k * 0.7);

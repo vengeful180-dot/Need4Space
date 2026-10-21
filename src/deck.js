@@ -273,11 +273,11 @@ float rdHeight(vec2 m, vec2 f, bool fine) {
         h += 0.005 * rdIn(rdHex(P.p - 0.47 * vec2(cos(a), sin(a)), 0.02), fr) * (1.0 - smoothstep(0.01, 0.03, fr));
       }
     } else if (P.kind == 1.0 && fine) {
-      // the vent: slots across its centre, 5 cm wide every 12 cm, 4.5 cm deep (their share of it, further off) - in the
-      // shading only: marched through, a pattern that fine broke up and crawled
-      float slots = rdIn(abs(fract(P.p.y / 0.12) - 0.5) * 0.12 - 0.025, f.y) * rdIn(-(de - 0.35), fr);
-      slots = mix(slots, 0.42 * step(0.35, de), smoothstep(0.02, 0.06, f.y));
-      h -= 0.045 * slots;
+      // the vent: louvres across its centre every 12 cm - a smooth profile (hard-edged slots flipped the normal inside a
+      // pixel and glinted: "still flickers like crazy"), gone to its average before the louvres are under ~8 pixels
+      // apart; in the shading only (marched through, a pattern that fine broke up and crawled)
+      float lv = (0.5 - 0.5 * cos(6.2831853 * P.p.y / 0.12)) * (1.0 - smoothstep(0.008, 0.016, f.y)) * rdIn(-(de - 0.35), fr);
+      h -= 0.02 * lv;
     } else if (fine && de > 0.06) {
       // tread plate: raised diamonds 2 mm high, 5 cm apart
       vec2 t = vec2(P.p.x + P.p.y, P.p.x - P.p.y) / 0.05;
@@ -341,10 +341,11 @@ vec4 rdSurface(vec2 m, vec2 f, float chip, float broad, out vec2 rm, out float t
       rdOver(c, rm, STEEL * (1.2 + 0.4 * chip), vec2(0.35, 0.9),
         rdIn(rdHex(P.p - 0.47 * vec2(cos(a), sin(a)), 0.02), fr) * (1.0 - smoothstep(0.01, 0.03, fr)));
     } else if (P.kind == 1.0) {
-      float slots = rdIn(abs(fract(P.p.y / 0.12) - 0.5) * 0.12 - 0.025, f.y) * rdIn(-(de - 0.35), fr);
-      slots = mix(slots, 0.42 * step(0.35, de), smoothstep(0.02, 0.06, f.y));
-      rdOver(c, rm, STEEL * 0.9, vec2(0.35, 0.85), rdIn(-(de - 0.35), fr) * 0.6);     // (the grille's frame bare steel)
-      rdOver(c, rm, DARK, vec2(0.9, 0.0), slots);
+      // (the louvres' shade the same smooth profile, matte; their average further off)
+      float inV = rdIn(-(de - 0.35), fr), lv = 0.5 - 0.5 * cos(6.2831853 * P.p.y / 0.12);
+      lv = mix(lv, 0.5, smoothstep(0.008, 0.016, f.y));
+      rdOver(c, rm, STEEL * 0.7, vec2(0.6, 0.6), inV * 0.6);     // (the grille's frame dull steel)
+      rdOver(c, rm, DARK, vec2(0.95, 0.0), inV * (0.25 + 0.6 * lv));
     } else {
       // tread plate: brighter, its diamonds catching the light
       vec2 t = vec2(P.p.x + P.p.y, P.p.x - P.p.y) / 0.05, cc = abs(fract(t) - 0.5);

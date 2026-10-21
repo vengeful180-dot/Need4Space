@@ -169,7 +169,7 @@ const DECK_MARCH = /* glsl */`
     #endif
     float h0 = rdHeight(mh, rdFw, rdFine);
     rdSlope = vec2(rdHeight(mh + vec2(e.x, 0.0), rdFw, rdFine) - h0, rdHeight(mh + vec2(0.0, e.y), rdFw, rdFine) - h0) / e;
-    rdSlope *= 1.0 - smoothstep(0.04, 0.12, max(rdFw.x, rdFw.y));      // (bevels finer than the pixel: flat)
+    rdSlope *= 1.0 - smoothstep(0.02, 0.07, max(rdFw.x, rdFw.y));      // (bevels finer than a couple of pixels: flat - they glinted)
   }
 `;
 
@@ -304,14 +304,15 @@ function fieldMaterial(shared) {
     uniforms: { time: shared.time, shipPos: shared.shipPos, hitN: { value: 0 },
       hits: { value: [0, 1, 2, 3, 4, 5, 6, 7].map(() => new THREE.Vector4(0, 0, 0, -100)) }, hitS: { value: [0, 0, 0, 0, 0, 0, 0, 0] } },
     vertexShader: /* glsl */`
-      varying vec2 vUv; varying vec3 vW; varying vec3 vN;
+      attribute float endD;
+      varying vec2 vUv; varying vec3 vW; varying vec3 vN; varying float vEnd;
       void main() {
-        vUv = uv; vN = normalize(mat3(modelMatrix) * normal);
+        vUv = uv; vN = normalize(mat3(modelMatrix) * normal); vEnd = endD;
         vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: /* glsl */`
       uniform float time; uniform vec3 shipPos; uniform vec4 hits[8]; uniform float hitS[8];
-      varying vec2 vUv; varying vec3 vW; varying vec3 vN;
+      varying vec2 vUv; varying vec3 vW; varying vec3 vN; varying float vEnd;
       // hexagons 1 unit across the flats: x the distance to the cell's edge, yz the cell
       vec3 hexCell(vec2 p) {
         const vec2 r = vec2(1.0, 1.7320508);
@@ -331,7 +332,7 @@ function fieldMaterial(shared) {
           float age = time - hits[k].w;
           if (age < 0.0 || age > 2.6) continue;
           vec2 d = vec2(alr - (hits[k].x + hits[k].y * age), p.y - 0.3);
-          float L = length(d), rq = (L - (1.5 + age * 30.0)) / 1.6, w = exp(-rq * rq) * exp(-age * 1.3) * (1.0 - smoothstep(1.2, 2.6, age)) * hitS[k];
+          float L = length(d), rq = (L - (1.0 + age * 9.0)) / 1.4, w = exp(-rq * rq) * exp(-age * 1.8) * (1.0 - smoothstep(1.2, 2.6, age)) * hitS[k];
           ring += w;
           bend += d / max(L, 0.01) * w * 0.35;                  // (the cells pushed out by the wave)
         }
@@ -366,9 +367,11 @@ function fieldMaterial(shared) {
           flash += exp(-dot(dq, dq) / 3.0) * exp(-age * 2.5) * S;
         }
         cells = min(cells, 2.0);
-        float crackle = step(0.55, hsh(c1.yz + floor(time * 28.0) * 0.731)) * e1 * min(1.0, cells + core);
+        // (its ends: a bright seam where it stops, the cells next to it crackling, a glow fading back over a metre)
+        float ve = max(vEnd, 0.0), seam = exp(-ve / 0.05), endGlow = exp(-ve / 0.9);
+        float crackle = step(0.55, hsh(c1.yz + floor(time * 28.0) * 0.731)) * e1 * min(1.0, cells + core + endGlow * 0.8);
         float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
-          * (0.65 + 1.4 * near + 1.0 * run);
+          * (0.65 + 1.4 * near + 1.0 * run) + seam * 3.5 + endGlow * (0.5 + 1.2 * e1);
         // (the blow in red, whatever the circuit's colour: a deep red trail, red cells and ring, the core hot orange
         // to white)
         float hk = ring * (2.5 + 6.0 * e1 + 1.5 * e2) + cells * (e1 * 3.6 + 0.75 * smoothstep(0.5, 0.0, c1.x) + 0.12) + crackle * 6.0;
@@ -1082,20 +1085,6 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       this.sweep(sideSection(s, W, conduitRing(O - 0.09, -1.25, 0.06, 10), true), 1)), housingMaterial('conduit')));
     out.ribs = this.edgePilasters();
     out.vents = this.edgeVents();
-    out.pylons = this.fieldPylons();
-    // energy barriers
-    const shared = { time: { value: 0 }, shipPos: { value: new THREE.Vector3() } };
-    this.fieldMats = [fieldMaterial(shared), fieldMaterial(shared)];     // (the left wall's, the right's: a blow lights its own)
-    this.fieldMat = this.fieldMats[0];
-    const field = (s) => this.sweep([[s * (W + WALL_T * 0.5), WALL_H + COPE, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
-    out.fields = [new THREE.Mesh(field(-1), this.fieldMats[0]), new THREE.Mesh(field(1), this.fieldMats[1])];
-    for (const f of out.fields) {
-      // u along the track for the hex pattern: swap the sweep's (u, v) so x runs along the track
-      const uv = f.geometry.attributes.uv;
-      for (let i = 0; i < uv.count; i++) { const a = uv.getX(i), b = uv.getY(i); uv.setXY(i, b, a); }
-      f.renderOrder = 2;
-      f.frustumCulled = false;
-    }
     out.gantries = this.gantries();
     out.lanes = this.laneLights();
     out.laneHousing = this.laneHousing;
@@ -1112,6 +1101,9 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     out.gates = this.lightGates();
     out.towers = this.L.towers ? this.towers(metal) : [];
     out.cave = this.L.meteor ? this.cave() : [];
+    // the energy barriers (after the gantries and the lamps: they stand clear of them) and their emitters
+    out.fields = this.fields();
+    out.pylons = this.fieldPylons();
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }
@@ -1901,8 +1893,48 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return im;
   }
 
+  // the energy barriers over both walls (fieldMaterial; a material each: a blow lights its own side). Each stops 2 m
+  // short of every gantry and of every lamp post on its side and starts again 2 m past it - a gap round what stands on
+  // the coping, both ends lit (it ran straight through them); over a cut in the deck it stops too. endD: metres along
+  // to the nearest end (its glow)
+  fields() {
+    const shared = { time: { value: 0 }, shipPos: { value: new THREE.Vector3() } };
+    this.fieldMats = [fieldMaterial(shared), fieldMaterial(shared)];
+    this.fieldMat = this.fieldMats[0];
+    const W = this.W / 2, n = this.n, solid = this.solid;
+    return [-1, 1].map((s, k) => {
+      const mask = solid.slice();
+      const cut = (i) => { for (const j of [i - 1, i]) mask[((j % n) + n) % n] = false; };
+      for (const g of this.gantryIdx || []) cut(g);
+      for (const l of this.lampAt || []) if (l.side === s) cut(l.i);
+      this.solid = mask;
+      const g = this.sweep([[s * (W + WALL_T * 0.5), WALL_H + COPE, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
+      this.solid = solid;
+      // u along the track for the hex pattern: swap the sweep's (u, v) so x runs along the track
+      const uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) { const a = uv.getX(i), b = uv.getY(i); uv.setXY(i, b, a); }
+      // each frame's distance to the nearest end of the barrier (two passes along the lap)
+      const end = new Float32Array(n + 1).fill(1e4), edge = (i) => mask[((i - 1) % n + n) % n] !== mask[i % n];
+      for (let pass = 0; pass < 2; pass++) for (let i = 0; i <= n; i++) {
+        if (edge(i)) end[i] = 0;
+        else if (i > 0) end[i] = Math.min(end[i], end[i - 1] + this.step);
+      }
+      for (let pass = 0; pass < 2; pass++) for (let i = n; i >= 0; i--) {
+        if (i < n) end[i] = Math.min(end[i], end[i + 1] + this.step);
+        else end[i] = Math.min(end[i], end[0]);
+      }
+      const ed = new Float32Array(uv.count);
+      for (let i = 0; i <= n; i++) ed[i * 2] = ed[i * 2 + 1] = end[i];
+      g.setAttribute('endD', new THREE.BufferAttribute(ed, 1));
+      const m = new THREE.Mesh(g, this.fieldMats[k]);
+      m.renderOrder = 2;
+      m.frustumCulled = false;
+      return m;
+    });
+  }
+
   // the energy barrier's emitters on the coping every 16 m, both sides (fittings.js): not where a lamp post or a
-  // gantry stands, nor over a cut
+  // gantry stands (the barrier has a gap there), nor over a cut
   fieldPylons() {
     const every = 8, n = Math.ceil(this.n / every) * 2, X = this.W / 2 + WALL_T / 2, gEvery = Math.round(GANTRY_EVERY / this.step);
     this.pylonTime = { value: 0 };
@@ -1911,8 +1943,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     let k = 0;
     for (let i = 4; i < this.n; i += every) {
       if (this.inGap(i * this.step, 4)) continue;
-      const g = ((i - this.start) % gEvery + gEvery) % gEvery;
-      if (g < 3 || g > gEvery - 3) continue;
+      if ((this.gantryIdx || []).some((g) => Math.abs(((i - g) % this.n + this.n * 1.5) % this.n - this.n / 2) < 4)) continue;
       for (const side of [-1, 1]) {
         const li = Math.round(i / lampEvery);
         if (Math.abs(i - li * lampEvery) < 2 && side === (li % 2 ? 1 : -1)) continue;
@@ -1942,6 +1973,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H + COPE));
       if (side < 0) M.multiply(turn);                   // (turned round, not mirrored: see the towers)
       mm.setMatrixAt(used++, M);
+      (this.lampAt ||= []).push({ i, side });
     }
     mm.count = used;
     mm.castShadow = mm.receiveShadow = true;
@@ -2483,16 +2515,17 @@ export class TrackRacer {
       this.x = side * lim;
       // grinding along it drags: ~20 % of the speed for each second of contact (proportional - it never stops a ship)
       this.vs *= Math.exp(-0.22 * this.perks.wall * H.impact * dt);
-      // the nose glances off: a heading into the wall is turned back along it
+      // the nose glances off: a heading into the wall is turned along it (it was thrown back off it - a fake punch out
+      // of the wall; a heavy hull scrapes round and slides on)
       if (this.psi * side > 0) {
         const p0 = this.psi;
-        this.psi = -this.psi * 0.25;
-        this.yawRate *= 0.3;
+        this.psi = -this.psi * 0.08;
+        this.yawRate *= 0.2;
         this.yawKick += this.psi - p0;
       }
       if (this.vx * side > 0) {
         const hit = Math.abs(this.vx);
-        this.vx = -this.vx * 0.3;
+        this.vx = -this.vx * 0.1;                     // (it barely bounces: the weight goes into the wall, 0.3 was a rebound)
         // friction: the speed lost along the wall is a share of the blow. It was a share of the SPEED on every
         // 120 Hz step of contact (up to 30 %), so a ship pressed to a wall stopped dead - "touching the wall gets
         // me stuck sometimes"
