@@ -448,6 +448,7 @@ async function boot() {
   // temporal anti-aliasing (Settings: MSAA 4x + TAA) on the lit picture, before the glows (post.js TAAPass)
   const taa = new TAAPass(camera, gtao);
   taa.enabled = false;
+  taa.reflections = ssr;
   composer.addPass(taa);
   // light shafts through the gaps of what stands in front of the sun (a map with air: the forest moon)
   const shafts = new ShaftPass();

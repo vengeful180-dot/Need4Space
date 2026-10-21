@@ -260,7 +260,7 @@ export class DeckSSRPass extends Pass {
           float jit = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
           vec3 Q = P + N * 0.05 + R * step * jit, prev = Q;
           vec2 hit = vec2(-1.0);
-          float t = 0.0, conf = 0.0;
+          float conf = 0.0;
           for (int i = 0; i < 96; i++) {
             prev = Q;
             Q += R * step;
@@ -270,14 +270,18 @@ export class DeckSSRPass extends Pass {
             float sz = viewZ(s), diff = sz - Q.z;
             float thick = step * 3.0 + 0.4;
             if (diff > 0.0 && diff < thick) {
-              conf = 1.0 - smoothstep(0.55, 1.0, diff / thick);    // behind a thin edge: fades, not switches
               vec3 a = prev, b = Q;                         // refine between the last two points
               for (int k = 0; k < 8; k++) {
                 vec3 m = (a + b) * 0.5;
                 if (viewZ(project(m)) > m.z) b = m; else a = m;
               }
               hit = project(b);
-              t = float(i) / 96.0;
+              // behind a thin edge it fades, not switches: how far behind the surface the refined point still is, against
+              // a thickness growing smoothly with its distance (judged at the step it was found, with the step's own
+              // thickness, it changed in jumps as the camera moved and the hit slipped to the next step - bands that
+              // travelled through the reflection, "they move in waves")
+              float dz = viewZ(hit) - b.z, th = 0.3 + 0.03 * length(b - P);
+              conf = 1.0 - smoothstep(0.5, 1.0, dz / th);
               break;
             }
           }
@@ -287,7 +291,8 @@ export class DeckSSRPass extends Pass {
           float edge = min(min(hit.x, 1.0 - hit.x), min(hit.y, 1.0 - hit.y));
           float rayLen = distance(viewPos(hit, viewZ(hit)), P);
           // ("increase ... reflection distance a bit": the reflection's length 30 -> 55 m, the deck's distance 160 -> 260 m)
-          float fade = smoothstep(0.0, 0.12, edge) * (1.0 - smoothstep(0.45, 0.95, t)) * smoothstep(0.3, -0.1, R.z)
+          // (faded by the ray's own length, not by the number of the step it hit at: that stepped as the camera moved)
+          float fade = smoothstep(0.0, 0.12, edge) * smoothstep(0.3, -0.1, R.z)
             * exp(-rayLen / 80.0) * (1.0 - smoothstep(140.0, 260.0, -P.z));
           // ("the reflections on the ground are the most lacking": capped at 16 % of what they showed, the far road at a
           // grazing angle - where a real deck mirrors most - stayed near black): the coating's Fresnel, 6 % looking down
@@ -519,9 +524,9 @@ export class TAAPass extends Pass {
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }` }));
     this.resolve = quad({ tCur: { value: null }, tHist: { value: null }, tDepth: { value: null }, tPrevDepth: { value: null },
       invProj: { value: new THREE.Matrix4() }, camWorld: { value: new THREE.Matrix4() }, prevViewProj: { value: new THREE.Matrix4() },
-      texel: { value: new THREE.Vector2() }, jit: { value: new THREE.Vector2() }, valid: { value: 0 } }, /* glsl */`
+      texel: { value: new THREE.Vector2() }, jit: { value: new THREE.Vector2() }, valid: { value: 0 }, tReact: { value: null }, reactOn: { value: 0 } }, /* glsl */`
       uniform sampler2D tCur, tHist, tDepth, tPrevDepth; uniform mat4 invProj, camWorld, prevViewProj;
-      uniform vec2 texel, jit; uniform float valid;
+      uniform vec2 texel, jit; uniform float valid, reactOn; uniform sampler2D tReact;
       varying vec2 vUv;
       vec3 tm(vec3 c) { return c / (1.0 + max(c.r, max(c.g, c.b))); }
       vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - max(c.r, max(c.g, c.b))); }
@@ -586,6 +591,10 @@ export class TAAPass extends Pass {
         // away with the frames before it)
         float lc = dot(cur, vec3(0.2126, 0.7152, 0.0722)), lh = itm(rgb(h)).g;
         a = max(a, 0.75 * smoothstep(1.0, 3.0, lc) * smoothstep(2.0, 6.0, lc / max(lh, 1e-3)));
+        // (where the deck's reflection is much of the pixel: it moves with what it mirrors, not with the deck the depth
+        // reprojects by - held over frames, it trailed and caught up in waves)
+        float rf = reactOn * dot(texture2D(tReact, vUv).rgb, vec3(0.2126, 0.7152, 0.0722));
+        a = max(a, 0.7 * smoothstep(0.05, 0.35, rf / max(lc, 1e-3)));
         gl_FragColor = vec4(itm(rgb(mix(h, n, a))), 1.0);
       }`);
     // what is shown: the result sharpened where it is soft and left alone where it has contrast (contrast-adaptive, in
@@ -661,6 +670,8 @@ export class TAAPass extends Pass {
     u.texel.value.set(1 / this.w, 1 / this.h);
     u.valid.value = this.valid ? 1 : 0;
     u.jit.value.set(...(this.jitPx || [0, 0]));
+    const rs = this.reflections;                          // (the deck's reflections this frame: DeckSSRPass)
+    u.tReact.value = rs?.enabled ? rs.ssrRT.texture : null; u.reactOn.value = rs?.enabled ? 1 : 0;
     renderer.setRenderTarget(this.histB);
     this.resolve.render(renderer);
     [this.histA, this.histB] = [this.histB, this.histA];
