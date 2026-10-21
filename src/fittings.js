@@ -251,88 +251,167 @@ uniform float ftTime;`)
   return mat;
 }
 
-// ---- the boost pad (x across the track, y up from the deck, z backward: the ships run toward -z), 8 x 16 m inside:
-// a steel frame set on the deck (a chamfered rim 3 cm proud, 24 cm wide, its long inner walls a light strip) round a
-// bed of dark glass 8 mm up, a light rail 55 cm high along each long edge (arrows racing forward on its slope), a matrix of LED cells under it lit in chevrons pointing the way to go ("make the boost
-// pads better looking too": they were a flat glowing decal with sheets of light standing on their edges)
-export const PAD = { frame: 0, strip: 1, bed: 2, rail: 3 };
+// ---- the boost pad (x across the track, y up from the deck, z backward: the ships run toward -z), 8 x 16 m inside
+// ("the boost pads look awful, rework them completely": LED dots in a flat bed between two slanted glowing rails read as
+// a road sign). Built as a launch plate: an armoured rim round it (30 cm, 8 cm proud, chamfered both ways, a light
+// strip down its inner walls), the front rim a launch bar standing taller with a bright edge; inside, dark glass a
+// little under the rim with light flowing forward deep under it; on the glass five chevron blades 7 m wide, swept back
+// 2.2 m: each a steel wedge rising from the glass at its back to 18 cm at its leading edge, so its top - a glowing lens
+// set into a well, a hot crest along its front - faces the ships coming (seen from the chase camera it is the lens,
+// not an edge); a wave running through them toward the front, all of them flaring when a ship takes the pad.
+export const PAD = { frame: 0, strip: 1, glass: 2, lens: 3, edge: 4, well: 5 };
+export const PAD_CHEVRONS = { half: 3.5, sweep: 2.2, depth: 1.0, every: 2.9, first: 7.2, high: 0.18 };
+// a closed polygon in the plane (x, f: f forward, -z) offset inward by d (its edges moved in, corners mitred)
+function inset(poly, d) {
+  const n = poly.length, ccw = !THREE.ShapeUtils.isClockWise(poly.map(v2)), out = [];
+  const nIn = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy); return ccw ? [-dy / l, dx / l] : [dy / l, -dx / l]; };
+  for (let i = 0; i < n; i++) {
+    const p = poly[(i + n - 1) % n], c = poly[i], q = poly[(i + 1) % n], a = nIn(p, c), b = nIn(c, q);
+    const k = d / (1 + a[0] * b[0] + a[1] * b[1]);
+    out.push([c[0] + (a[0] + b[0]) * k, c[1] + (a[1] + b[1]) * k]);
+  }
+  return out;
+}
 export function padGeometry() {
   const B = new Builder(), P = PAD, Y = V(0, 1, 0), A = 4, L = 8;
-  // the frame: its profile (o out from the inner edge, y) swept round the rectangle, mitred at the corners
-  const prof = [[0, 0.008], [0, 0.02], [0.025, 0.03], [0.16, 0.03], [0.24, -0.001]];
-  const sides = [[V(1, 0, 0), (o) => [V(A + o, 0, -L - o), V(A + o, 0, L + o)], true], [V(-1, 0, 0), (o) => [V(-A - o, 0, L + o), V(-A - o, 0, -L - o)], true],
-    [V(0, 0, 1), (o) => [V(A + o, 0, L + o), V(-A - o, 0, L + o)], false], [V(0, 0, -1), (o) => [V(-A - o, 0, -L - o), V(A + o, 0, -L - o)], false]];
-  for (const [d, ends, long] of sides) {
-    for (let i = 0; i + 1 < prof.length; i++) {
-      const [o0, y0] = prof[i], [o1, y1] = prof[i + 1];
-      const [a0, b0] = ends(o0), [a1, b1] = ends(o1);
-      const out = d.clone().multiplyScalar(-(y1 - y0)).addScaledVector(Y, o1 - o0);     // (the profile edge's side)
-      const strip = i === 0 && long;
-      B.face([a0.clone().setY(y0), b0.clone().setY(y0), b1.clone().setY(y1), a1.clone().setY(y1)], out, strip ? P.strip : P.frame, strip ? 1 : 0);
+  const at = (p, y) => V(p[0], y, -p[1]);               // (plan point x, f -> local: z = -f)
+  // a band of faces between two plans with the same corners (a wall, a chamfer, a flat ring); inward: facing in
+  const loft = (pa, ya, pb, yb, part, glow = 0, inward = false) => {
+    const ccw = !THREE.ShapeUtils.isClockWise(pa.map(v2)), n = pa.length;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, dx = pa[j][0] - pa[i][0], df = pa[j][1] - pa[i][1], l = Math.hypot(dx, df);
+      const o = ccw ? [df / l, -dx / l] : [-df / l, dx / l];               // (outward in the plan)
+      // (the band's normal: across it the plan moves `run` out (s +1) or in (s -1) and rises `rise`)
+      const px = pb[i][0] - pa[i][0], pf = pb[i][1] - pa[i][1], rise = yb - ya, run = Math.hypot(px, pf), s = Math.sign(px * o[0] + pf * o[1]) || 1;
+      const out = inward ? V(-o[0], 0, o[1]) : run < 1e-6 ? V(o[0], 0, -o[1]) : V(-s * rise * o[0], run, s * rise * o[1]).normalize();
+      B.face([at(pa[i], ya), at(pa[j], ya), at(pb[j], yb), at(pb[i], yb)], out, part, glow);
     }
-  }
-  B.face([V(-A, 0.008, L), V(A, 0.008, L), V(A, 0.008, -L), V(-A, 0.008, -L)], Y, P.bed, 1);
-  // the light rails: a wedge 55 cm high along each long edge (under the ships' 1.35 m), its slope lit with arrows
-  for (const sx of [-1, 1]) {
-    const prof = [[sx * A, 0.008], [sx * A, 0.55], [sx * (A - 0.15), 0.55], [sx * (A - 0.6), 0.008]];
-    const parts = [P.frame, P.frame, P.rail, P.frame];
-    B.prism(prof, V(1, 0, 0), Y, V(0, 0, 1), -L + 0.4, L - 0.4, P.frame, { parts, glowEdges: [2] });   // (prism turns each face out)
+  };
+  const top = (poly, y, part, glow) => {
+    for (const [i, j, k] of THREE.ShapeUtils.triangulateShape(poly.map(v2), [])) B.face([at(poly[i], y), at(poly[j], y), at(poly[k], y)], Y, part, glow);
+  };
+  // the rim: outside chamfered down to the deck, a flat top, its inner wall a light strip down to the glass
+  const hole = [[-A, -L], [A, -L], [A, L], [-A, L]], r1 = inset(hole, -0.04), r2 = inset(hole, -0.26), r3 = inset(hole, -0.34);
+  loft(hole, 0.03, hole, 0.08, P.strip, 1, true);
+  loft(hole, 0.08, r1, 0.08, P.edge);
+  loft(r1, 0.08, r2, 0.08, P.frame);
+  loft(r2, 0.08, r3, 0.0, P.frame);
+  // the launch bar across the front: the rim there standing to 14 cm, its top's leading edge lit
+  const bar = [[-A - 0.34, L - 0.05], [A + 0.34, L - 0.05], [A + 0.34, L + 0.34], [-A - 0.34, L + 0.34]];
+  B.prism([[-A - 0.34, 0], [A + 0.34, 0], [A + 0.34, 0.14], [A + 0.2, 0.17], [-A - 0.2, 0.17], [-A - 0.34, 0.14]], V(1, 0, 0), Y, V(0, 0, -1),
+    bar[0][1], bar[2][1], P.frame, { parts: [P.frame, P.frame, P.edge, P.strip, P.edge, P.frame], glowEdges: [3] });
+  // the glass, 5 cm under the rim's top
+  top(hole, 0.03, P.glass, 0);
+  // the chevron blades, each arm a wedge: its top sloping from the glass at its back up to its front edge (a quad: the
+  // front and back edges run parallel), its front face standing, its outer end closed; on the top a rim round a well
+  // 12 mm deep with the lens in it (a notch at the tip between the arms' lenses), the rim's front a lit crest
+  const C = PAD_CHEVRONS, g0 = 0.03, h0 = 0.036;
+  const mix3 = (a, b, t) => a.clone().lerp(b, t);
+  for (let k = 0; k < 5; k++) {
+    const d = C.first - k * C.every, a = C.half, b = C.sweep, t = C.depth, H = C.high;
+    for (const sx of [-1, 1]) {
+      const tF = at([0, d], H), oF = at([sx * a, d - b], H), oB = at([sx * a, d - b - t], h0), tB = at([0, d - t], h0);
+      const fwd = V(sx * b, 0, -a).normalize();                          // (the front edge's outward side: forward)
+      B.face([at([0, d], g0), at([sx * a, d - b], g0), oF, tF], fwd, P.frame);
+      B.face([at([sx * a, d - b], g0), at([sx * a, d - b - t], g0), oB, oF], V(sx, 0, 0), P.frame);
+      B.face([at([0, d - t], g0), at([sx * a, d - b - t], g0), oB, tB], fwd.clone().negate(), P.frame);
+      // the top: T(u, v) - u from the tip out along the arm, v from the back edge to the front
+      const T = (u, v) => mix3(mix3(tB, oB, u), mix3(tF, oF, u), v);
+      const up = new THREE.Vector3().subVectors(T(1, 0), T(0, 0)).cross(new THREE.Vector3().subVectors(T(0, 1), T(0, 0))).normalize();
+      if (up.y < 0) up.negate();
+      const u0 = 0.22 / a, u1 = 1 - 0.08 / a, v0 = 0.14, v1 = 0.82, v2 = 0.92;
+      const rim = (ua, ub, va, vb, part = P.frame, glow = 0) => B.face([T(ua, va), T(ub, va), T(ub, vb), T(ua, vb)], up, part, glow);
+      rim(0, 1, 0, v0); rim(0, u0, v0, v1); rim(u1, 1, v0, v1); rim(0, 1, v1, v2, P.edge); rim(0, 1, v2, 1, P.strip, 1);
+      const sink = up.clone().multiplyScalar(-0.012), L = (u, v) => T(u, v).add(sink);
+      const wall = (p0, p1, out) => B.face([T(...p0), T(...p1), L(...p1), L(...p0)], out, P.well);
+      const du = new THREE.Vector3().subVectors(T(1, 0.5), T(0, 0.5)).normalize(), dv = new THREE.Vector3().subVectors(T(0.5, 1), T(0.5, 0)).normalize();
+      wall([u0, v0], [u1, v0], dv); wall([u0, v1], [u1, v1], dv.clone().negate()); wall([u0, v0], [u0, v1], du); wall([u1, v0], [u1, v1], du.clone().negate());
+      B.face([L(u0, v0), L(u1, v0), L(u1, v1), L(u0, v1)], up, P.lens, 1);
+    }
   }
   return B.geometry();
 }
 
-// its material: the frame dark anodised steel (a screw every metre along the rim's top), the strip and the LEDs in
-// colour (HDR - the bloom takes them); the bed dark glass, mirror-smooth. The LEDs: 12 cm cells, each a rounded
-// 8 cm square, lit where the cell's centre falls in a chevron (60 cm deep, every 2 m, arms swept back) - a light running
-// through the chevrons the way to go, all of them flaring when a ship takes the pad (instance attribute flash); finer
-// than the pixels far off, the matrix fades to its average. time: { value } (track.js update)
+// its material: the rim and plinths dark anodised steel, their chamfers worn bright, a screw every metre along the
+// rim's top; the light strip and the lenses in the pad's colour (HDR - the bloom takes them). A lens: white-gold at its
+// leading edge fading to deep orange at its back, a soft hot core, and a wave running through the blades toward the
+// front (each lit in turn, 0.7 s round); the glass dark and smooth, under it - parallax, 25 cm deep - lines of light
+// flowing forward at 30 m/s over a faint grid, brighter toward the front. A ship taking the pad (instance attribute
+// flash) flares all of it. time: { value } (track.js update)
 export function padMaterial(time, colour = [1.0, 0.42, 0.05]) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4, metalness: 0.6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-  const C = colour.map((x) => x.toFixed(3)).join(', ');
+  const C = colour.map((x) => x.toFixed(3)).join(', '), K = PAD_CHEVRONS;
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.padTime = time;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float part;\nattribute float flash;\nvarying float vPart;\nvarying float vFlash;\nvarying vec3 vFit;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPart = part; vFlash = flash; vFit = position;');
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float part;\nattribute float flash;\nvarying float vPart;\nvarying float vFlash;\nvarying vec3 vFit;\nvarying vec3 vEyeL;')
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+  vPart = part; vFlash = flash; vFit = position;
+  {
+    // (the eye in the pad's own frame: the glass's depth)
+    #ifdef USE_INSTANCING
+      mat4 pm = modelMatrix * instanceMatrix;
+    #else
+      mat4 pm = modelMatrix;
+    #endif
+    vEyeL = transpose(mat3(pm)) * (cameraPosition - pm[3].xyz);
+  }`);
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
 uniform float padTime;
 varying float vPart;
 varying float vFlash;
 varying vec3 vFit;
+varying vec3 vEyeL;
 float pdIn(float sd, float f) { return clamp(0.5 - sd / max(f, 1e-5), 0.0, 1.0); }
 vec3 pdCol; float pdRough, pdMetal; vec3 pdEmit;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
   {
     int pt = int(vPart + 0.5);
-    vec3 C = vec3(${C});
+    vec3 C = vec3(${C}), HOT = vec3(1.0, 0.86, 0.55);
+    float f = -vFit.z, ax = abs(vFit.x);
     pdEmit = vec3(0.0);
+    pdCol = vec3(0.05, 0.053, 0.058); pdRough = 0.35; pdMetal = 0.8;
     if (pt == 0) {
-      // (the frame: a screw every metre along the middle of the rim's top)
-      pdCol = vec3(0.055, 0.058, 0.064); pdRough = 0.35; pdMetal = 0.8;
-      vec2 a = abs(vFit.xz);
-      float along = a.x > 4.0 && a.y < 8.0 ? vFit.z : vFit.x, off = a.x > 4.0 && a.y < 8.0 ? a.x - 4.09 : a.y - 8.09;   // (a: |x|, |z|)
-      vec2 q = vec2((fract(along) - 0.5), off);
-      float f = fwidth(along), head = pdIn(length(q) - 0.011, f) * step(0.028, vFit.y) * (1.0 - smoothstep(0.004, 0.01, f));
-      pdCol = mix(pdCol, vec3(0.3, 0.31, 0.32), head);
+      // (a screw every metre along the middle of the rim's top)
+      float onRim = step(0.079, vFit.y) * step(0.04, max(ax - 4.0, abs(f) - 8.0));
+      vec2 a = vec2(ax, abs(f));
+      float along = a.x > 4.0 && a.y < 8.0 ? f : vFit.x, off = a.x > 4.0 && a.y < 8.0 ? a.x - 4.15 : a.y - 8.15;
+      vec2 q = vec2(fract(along) - 0.5, off);
+      float fw = fwidth(along), head = pdIn(length(q) - 0.014, fw) * onRim * (1.0 - smoothstep(0.004, 0.012, fw));
+      pdCol = mix(pdCol, vec3(0.32, 0.33, 0.34), head);
+    } else if (pt == 4) {
+      pdCol = vec3(0.3, 0.31, 0.33); pdRough = 0.28; pdMetal = 0.9;        // (chamfers worn bright)
+    } else if (pt == 5) {
+      pdCol = vec3(0.02); pdRough = 0.3; pdMetal = 0.5;                     // (the lens's well)
+      pdEmit = C * 0.6 * (1.0 + 2.0 * vFlash);
     } else if (pt == 1) {
       pdCol = vec3(0.02); pdRough = 0.2; pdMetal = 0.0;
-      pdEmit = C * (2.2 + 4.0 * vFlash);
+      pdEmit = mix(C, HOT, 0.25) * (2.4 + 4.0 * vFlash);
     } else if (pt == 3) {
-      // (the rails: arrows running forward along their slopes - 1.2 m apart, racing at 16 m/s)
-      pdCol = vec3(0.02); pdRough = 0.15; pdMetal = 0.0;
-      float s = clamp(vFit.y / 0.55, 0.0, 1.0), t = -vFit.z - 0.7 * abs(s - 0.5) - padTime * 16.0;
-      float f = fwidth(t), arrow = smoothstep(0.0, f * 1.5, fract(t / 1.2) * 1.2) * (1.0 - smoothstep(0.42 - f * 1.5, 0.42, fract(t / 1.2) * 1.2));
-      arrow = mix(arrow, 0.35, smoothstep(0.1, 0.3, f));
-      pdEmit = C * (0.9 + 5.5 * arrow + 5.0 * vFlash);
+      // the lens: across its blade, 0 at the leading edge to 1 at the back
+      pdCol = vec3(0.03); pdRough = 0.15; pdMetal = 0.0;
+      // (v: 0 at the lens's back to 1 at its front - the crest; a sheen rolling up it, the blades in turn)
+      float r = ${K.first.toFixed(2)} - f - ${(K.sweep / K.half).toFixed(4)} * ax, k = floor((r + 0.5) / ${K.every.toFixed(2)});
+      float v = clamp(1.0 - (r - k * ${K.every.toFixed(2)} - ${(K.depth * 0.18).toFixed(3)}) / ${(K.depth * 0.68).toFixed(3)}, 0.0, 1.0);
+      float wave = pow(1.0 - fract(k / 5.0 + padTime * 1.4), 3.0);
+      float sheen = exp(-pow((v - fract(padTime * 1.6 - k * 0.2) * 1.4 + 0.2) / 0.12, 2.0));
+      float edgeX = 1.0 - smoothstep(${(K.half - 0.5).toFixed(2)}, ${(K.half - 0.08).toFixed(2)}, ax) * 0.4;
+      pdEmit = (mix(C * 1.1, mix(C, HOT, 0.55) * 2.3, smoothstep(0.2, 1.0, v)) + mix(C, HOT, 0.7) * 1.4 * sheen) * (0.6 + 0.8 * wave) * edgeX + HOT * 3.0 * vFlash;
     } else {
-      pdCol = vec3(0.012, 0.012, 0.014); pdRough = 0.05; pdMetal = 0.0;
-      vec2 p = vec2(vFit.x, -vFit.z), cell = (floor(p / 0.12) + 0.5) * 0.12, d = abs(p - cell) - 0.03;
-      float led = pdIn(length(max(d, 0.0)) - 0.01, fwidth(p.x) * 1.2);
-      // (the cell's chevron: r runs along the chevrons, the arms swept back 0.45 m a metre out)
-      float r = cell.y + 0.45 * abs(cell.x) + 8.0, row = floor(r / 2.0), q = r - row * 2.0;
-      float on = step(q, 0.6) * step(abs(cell.x), 3.7) * step(abs(cell.y), 7.7);
-      float run = pow(1.0 - fract(row / 8.0 - padTime * 1.6), 2.5);
-      led = mix(led, 0.44, smoothstep(0.03, 0.08, fwidth(p.x)));
-      pdEmit = C * led * on * (2.0 + 3.0 * run + 5.0 * vFlash) + C * 0.004;
+      // the glass: dark, smooth; deep under it light flowing forward
+      pdCol = vec3(0.008, 0.008, 0.01); pdRough = 0.04; pdMetal = 0.0;
+      vec3 e = normalize(vEyeL - vFit);
+      float h = 0.25 / max(e.y, 0.12);
+      vec2 p = vec2(vFit.x, f) - vec2(e.x, -e.z) * h;
+      float fw = max(fwidth(p.x), fwidth(p.y));
+      float lane = abs(fract(p.x / 0.5 + 0.5) - 0.5) * 0.5, line = pdIn(lane - 0.012, fw * 1.5);
+      float dash = smoothstep(0.0, 0.3, fract((p.y - padTime * 30.0 + floor(p.x / 0.5) * 1.7) / 3.0)) * (1.0 - smoothstep(0.7, 1.0, fract((p.y - padTime * 30.0 + floor(p.x / 0.5) * 1.7) / 3.0)));
+      float fade = (1.0 - smoothstep(3.6, 4.0, abs(p.x))) * (1.0 - smoothstep(7.6, 8.0, abs(p.y)));
+      float far = 1.0 - smoothstep(0.02, 0.08, fw);
+      // (the blades' light on the glass behind them: their lenses face back)
+      float r = ${K.first.toFixed(2)} - f - ${(K.sweep / K.half).toFixed(4)} * ax, k = floor(r / ${K.every.toFixed(2)});
+      float behind = r - k * ${K.every.toFixed(2)} - ${K.depth.toFixed(2)};
+      float spill = behind > 0.0 && k >= 0.0 && k < 5.0 ? exp(-behind / 0.7) * (1.0 - smoothstep(3.0, 3.6, ax)) : 0.0;
+      pdEmit = C * (line * dash * (0.45 + 0.7 * smoothstep(-8.0, 8.0, p.y)) * far * fade + 0.02) * (1.0 + 3.0 * vFlash) + mix(C, HOT, 0.3) * spill * 0.5;
     }
     diffuseColor.rgb = pdCol;
   }`)
@@ -340,7 +419,7 @@ vec3 pdCol; float pdRough, pdMetal; vec3 pdEmit;`)
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = pdMetal;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += pdEmit;');
   };
-  mat.customProgramCacheKey = () => 'fitting-pad-' + C;
+  mat.customProgramCacheKey = () => 'fitting-pad2-' + C;
   return mat;
 }
 

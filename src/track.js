@@ -23,6 +23,7 @@ const WALL_H = 1.2, WALL_T = 0.7;    // solid wall
 const FIELD_H = 5.0;                 // energy barrier top
 const COPE = 0.08;                   // the wall's coping (its cap) over the wall's top
 const PYLON_EVERY = 8;               // the energy barrier's emitters: every 8 frames, from frame 4
+const WALL_PUSH = { psi: 0.035, v: 2.5 };   // the barrier pushing a ship off: its nose at least this far from the wall's line (rad), off at this (m/s)
 export const WALL_PROFILE = { h: WALL_H + COPE, t: WALL_T };   // (the walls up to the coping's top, their thickness: trackshadow.js)
 const GANTRY_EVERY = 300;            // m
 
@@ -2371,6 +2372,19 @@ export class TrackRacer {
     return Math.abs(_DV.dot(f.R)) > this.track.W / 2 || this.track.inGap(s) ? Infinity : _DV.dot(f.U);
   }
 
+  // a point's place across the track and its height over the deck, at its own place along the track (world): out
+  // [across, up] (the hull kept off the walls: ship.js animate)
+  trackPlace(w, out) {
+    const f = (this.dk2 ||= {});
+    let s = this.s + _DV.subVectors(w, this.pos).dot(this.f.T);
+    this.track.frame(s, f);
+    s += _DV.subVectors(w, f.P).dot(f.T);
+    this.track.frame(s, f);
+    _DV.subVectors(w, f.P);
+    out[0] = _DV.dot(f.R); out[1] = _DV.dot(f.U);
+    return out;
+  }
+
   // what the animation layer reads each frame (the landing impulse is consumed)
   animState() {
     const land = this.landImp, yawKick = this.yawKick;
@@ -2378,7 +2392,10 @@ export class TrackRacer {
     this.yawKick = 0;
     return { steer: this.steerS, lat: this.latS, accel: this.accS, vy: this.vy, airbrake: this.airIn, land, air: this.airT,
       brake: this.brakeS || 0, yawKick, height: this.y, drift: this.driftS * (this.drift || this.driftSide || 0), slip: this.slip,
-      deckHeight: (this.deckFn ||= (w) => this.deckHeight(w)), ghost: this.ghost };
+      deckHeight: (this.deckFn ||= (w) => this.deckHeight(w)), ghost: this.ghost,
+      // the walls: their faces below the coping's top, the barrier's plane above it (less a hand's breadth)
+      place: (this.placeFn ||= (w, o) => this.trackPlace(w, o)), right: this.f.R, x: this.x,
+      wallIn: this.track.W / 2 - 0.05, wallOut: this.track.W / 2 + WALL_T * 0.5 - 0.12, wallTop: WALL_H + COPE };
   }
 
   get speed() { return Math.hypot(this.vs, this.vx, this.vy * 0.2); }
@@ -2544,17 +2561,19 @@ export class TrackRacer {
       this.x = side * lim;
       // grinding along it drags: ~20 % of the speed for each second of contact (proportional - it never stops a ship)
       this.vs *= Math.exp(-0.22 * this.perks.wall * H.impact * dt);
-      // the nose glances off: a heading into the wall is turned along it and a little away (thrown back off at a quarter
-      // it was a fake punch; turned only along it, it slid on "like it happend nothing")
-      if (this.psi * side > 0) {
+      // the nose glances off: a heading into the wall is turned along it and away (thrown back off at a quarter it was a
+      // fake punch; turned only along it, it slid on "like it happend nothing"). The barrier pushes back: the nose at
+      // least WALL_PUSH off the wall's line - on a curve the lap's turn brought a straight ship back into the outer wall
+      // every step ("on curves the ship is kind locked into the edge")
+      if (this.psi * side > -WALL_PUSH.psi) {
         const p0 = this.psi;
-        this.psi = -this.psi * 0.15;
-        this.yawRate *= 0.2;
+        this.psi = -side * Math.max(Math.max(0, this.psi * side) * 0.15, WALL_PUSH.psi);
+        if (p0 * side > 0) this.yawRate *= 0.2;
         this.yawKick += this.psi - p0;
       }
-      if (this.vx * side > 0) {
-        const hit = Math.abs(this.vx);
-        this.vx = -this.vx * 0.18;                    // (a heavy bounce: 0.3 was a rebound, 0.1 nothing at all)
+      if (this.vx * side > -WALL_PUSH.v) {
+        const hit = Math.max(0, this.vx * side);
+        this.vx = -side * Math.max(hit * 0.18, WALL_PUSH.v);   // (a heavy bounce: 0.3 was a rebound, 0.1 nothing at all)
         // friction: the speed lost along the wall is a share of the blow. It was a share of the SPEED on every
         // 120 Hz step of contact (up to 30 %), so a ship pressed to a wall stopped dead - "touching the wall gets
         // me stuck sometimes"

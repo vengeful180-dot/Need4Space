@@ -44,7 +44,7 @@ const toThree = ([x, y, z]) => new THREE.Vector3(x, z, -y).normalize();
 const _Z = new THREE.Vector3(0, 0, 1), _Y = new THREE.Vector3(0, 1, 0), _lq2 = new THREE.Quaternion();
 const UMBRA_ENGINE = [0.5, 0.2, 1.0];     // the Umbra's engine and field: violet
 const ease = (t) => t * t * (3 - 2 * t);
-const _lq = new THREE.Quaternion(), _lv = new THREE.Vector3(), _lm = new THREE.Matrix4();
+const _lq = new THREE.Quaternion(), _lv = new THREE.Vector3(), _lm = new THREE.Matrix4(), _pl = [0, 0];
 
 export async function loadShip(url, onProgress) {
   const [gltf] = await Promise.all([new GLTFLoader().loadAsync(url, onProgress), MeshoptSimplifier.ready]);
@@ -1305,7 +1305,7 @@ export class Ship {
     this.ownPaint = base ? base.ownPaint : rb && { map: rb.map, orm: rb.roughnessMap };
 
     if (base) {                        // same hull: same probes, tips and span, nozzles, parts atlas
-      for (const k of ['probes', 'lows', 'floatLows', 'skin', 'bottom', 'tipR', 'tipL', 'halfSpan', 'length', 'tangentsFixed', 'nozzles', 'parts']) this[k] = base[k];
+      for (const k of ['probes', 'lows', 'floatLows', 'sides', 'skin', 'bottom', 'tipR', 'tipL', 'halfSpan', 'length', 'tangentsFixed', 'nozzles', 'parts']) this[k] = base[k];
     } else {
       this.repairTangents();
       this.root.updateMatrixWorld(true);
@@ -1921,6 +1921,11 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     for (let x = -1; x <= 1; x++) for (let y = -1; y <= 1; y++) for (let z = -1; z <= 1; z++)
       if (x || y || z) dirs.push(new THREE.Vector3(x, y, z).normalize());
     const best = dirs.map(() => -1e9), pts = dirs.map(() => new THREE.Vector3());
+    // the outline round the hull (animate: kept off the walls): its farthest points every 22.5 deg round, level and
+    // 30 deg up and down
+    const sideDirs = [];
+    for (const e of [-0.5, 0, 0.5]) for (let a = 0; a < 16; a++) sideDirs.push(new THREE.Vector3(Math.cos(a * Math.PI / 8), e, Math.sin(a * Math.PI / 8)).normalize());
+    const sideBest = sideDirs.map(() => -1e9), sidePts = sideDirs.map(() => new THREE.Vector3());
     const v = new THREE.Vector3();
     let maxX = -1e9;
     const tipCandidates = [];
@@ -1949,6 +1954,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
             if (skin.length < 160) skin.push(e); else { const j = Math.floor(rand() * skinSeen); if (j < 160) skin[j] = e; }
           }
         }
+        for (let k = 0; k < sideDirs.length; k++) { const d = v.dot(sideDirs[k]); if (d > sideBest[k]) { sideBest[k] = d; sidePts[k].copy(v); } }
         for (let k = 0; k < dirs.length; k++) {
           const d = v.dot(dirs[k]);
           if (d > best[k]) { best[k] = d; pts[k].copy(v); }
@@ -1984,6 +1990,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
       keep(under.reduce((m, q) => (q.dot(d) > m.dot(d) ? q : m)));
     }
     this.lows = lows;
+    this.sides = sidePts;
     this.bottom = best[dirs.findIndex((d) => d.y < -0.99)];      // origin to the lowest point (m)
     const tip = tipCandidates.filter((p) => p.x > maxX - 0.05).reduce((a, b) => (b.z > a.z ? b : a));
     this.tipR = tip.clone();
@@ -2394,6 +2401,25 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
         }
         if (under <= 0.001) break;
         this.visual.position.y += under;
+      }
+    }
+    // never through the wall or the barrier ("part of the engine sometimes goes thru it" - the nose still turned in for
+    // a moment after a knock, the shove and roll into it, a wide hull at the wall): the outline's farthest points across
+    // the track this frame held inside the wall's face below its top and inside the barrier's plane above it, the whole
+    // hull moved in by what would cross. Visual only - the physics never sees it.
+    if (c.place && this.sides && Math.abs(c.x) + (this.length || 13) * 0.6 > c.wallIn - 1) {
+      _lq.setFromEuler(this.visual.rotation);
+      const R = this.root;
+      let overR = 0, overL = 0;
+      for (const p of this.sides) {
+        _lv.copy(p).applyQuaternion(_lq).add(this.visual.position).applyQuaternion(R.quaternion).add(R.position);
+        c.place(_lv, _pl);
+        const lim = _pl[1] < c.wallTop ? c.wallIn : c.wallOut;
+        overR = Math.max(overR, _pl[0] - lim); overL = Math.max(overL, -_pl[0] - lim);
+      }
+      if ((overR > 0) !== (overL > 0)) {
+        _lv.copy(c.right).applyQuaternion(_lq.copy(R.quaternion).invert()).multiplyScalar(overL - overR);
+        this.visual.position.add(_lv);
       }
     }
     const su = this.shield.material.uniforms;
