@@ -302,7 +302,7 @@ function fieldMaterial(shared) {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     uniforms: { time: shared.time, shipPos: shared.shipPos, hitN: { value: 0 },
-      hits: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, 0, 0, -100)) }, hitS: { value: [0, 0, 0, 0] } },
+      hits: { value: [0, 1, 2, 3, 4, 5, 6, 7].map(() => new THREE.Vector4(0, 0, 0, -100)) }, hitS: { value: [0, 0, 0, 0, 0, 0, 0, 0] } },
     vertexShader: /* glsl */`
       varying vec2 vUv; varying vec3 vW; varying vec3 vN;
       void main() {
@@ -310,7 +310,7 @@ function fieldMaterial(shared) {
         vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
       }`,
     fragmentShader: /* glsl */`
-      uniform float time; uniform vec3 shipPos; uniform vec4 hits[4]; uniform float hitS[4];
+      uniform float time; uniform vec3 shipPos; uniform vec4 hits[8]; uniform float hitS[8];
       varying vec2 vUv; varying vec3 vW; varying vec3 vN;
       // hexagons 1 unit across the flats: x the distance to the cell's edge, yz the cell
       vec3 hexCell(vec2 p) {
@@ -327,11 +327,11 @@ function fieldMaterial(shared) {
         // the blows: the shockwave round each one's centre now (it rides along with the ship, metres along the lap)
         float ring = 0.0;
         vec2 bend = vec2(0.0);
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 8; k++) {
           float age = time - hits[k].w;
-          if (age < 0.0 || age > 1.8) continue;
+          if (age < 0.0 || age > 2.6) continue;
           vec2 d = vec2(alr - (hits[k].x + hits[k].y * age), p.y - 0.3);
-          float L = length(d), rq = (L - (1.5 + age * 30.0)) / 1.6, w = exp(-rq * rq) * exp(-age * 1.6) * hitS[k];
+          float L = length(d), rq = (L - (1.5 + age * 30.0)) / 1.6, w = exp(-rq * rq) * exp(-age * 1.3) * (1.0 - smoothstep(1.2, 2.6, age)) * hitS[k];
           ring += w;
           bend += d / max(L, 0.01) * w * 0.35;                  // (the cells pushed out by the wave)
         }
@@ -352,27 +352,28 @@ function fieldMaterial(shared) {
         // edges crackling where there is energy
         float ca = alr + (c1.y * 0.9 - pb.x), cy = c1.z * 0.9;     // (the cell's centre, metres along and up)
         float cells = 0.0, core = 0.0, flash = 0.0;
-        for (int k = 0; k < 4; k++) {
+        for (int k = 0; k < 8; k++) {
           float age = time - hits[k].w;
-          if (age < 0.0 || age > 1.8) continue;
-          float s0 = hits[k].x, vs = hits[k].y, now = s0 + vs * age, S = hitS[k];
+          if (age < 0.0 || age > 2.6) continue;
+          float s0 = hits[k].x, vs = hits[k].y, now = s0 + vs * age, S = hitS[k] * (1.0 - smoothstep(1.2, 2.6, age));
           float lo = min(s0, now), hi = max(s0, now);
           // (when the centre passed this cell: none ahead of it; behind the blow's start, spreading back from there)
           float since = ca >= lo && ca <= hi && abs(vs) > 1.0 ? age - (ca - s0) / vs : (ca < lo ? age - (lo - ca) / 30.0 : -1.0);
           float up = cy / HF;
-          cells += since > 0.0 ? exp(-since * 2.0) * max(0.0, 1.0 - 0.6 * up * since) * S : 0.0;
+          cells += since > 0.0 ? exp(-since * 1.5) * max(0.0, 1.0 - 0.45 * up * since) * S : 0.0;
           vec2 dn = vec2(ca - now, cy - 0.6), dq = vec2(alr - now, p.y - 0.6);
-          core += exp(-dot(dn, dn) / 8.0) * exp(-age * 1.1) * S;
+          core += exp(-dot(dn, dn) / 8.0) * exp(-age * 0.9) * S;
           flash += exp(-dot(dq, dq) / 3.0) * exp(-age * 2.5) * S;
         }
         cells = min(cells, 2.0);
         float crackle = step(0.55, hsh(c1.yz + floor(time * 28.0) * 0.731)) * e1 * min(1.0, cells + core);
         float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
-          * (0.65 + 1.4 * near + 1.0 * run)
-          + ring * (2.5 + 6.0 * e1 + 1.5 * e2)
-          + cells * (e1 * 3.6 + 0.75 * smoothstep(0.5, 0.0, c1.x) + 0.12)
-          + crackle * 6.0;
-        vec3 c = ${g3(TH.field)} * k + ${g3(TH.fieldFlash)} * (core * (1.2 + 5.0 * e1 + 2.0 * fill) + flash * 2.5 + ring * e1 * 2.0) * (1.0 - 0.5 * h);
+          * (0.65 + 1.4 * near + 1.0 * run);
+        // (the blow in red, whatever the circuit's colour: a deep red trail, red cells and ring, the core hot orange
+        // to white)
+        float hk = ring * (2.5 + 6.0 * e1 + 1.5 * e2) + cells * (e1 * 3.6 + 0.75 * smoothstep(0.5, 0.0, c1.x) + 0.12) + crackle * 6.0;
+        float hot = core * (1.2 + 5.0 * e1 + 2.0 * fill) + flash * 2.5 + ring * e1 * 2.0;
+        vec3 c = ${g3(TH.field)} * k + vec3(1.0, 0.09, 0.03) * hk + mix(vec3(1.0, 0.35, 0.1), vec3(1.0, 0.85, 0.7), min(1.0, core * 0.6)) * hot * (1.0 - 0.5 * h);
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
@@ -1982,12 +1983,17 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
 
   padFlash(i) { this.padFlashA.array[i] = 1; }
 
-  // an energy ripple through the barrier from where a ship hit it (four at a time)
-  // s: where along the lap (m), vs: the ship's speed along it (the blow rides with it), side: the wall (+1 right)
+  // a blow on the barrier (eight a side at a time). s: where along the lap (m), vs: the ship's speed along it (the
+  // blow rides with it), side: the wall (+1 right). A ship grinding along the wall knocks every 0.25 s: within half a
+  // second of the last blow on that side it feeds that one instead of starting another (a new one overwrote a lit one -
+  // it snapped off)
   fieldHit(at, strength, s = 0, vs = 0, side = 1) {
-    const u = this.fieldMats[side > 0 ? 1 : 0].uniforms, k = u.hitN.value++ % 4;
-    u.hits.value[k].set(this.wrap(s), vs, 0, u.time.value);
-    u.hitS.value[k] = Math.min(1.6, 0.6 + strength);
+    const u = this.fieldMats[side > 0 ? 1 : 0].uniforms, t = u.time.value, S = Math.min(1.6, 0.6 + strength);
+    const last = (u.hitN.value - 1 + 8) % 8;
+    if (u.hitN.value > 0 && t - u.hits.value[last].w < 0.5) { u.hitS.value[last] = Math.max(u.hitS.value[last], S); return; }
+    const k = u.hitN.value++ % 8;
+    u.hits.value[k].set(this.wrap(s), vs, 0, t);
+    u.hitS.value[k] = S;
   }
 
   // Asteroids: six rock shapes - lumpy, ridged, cratered (bowls with raised rims), squashed and stretched - with
