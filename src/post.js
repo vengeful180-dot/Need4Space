@@ -524,9 +524,9 @@ export class TAAPass extends Pass {
       vertexShader: /* glsl */`varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }` }));
     this.resolve = quad({ tCur: { value: null }, tHist: { value: null }, tDepth: { value: null }, tPrevDepth: { value: null },
       invProj: { value: new THREE.Matrix4() }, camWorld: { value: new THREE.Matrix4() }, prevViewProj: { value: new THREE.Matrix4() },
-      texel: { value: new THREE.Vector2() }, jit: { value: new THREE.Vector2() }, valid: { value: 0 }, tReact: { value: null }, reactOn: { value: 0 } }, /* glsl */`
+      texel: { value: new THREE.Vector2() }, jit: { value: new THREE.Vector2() }, valid: { value: 0 } }, /* glsl */`
       uniform sampler2D tCur, tHist, tDepth, tPrevDepth; uniform mat4 invProj, camWorld, prevViewProj;
-      uniform vec2 texel, jit; uniform float valid, reactOn; uniform sampler2D tReact;
+      uniform vec2 texel, jit; uniform float valid;
       varying vec2 vUv;
       vec3 tm(vec3 c) { return c / (1.0 + max(c.r, max(c.g, c.b))); }
       vec3 itm(vec3 c) { return c / max(1e-4, 1.0 - max(c.r, max(c.g, c.b))); }
@@ -591,10 +591,10 @@ export class TAAPass extends Pass {
         // away with the frames before it)
         float lc = dot(cur, vec3(0.2126, 0.7152, 0.0722)), lh = itm(rgb(h)).g;
         a = max(a, 0.75 * smoothstep(1.0, 3.0, lc) * smoothstep(2.0, 6.0, lc / max(lh, 1e-3)));
-        // (where the deck's reflection is much of the pixel: it moves with what it mirrors, not with the deck the depth
-        // reprojects by - held over frames, it trailed and caught up in waves)
-        float rf = reactOn * dot(texture2D(tReact, vUv).rgb, vec3(0.2126, 0.7152, 0.0722));
-        a = max(a, 0.7 * smoothstep(0.05, 0.35, rf / max(lc, 1e-3)));
+        // (the deck's reflections are not in this picture: they move with what they mirror, not with the deck the depth
+        // reprojects by, and are laid over it after (DeckSSRPass, with a history of its own). Taken into it, they trailed
+        // and caught up in waves; let through as they came, they left the reflective road jittering - "everything
+        // flickers", the far road and the reflections most)
         gl_FragColor = vec4(itm(rgb(mix(h, n, a))), 1.0);
       }`);
     // what is shown: the result sharpened where it is soft and left alone where it has contrast (contrast-adaptive, in
@@ -670,8 +670,6 @@ export class TAAPass extends Pass {
     u.texel.value.set(1 / this.w, 1 / this.h);
     u.valid.value = this.valid ? 1 : 0;
     u.jit.value.set(...(this.jitPx || [0, 0]));
-    const rs = this.reflections;                          // (the deck's reflections this frame: DeckSSRPass)
-    u.tReact.value = rs?.enabled ? rs.ssrRT.texture : null; u.reactOn.value = rs?.enabled ? 1 : 0;
     renderer.setRenderTarget(this.histB);
     this.resolve.render(renderer);
     [this.histA, this.histB] = [this.histB, this.histA];

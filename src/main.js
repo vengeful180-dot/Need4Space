@@ -438,6 +438,11 @@ async function boot() {
     b.needsUpdate = true;
   }
   composer.addPass(gtao);
+  // temporal anti-aliasing (Settings: MSAA 4x + TAA) on the lit picture, before the deck's reflections (they move with
+  // what they mirror and keep a history of their own) and the glows (post.js TAAPass)
+  const taa = new TAAPass(camera, gtao);
+  taa.enabled = false;
+  composer.addPass(taa);
   // reflections on the deck (uses the AO pass's depth and normals: off with AO)
   const ssr = new DeckSSRPass(scene, camera, gtao);
   if (track) {
@@ -446,11 +451,6 @@ async function boot() {
     ssr.setReflector(track.parts.deck);
     composer.addPass(ssr);
   } else ssr.enabled = false;
-  // temporal anti-aliasing (Settings: MSAA 4x + TAA) on the lit picture, before the glows (post.js TAAPass)
-  const taa = new TAAPass(camera, gtao);
-  taa.enabled = false;
-  taa.reflections = ssr;
-  composer.addPass(taa);
   // light shafts through the gaps of what stands in front of the sun (a map with air: the forest moon)
   const shafts = new ShaftPass();
   composer.addPass(shafts);
