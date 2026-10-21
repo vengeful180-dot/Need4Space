@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { mergeVertices, mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clamp, damp, smoothstep, mulberry32, noise2, fbm } from './noise.js';
 import { bakeDeckMaps, DECK_LAYOUT } from './deck.js';
-import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial } from './fittings.js';
+import { studGeometry, lampGeometry, fittingMaterial, padGeometry, padMaterial, ribGeometry, pylonGeometry } from './fittings.js';
 import { Q } from './quality.js';
 import { FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 import { rockMaterial } from './rock.js';
@@ -20,6 +20,7 @@ const STEP = 2;                      // frame spacing (m)
 const DECK = 1.8;                    // deck thickness
 const WALL_H = 1.2, WALL_T = 0.7;    // solid wall
 const FIELD_H = 5.0;                 // energy barrier top
+const COPE = 0.08;                   // the wall's coping (its cap) over the wall's top
 const GANTRY_EVERY = 300;            // m
 
 // The circuit, as control points: x, y, z (m) and bank (deg, + = right edge down, eased the short way round between
@@ -113,7 +114,7 @@ const SPECULAR_AA = /* glsl */`
   }`;
 
 // The deck's first lines in main() (deck.js DECK_LAYOUT): where the view ray meets the deck. With Settings "Road relief",
-// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -4.2 cm; 8 steps looking
+// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -6.2 cm; 8 steps looking
 // down, up to 28 grazing, then the crossing interpolated), its reach eased out from 30 m so nothing pops; past that, or
 // switched off, the surface itself. There the deck's maps are read (with the surface's own gradients - the meeting point
 // jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
@@ -137,8 +138,8 @@ const DECK_MARCH = /* glsl */`
         float vz = dot(V, n);
         vec2 o = -vec2(dot(V, gx), dot(V, gy)) / max(vz, 0.12) * (1.0 - smoothstep(30.0, 48.0, dist));
         int N = int(mix(28.0, 8.0, clamp(vz, 0.0, 1.0)));
-        float dz = 0.051 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
-        mh = m0 + o * 0.042;
+        float dz = 0.071 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
+        mh = m0 + o * 0.062;
         for (int i = 1; i <= 28; i++) {
           if (i > N) break;
           float z = 0.009 - dz * float(i), d = z - rdHeight(m0 - o * z, rdFw, false);
@@ -215,10 +216,12 @@ function laneSection(x) {
   return sec;
 }
 // the housings' finish: kind 'lane' (dark anodised: a screw in each rim every metre, a joint every 4 m), 'strip'
-// (satin aluminium: a joint every 3 m) or 'conduit' (dark painted: a galvanised clamp every 1.5 m, a coupling every
+// (satin aluminium: a joint every 3 m), 'cap' (the coping: satin aluminium) and 'fascia' (dark steel), a joint every
+// 6 m, or 'conduit' (dark painted: a galvanised clamp every 1.5 m, a coupling every
 // 6 m). Their sweeps' v is metres along the lap, u across the profile
 function housingMaterial(kind) {
-  const look = { lane: [0x15171b, 0.32, 0.75], strip: [0x8d939b, 0.38, 0.85], conduit: [0x2a2d31, 0.5, 0.45] }[kind];
+  const look = { lane: [0x15171b, 0.32, 0.75], strip: [0x8d939b, 0.38, 0.85], conduit: [0x2a2d31, 0.5, 0.45], cap: [0x9aa1aa, 0.34, 0.85],
+    fascia: [0x262a31, 0.4, 0.75] }[kind];
   const mat = new THREE.MeshStandardMaterial({ color: look[0], roughness: look[1], metalness: look[2] });
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vHu;')
@@ -238,6 +241,9 @@ function housingMaterial(kind) {
     diffuseColor.rgb *= 1.0 - 0.85 * sock;
     hsR = mix(hsR, 0.3, head);` : kind === 'strip' ? `
     float j = abs(al - 3.0 * floor(al / 3.0 + 0.5)) - 0.0025;
+    diffuseColor.rgb *= 1.0 - 0.8 * hsIn(j) * (1.0 - smoothstep(0.01, 0.03, fa));` : kind === 'cap' || kind === 'fascia' ? `
+    // (a joint every 6 m)
+    float j = abs(al - 6.0 * floor(al / 6.0 + 0.5)) - 0.003;
     diffuseColor.rgb *= 1.0 - 0.8 * hsIn(j) * (1.0 - smoothstep(0.01, 0.03, fa));` : `
     // (the clamps 3.5 cm wide, galvanised; the couplings 9 cm, a dark ring at each end)
     float c = abs(al - 1.5 * floor(al / 1.5 + 0.5)), cp = abs(al - 6.0 * floor(al / 6.0 + 0.5));
@@ -274,31 +280,47 @@ function speckle(g, w, h, n, cols, size, seed = 7) {
   }
 }
 
-// the energy barrier above the walls: a hex field, scrolling, brighter where the ship is near
+// the energy barrier above the walls ("the edge filed can be upgraded too in a better look"): standing between its
+// emitters on the coping (Track.fieldPylons, every 16 m): two layers of hexagonal cells - big ones (90 cm), each a
+// faceted pane with its own shimmer, and fine ones (35 cm) drifting up through them - densest at the emitters (a beam up
+// each) and thinning between, a lit edge along its top and where it leaves the coping, thicker seen edge-on; a pulse of
+// energy running along it every 160 m; brighter where a ship is near, rippling from where one hits it
 function fieldMaterial() {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
     uniforms: { time: { value: 0 }, shipPos: { value: new THREE.Vector3() }, hitN: { value: 0 },
       hits: { value: [0, 1, 2, 3].map(() => new THREE.Vector4(0, -1e6, 0, -100)) }, hitS: { value: [0, 0, 0, 0] } },
     vertexShader: /* glsl */`
-      varying vec2 vUv; varying vec3 vW;
-      void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+      varying vec2 vUv; varying vec3 vW; varying vec3 vN;
+      void main() {
+        vUv = uv; vN = normalize(mat3(modelMatrix) * normal);
+        vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
     fragmentShader: /* glsl */`
-      uniform float time; uniform vec3 shipPos; uniform vec4 hits[4]; uniform float hitS[4]; varying vec2 vUv; varying vec3 vW;
-      float hexEdge(vec2 p) {     // 0 on a cell edge
-        p.x *= 1.1547; p.y += mod(floor(p.x), 2.0) * 0.5;
-        vec2 f = abs(fract(p) - 0.5);
-        return abs(max(f.x * 1.5 + f.y, f.y * 2.0) - 1.0);
+      uniform float time; uniform vec3 shipPos; uniform vec4 hits[4]; uniform float hitS[4];
+      varying vec2 vUv; varying vec3 vW; varying vec3 vN;
+      // hexagons 1 unit across the flats: x the distance to the cell's edge, yz the cell
+      vec3 hexCell(vec2 p) {
+        const vec2 r = vec2(1.0, 1.7320508);
+        vec2 a = mod(p, r) - r * 0.5, b = mod(p - r * 0.5, r) - r * 0.5;
+        vec2 g = dot(a, a) < dot(b, b) ? a : b, q = abs(g);
+        return vec3(0.5 - max(q.x, dot(q, vec2(0.5, 0.8660254))), p - g);
       }
       void main() {
-        float h = vUv.y;                                   // 0 at the wall top, 1 at the field top
-        vec2 p = vec2(vUv.x * 0.6, h * 3.2);
-        float e = hexEdge(p), aa = fwidth(e);
-        float far = smoothstep(450.0, 140.0, distance(vW, cameraPosition));   // thin lines shimmer far away: fade them
-        float edge = (1.0 - smoothstep(0.06, 0.06 + 1.5 * aa, e)) * far * clamp(0.1 / max(aa, 0.1), 0.0, 1.0);
-        float fade = (1.0 - h) * (1.0 - h);
+        float h = vUv.y, al = mod(vUv.x, 4800.0);          // 0 at the coping, 1 at the top; metres along
+        vec2 p = vec2(al, h * ${(FIELD_H - WALL_H - COPE).toFixed(2)});
+        vec3 c1 = hexCell(p / 0.9), c2 = hexCell((p + vec2(0.0, time * 0.25)) / 0.35);
+        float a1 = fwidth(c1.x), a2 = fwidth(c2.x), far = smoothstep(450.0, 140.0, distance(vW, cameraPosition));
+        float e1 = (1.0 - smoothstep(0.02, 0.02 + 1.5 * a1, c1.x)) * clamp(0.08 / max(a1, 0.08), 0.0, 1.0);
+        float e2 = (1.0 - smoothstep(0.03, 0.03 + 1.5 * a2, c2.x)) * clamp(0.08 / max(a2, 0.08), 0.0, 1.0) * far;
+        float cv = fract(sin(dot(mod(c1.yz, 512.0), vec2(12.9898, 78.233))) * 43758.5453);
+        float fill = smoothstep(0.5, 0.0, c1.x) * (0.25 + 0.75 * pow(0.5 + 0.5 * sin(time * 1.3 + cv * 40.0), 4.0)) * far;
+        float dp = abs(mod(al, 16.0) - 8.0);                // (to the nearest emitter: they stand at 8 m + 16 m steps)
+        float beam = exp(-dp * dp / 0.06) * 1.1 + exp(-dp * dp / 5.0) * 0.4, density = 0.4 + 0.6 * exp(-dp * dp / 18.0);
+        float top = exp(-pow((1.0 - h) / 0.012, 2.0)), base = exp(-h / 0.04) * 0.5, fade = mix(1.0, 0.4, h);
         float near = exp(-pow(distance(vW, shipPos) / 22.0, 2.0));
-        float scan = 0.5 + 0.5 * sin(vUv.x * 0.8 - time * 6.0);
+        float graze = pow(1.0 - abs(dot(normalize(cameraPosition - vW), normalize(vN))), 3.0);
+        float run = exp(-pow((fract(al / 160.0 - time * 0.375) - 0.5) * 160.0 / 3.0, 2.0));
         // impacts: a bright ring racing out through the cells, a white-hot flash at the point of contact
         float ring = 0.0, flash = 0.0;
         for (int k = 0; k < 4; k++) {
@@ -307,8 +329,9 @@ function fieldMaterial() {
           ring += exp(-pow((d - age * 22.0) / 1.6, 2.0)) * exp(-age * 2.5) * hitS[k];
           flash += exp(-d * d / 6.0) * exp(-age * 7.0) * hitS[k];
         }
-        vec3 c = ${g3(TH.field)} * (edge * (0.16 + 1.0 * near + 3.0 * ring) + 0.03 + 0.07 * scan * fade + ring * 0.6) * fade;
-        c += ${g3(TH.fieldFlash)} * flash * 2.0 * (1.0 - h);
+        float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
+          * (0.65 + 1.4 * near + 1.0 * run) + e1 * ring * 3.0 + ring * 0.6;
+        vec3 c = ${g3(TH.field)} * k + ${g3(TH.fieldFlash)} * flash * 2.0 * (1.0 - h);
         gl_FragColor = vec4(c, 1.0);
       }`,
   });
@@ -786,7 +809,7 @@ export class Track {
     // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
     this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckGlow: { value: new THREE.Vector3(...TH.strip) } };
-    const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.22 });
+    const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.5 });
     const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
       `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
     deckMat.onBeforeCompile = (sh) => {
@@ -801,7 +824,7 @@ export class Track {
           'uniform float deckRelief;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0;\n' + DECK_LAYOUT)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
-  diffuseColor.rgb *= mix(0.85 + 0.3 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
+  diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
   diffuseColor.rgb = diffuseColor.rgb * rdTone * (1.0 - rdS.a) + rdS.rgb;
 // deck: themes`))
         .replace('#include <roughnessmap_fragment>', grad('#include <roughnessmap_fragment>', 'vRoughnessMapUv', `
@@ -815,7 +838,7 @@ export class Track {
   {
     // the aggregate's grain (on the plates' paint, not the steel) and the layout's slopes; flattened under a theme's
     // cover (sand, moss, rime: deckFlat)
-    vec2 dn = (textureGrad(detailNormal, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).xy * 2.0 - 1.0) * 0.35 * (1.0 - rdS.a);
+    vec2 dn = (textureGrad(detailNormal, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).xy * 2.0 - 1.0) * 0.12 * (1.0 - rdS.a);
     normal = normalize(mix(normal, normalize(tbn[2]), deckFlat));
     normal = normalize(normal + (normalize(tbn[0]) * (dn.x - rdSlope.x) + normalize(tbn[1]) * (dn.y - rdSlope.y)) * (1.0 - deckFlat));
   }
@@ -998,9 +1021,23 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       [0.018, WALL_H - 0.09], [0.03, WALL_H - 0.08], [0.03, WALL_H - 0.05], [0, WALL_H - 0.035]]), 1), housingMaterial('strip')));
     out.conduits = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, conduitRing(0.06, 0.42, 0.045, 10), true), 1),
       housingMaterial('conduit')));
+    // the outside of the road ("the outside of the roads on the edges you didnt change anything there"): the wall
+    // capped with a chamfered coping (3.5 cm over its inner face, 5 cm over its outer one); down its outer side a fascia
+    // band at the deck's level, a lit channel (lips 6 cm proud round the edge light) and a flange along the underside's
+    // edge - ribs between them every 6 m (edgeRibs); the energy barrier rising from emitters on the coping (fieldPylons)
+    const O = -WALL_T;
+    out.cap = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[0, WALL_H - 0.03], [0.035, WALL_H - 0.03],
+      [0.035, WALL_H + 0.04], [0, WALL_H + COPE], [O, WALL_H + COPE], [O - 0.05, WALL_H + 0.04], [O - 0.05, WALL_H - 0.06],
+      [O, WALL_H - 0.06]]), 1), housingMaterial('cap')));
+    out.fascia = [-1, 1].map((s) => new THREE.Mesh(this.sweep(sideSection(s, W, [[O, 0.18], [O - 0.12, 0.12], [O - 0.12, -0.12],
+      [O, -0.18], null, [O, -0.33], [O - 0.06, -0.36], [O - 0.06, -0.39], [O - 0.035, -0.4], null, [O - 0.035, -0.6],
+      [O - 0.06, -0.61], [O - 0.06, -0.64], [O, -0.67], null, [O, -1.62], [O - 0.1, -1.7], [O - 0.1, -1.8], [O, -1.82]]), 1),
+      housingMaterial('fascia')));
+    out.ribs = this.edgeRibs();
+    out.pylons = this.fieldPylons();
     // energy barriers
     this.fieldMat = fieldMaterial();
-    const field = (s) => this.sweep([[s * (W + WALL_T * 0.5), WALL_H, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
+    const field = (s) => this.sweep([[s * (W + WALL_T * 0.5), WALL_H + COPE, 0, -s, 0], [s * (W + WALL_T * 0.5), FIELD_H, 1, -s, 0]], 1);
     out.fields = [new THREE.Mesh(field(-1), this.fieldMat), new THREE.Mesh(field(1), this.fieldMat)];
     for (const f of out.fields) {
       // u along the track for the hex pattern: swap the sweep's (u, v) so x runs along the track
@@ -1028,7 +1065,8 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     // the deck and walls receive but never cast: at a grazing sun, PCSS's blocker search found a plane's own
     // neighbouring texels and shaded the whole deck black. The ship and the gantries are the casters.
     for (const m of [out.deck, out.under, ...out.walls]) { m.castShadow = false; m.receiveShadow = true; }
-    for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.stripHousing, ...out.conduits, ...out.fields, ...out.gantries, ...out.pads,
+    for (const m of [out.deck, out.under, ...out.walls, ...out.strips, ...out.stripHousing, ...out.conduits, ...out.cap, ...out.fascia,
+      out.ribs, out.pylons, ...out.fields, ...out.gantries, ...out.pads,
       ...out.lanes, ...out.laneHousing, out.studs, ...out.girders, out.startLine, ...out.chevrons, ...out.lamps, ...out.trims,
       ...out.lips, ...out.flips, ...out.tunnel, ...out.gates, ...out.towers, ...out.cave]) scene.add(m);
     this.parts = out;
@@ -1773,6 +1811,52 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     return [bm, pm];
   }
 
+  // ribs down the deck's outer sides every 6 m, from the flange to the lit channel (fittings.js)
+  edgeRibs() {
+    const every = 3, n = Math.ceil(this.n / every) * 2, E = this.W / 2 + WALL_T;
+    const im = new THREE.InstancedMesh(ribGeometry(), new THREE.MeshStandardMaterial({ color: 0x23262c, roughness: 0.42, metalness: 0.7 }), n);
+    const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI);
+    let k = 0;
+    for (let i = 0; i < this.n; i += every) {
+      if (this.inGap(i * this.step, 3)) continue;
+      for (const side of [-1, 1]) {
+        this.basisAt(i, M);
+        M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * E));
+        if (side < 0) M.multiply(turn);                 // (turned round, not mirrored)
+        im.setMatrixAt(k++, M);
+      }
+    }
+    im.count = k;
+    im.receiveShadow = true;
+    return im;
+  }
+
+  // the energy barrier's emitters on the coping every 16 m, both sides (fittings.js): not where a lamp post or a
+  // gantry stands, nor over a cut
+  fieldPylons() {
+    const every = 8, n = Math.ceil(this.n / every) * 2, X = this.W / 2 + WALL_T / 2, gEvery = Math.round(GANTRY_EVERY / this.step);
+    this.pylonTime = { value: 0 };
+    const im = new THREE.InstancedMesh(pylonGeometry(FIELD_H - WALL_H - COPE + 0.2), fittingMaterial('pylon', TH.field, this.pylonTime), n);
+    const M = new THREE.Matrix4(), turn = new THREE.Matrix4().makeRotationY(Math.PI), lampEvery = Math.round(60 / this.step);
+    let k = 0;
+    for (let i = 4; i < this.n; i += every) {
+      if (this.inGap(i * this.step, 4)) continue;
+      const g = ((i - this.start) % gEvery + gEvery) % gEvery;
+      if (g < 3 || g > gEvery - 3) continue;
+      for (const side of [-1, 1]) {
+        const li = Math.round(i / lampEvery);
+        if (Math.abs(i - li * lampEvery) < 2 && side === (li % 2 ? 1 : -1)) continue;
+        this.basisAt(i, M);
+        M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H + COPE));
+        if (side < 0) M.multiply(turn);
+        im.setMatrixAt(k++, M);
+      }
+    }
+    im.count = k;
+    im.castShadow = im.receiveShadow = true;
+    return im;
+  }
+
   // lamp posts on the walls every 60 m (alternating sides), each built like a street light (fittings.js): a bolted base
   // plate with gussets, a tapered post, a curved arm out over the track and a finned head, its LED diffuser underneath
   lampPosts() {
@@ -1785,7 +1869,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
       const i = k * every, side = k % 2 ? 1 : -1;
       if (this.inGap(i * this.step, 6) || this.inLoop(i * this.step, 10) || this.inTunnel(i * this.step, 5) || this.inCave(i * this.step, 20) || this.inCanopy(i * this.step, 8)) continue;
       this.basisAt(i, M);
-      M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H));
+      M.setPosition(this.P[i].clone().addScaledVector(this.R[i], side * X).addScaledVector(this.U[i], WALL_H + COPE));
       if (side < 0) M.multiply(turn);                   // (turned round, not mirrored: see the towers)
       mm.setMatrixAt(used++, M);
     }
@@ -1796,10 +1880,10 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
 
   // a lit trim along the deck's outer sides (it reads the track's line from other parts of the circuit)
   edgeTrims() {
-    const E = this.W / 2 + WALL_T + 0.01;
-    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.trim) });
+    const E = this.W / 2 + WALL_T + 0.035;               // (in its channel: the fascia's lips round it)
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...TH.trim), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
     return [-1, 1].map((sd) => {
-      const sec = [[sd * E, -0.55, 0, sd, 0], [sd * E, -0.38, 1, sd, 0]];
+      const sec = [[sd * E, -0.6, 0, sd, 0], [sd * E, -0.4, 1, sd, 0]];
       return new THREE.Mesh(this.sweep(sd > 0 ? sec.slice().reverse() : sec, 10), mat);
     });
   }
@@ -1933,6 +2017,7 @@ float snN(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f)
     if (this.beaconMat) this.beaconMat.color.setRGB(5, 2.2, 0.3).multiplyScalar(0.15 + 0.85 * (Math.sin(t * 6) > 0 ? 1 : 0));
     this.fieldMat.uniforms.shipPos.value.copy(shipPos);
     this.padTime.value = t;
+    this.pylonTime.value = t;
     this.laneMat.uniforms.time.value = t;
     this.spillMat.uniforms.time.value = t;
     // (the pads' flashes fading: sent to the GPU only while one is lit, and the frame it goes out)

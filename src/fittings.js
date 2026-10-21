@@ -155,12 +155,36 @@ export function lampGeometry() {
   return B.geometry();
 }
 
+// ---- a rib down the deck's outer side (x out from the face, y up from the deck's top, z along): 30 cm wide at the face,
+// 20 cm at its front, 15 cm proud, from the flange along the underside's edge up to the lit channel's lower lip
+export function ribGeometry() {
+  const B = new Builder();
+  B.prism([[-0.15, 0], [0.15, 0], [0.1, 0.15], [-0.1, 0.15]], V(0, 0, 1), V(1, 0, 0), V(0, 1, 0), -1.6, -0.68, 0);
+  return B.geometry();
+}
+
+// ---- a field emitter on the wall's coping (x across the track, out from it +x; y up; z along the track): a base plate,
+// a chamfered post 16 x 12 cm up past the field's top, an emitter strip down each face the field leaves from (+-z), a
+// capped head with a glowing node - the energy barrier stands between them
+export const PYLON = { body: 0, emit: 1, node: 2 };
+export function pylonGeometry(h) {
+  const B = new Builder(), P = PYLON, X = V(1, 0, 0), Y = V(0, 1, 0), Z = V(0, 0, 1);
+  B.prism([[-0.2, 0], [0.2, 0], [0.2, 0.03], [-0.2, 0.03]], Z, Y, X, -0.15, 0.15, P.body);
+  B.prism([[-0.08, -0.04], [-0.04, -0.06], [0.04, -0.06], [0.08, -0.04], [0.08, 0.04], [0.04, 0.06], [-0.04, 0.06], [-0.08, 0.04]],
+    Z, X, Y, 0.03, h, P.body);
+  for (const sz of [-1, 1]) B.face([V(-0.03, 0.15, sz * 0.081), V(0.03, 0.15, sz * 0.081), V(0.03, h - 0.15, sz * 0.081), V(-0.03, h - 0.15, sz * 0.081)], V(0, 0, sz), P.emit, 1);
+  B.prism([[-0.1, h], [0.1, h], [0.06, h + 0.12], [-0.06, h + 0.12]], Z, Y, X, -0.08, 0.08, P.body);
+  B.prism([[-0.03, h + 0.12], [0.03, h + 0.12], [0.03, h + 0.18], [-0.03, h + 0.18]], Z, Y, X, -0.03, 0.03, P.node, { glowEdges: [0, 1, 2, 3] });
+  return B.geometry();
+}
+
 // The fittings' material: a lit metal whose finish is picked per part, with its fixings drawn per pixel, and the
-// lenses' glow (glow: the circuit's light colour, HDR - the bloom takes it). kind: 'stud' | 'lamp'
-export function fittingMaterial(kind, glow) {
+// lenses' glow (glow: the circuit's light colour, HDR - the bloom takes it). kind: 'stud' | 'lamp' | 'pylon'; time: { value }
+export function fittingMaterial(kind, glow, time = { value: 0 }) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5, metalness: 0.6 });
   const G = glow.map((x) => x.toFixed(3)).join(', ');
   mat.onBeforeCompile = (sh) => {
+    sh.uniforms.ftTime = time;
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float part;\nattribute float glow;\nvarying float vPart;\nvarying float vGlow;\nvarying vec3 vFit;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n  vPart = part; vGlow = glow; vFit = position;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
@@ -173,12 +197,20 @@ float ftHex(vec2 p, float r) {
   p = abs(p); p -= 2.0 * min(dot(k.xy, p), 0.0) * k.xy; p -= vec2(clamp(p.x, -k.z * r, k.z * r), r);
   return length(p) * sign(p.y);
 }
-vec3 ftCol; float ftRough, ftMetal, ftEmit;`)
+vec3 ftCol; float ftRough, ftMetal, ftEmit;
+uniform float ftTime;`)
       .replace('#include <map_fragment>', `#include <map_fragment>
   {
     int pt = int(vPart + 0.5);
     ftEmit = 0.0;
-    ${kind === 'stud' ? `
+    ${kind === 'pylon' ? `
+    // the field emitter: dark anodised, its strips glowing with pulses climbing them, the node at its head brighter
+    if (pt == 0) { ftCol = vec3(0.06, 0.065, 0.07); ftRough = 0.35; ftMetal = 0.8; }
+    else {
+      ftCol = vec3(0.02); ftRough = 0.2; ftMetal = 0.0;
+      float climb = pow(0.5 + 0.5 * sin(vFit.y * 3.0 - ftTime * 5.0), 6.0);
+      ftEmit = pt == 1 ? (1.2 + 2.5 * climb) * vGlow : 6.0 * vGlow;
+    }` : kind === 'stud' ? `
     // the stud: a dark galvanised base plate with a hex bolt in each corner, the body cast aluminium, the pocket
     // polished, the lens three LEDs behind a clear cover
     if (pt == 0) {
@@ -226,9 +258,9 @@ vec3 ftCol; float ftRough, ftMetal, ftEmit;`)
 
 // ---- the boost pad (x across the track, y up from the deck, z backward: the ships run toward -z), 8 x 16 m inside:
 // a steel frame set on the deck (a chamfered rim 3 cm proud, 24 cm wide, its long inner walls a light strip) round a
-// bed of dark glass 8 mm up, a matrix of LED cells under it lit in chevrons pointing the way to go ("make the boost
+// bed of dark glass 8 mm up, a light rail 55 cm high along each long edge (arrows racing forward on its slope), a matrix of LED cells under it lit in chevrons pointing the way to go ("make the boost
 // pads better looking too": they were a flat glowing decal with sheets of light standing on their edges)
-export const PAD = { frame: 0, strip: 1, bed: 2 };
+export const PAD = { frame: 0, strip: 1, bed: 2, rail: 3 };
 export function padGeometry() {
   const B = new Builder(), P = PAD, Y = V(0, 1, 0), A = 4, L = 8;
   // the frame: its profile (o out from the inner edge, y) swept round the rectangle, mitred at the corners
@@ -245,6 +277,12 @@ export function padGeometry() {
     }
   }
   B.face([V(-A, 0.008, L), V(A, 0.008, L), V(A, 0.008, -L), V(-A, 0.008, -L)], Y, P.bed, 1);
+  // the light rails: a wedge 55 cm high along each long edge (under the ships' 1.35 m), its slope lit with arrows
+  for (const sx of [-1, 1]) {
+    const prof = [[sx * A, 0.008], [sx * A, 0.55], [sx * (A - 0.15), 0.55], [sx * (A - 0.6), 0.008]];
+    const parts = [P.frame, P.frame, P.rail, P.frame];
+    B.prism(prof, V(1, 0, 0), Y, V(0, 0, 1), -L + 0.4, L - 0.4, P.frame, { parts, glowEdges: [2] });   // (prism turns each face out)
+  }
   return B.geometry();
 }
 
@@ -283,6 +321,13 @@ vec3 pdCol; float pdRough, pdMetal; vec3 pdEmit;`)
     } else if (pt == 1) {
       pdCol = vec3(0.02); pdRough = 0.2; pdMetal = 0.0;
       pdEmit = C * (2.2 + 4.0 * vFlash);
+    } else if (pt == 3) {
+      // (the rails: arrows running forward along their slopes - 1.2 m apart, racing at 16 m/s)
+      pdCol = vec3(0.02); pdRough = 0.15; pdMetal = 0.0;
+      float s = clamp(vFit.y / 0.55, 0.0, 1.0), t = -vFit.z - 0.7 * abs(s - 0.5) - padTime * 16.0;
+      float f = fwidth(t), arrow = smoothstep(0.0, f * 1.5, fract(t / 1.2) * 1.2) * (1.0 - smoothstep(0.42 - f * 1.5, 0.42, fract(t / 1.2) * 1.2));
+      arrow = mix(arrow, 0.35, smoothstep(0.1, 0.3, f));
+      pdEmit = C * (0.9 + 5.5 * arrow + 5.0 * vFlash);
     } else {
       pdCol = vec3(0.012, 0.012, 0.014); pdRough = 0.05; pdMetal = 0.0;
       vec2 p = vec2(vFit.x, -vFit.z), cell = (floor(p / 0.12) + 0.5) * 0.12, d = abs(p - cell) - 0.03;
@@ -292,7 +337,7 @@ vec3 pdCol; float pdRough, pdMetal; vec3 pdEmit;`)
       float on = step(q, 0.6) * step(abs(cell.x), 3.7) * step(abs(cell.y), 7.7);
       float run = pow(1.0 - fract(row / 8.0 - padTime * 1.6), 2.5);
       led = mix(led, 0.44, smoothstep(0.03, 0.08, fwidth(p.x)));
-      pdEmit = C * led * on * (0.7 + 2.6 * run + 5.0 * vFlash) + C * 0.004;
+      pdEmit = C * led * on * (2.0 + 3.0 * run + 5.0 * vFlash) + C * 0.004;
     }
     diffuseColor.rgb = pdCol;
   }`)
