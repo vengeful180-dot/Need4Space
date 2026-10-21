@@ -15,7 +15,7 @@ export const UPDATES = [
       'Boost pads rebuilt, each with a sign of light over it so you see it coming (Settings: Boost pad signs)',
       'Hitting the wall: your ship never goes into it, the barrier pushes you off (no more sticking to it in corners), and you feel and hear the knock',
       'The track’s fittings cast shadows baked at load: sharper, and cheaper while racing (Settings: Track fittings’ shadows)',
-      'A new anti-aliasing choice: MSAA 4x + TAA, with its own sharpening (Settings: Anti-aliasing, TAA sharpening)',
+      'New anti-aliasing, now the default: MSAA 4x + TAA, with its own sharpening (Settings: Anti-aliasing, TAA sharpening)',
       'Faster: what is out of sight, or too far off to see, is no longer drawn - the Pyramid Run at 4K runs as fast as before with all of the above',
       'Balanced settings keep the new road’s look; Low keeps the pads’ signs and the baked shadows',
       'Valentina Cruz now flies an Umbra V1 of her own: rose gold over carbon, glowing pink. On Brutal she is the ace - on pole, and the one to beat',

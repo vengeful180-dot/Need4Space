@@ -3,7 +3,7 @@ import { VERSION } from './changelog.js';
 
 const KEY = 'feather.settings.v4';
 export const DEFAULTS = { ship: 'feather', tonemap: 'aces', ao: true, bloom: true, shadows: 'high', scale: 1, exposure: 0, fps: true,
-  blur: true, reflections: true, streaks: true, ai: 'easy', music: 'high', sfx: 'high', aa: 'smaa', aoRes: 'auto',
+  blur: true, reflections: true, streaks: true, ai: 'easy', music: 'high', sfx: 'high', aa: 'taa', aoRes: 'auto',
   brakeLights: true, laptop: false, touch: 'auto', map: 'space', shafts: true, lensWater: true, iceSnow: true, iceDust: true, aurora: true,
   iceStorm: true, iceGeysers: true, wreckFx: true, wreckMist: true, airPitch: true, sandFx: true, dustDevils: true, heatHaze: true,
   sandstorm: true, caveFx: true, canyonAO: true, engineHeat: true, engineTrails: 'puffs', colossus: true, nozzleMotion: true, featherLivery: 'classic', cometLivery: 'titanium', heavyLivery: 'hazard', umbraLivery: 'umbra', pulseRings: true, sharpEdges: true, showroom: true,
@@ -154,6 +154,8 @@ export class Settings {
     if (!this.v.aiPicked) this.v.ai = DEFAULTS.ai;
     // and the music's level High, unless one was chosen
     if (!this.v.musicPicked) this.v.music = DEFAULTS.music;
+    // and anti-aliasing MSAA 4x + TAA (High's) where it was the old default, MSAA 4x + SMAA, and never chosen
+    if (!this.v.aaPicked && this.v.aa === 'smaa') { this.v.aa = DEFAULTS.aa; this.v.quality = presetOf(this.v); }
     delete this.v.drift; delete this.v.driftPicked;    // (drifting is no longer a setting: off)
     this.focus = 0;                                  // the line (ITEMS) the keyboard / gamepad is on
     this.opened = new Set(['general']);              // the sections open
@@ -183,6 +185,7 @@ export class Settings {
     this.v.quality = presetOf(this.v);
     if (k === 'ai') this.v.aiPicked = true;
     if (k === 'music') this.v.musicPicked = true;
+    if (k === 'aa') this.v.aaPicked = true;
     try { localStorage.setItem(KEY, JSON.stringify(this.v)); } catch { /* storage blocked */ }
     this.apply(this.v);
     this.draw();
