@@ -144,10 +144,10 @@ async function boot() {
     if (!baking) { status(`Loading the ${SHIP_NAME}` + got); progress('ship', gotF); }
   });
   shipLoad.catch(() => {});
-  // the rivals: Feathers, two Comets and two Anvils (Settings "Rival ships": Feathers only) - each ship the player's
-  // isn't is loaded alongside it, for them
+  // the rivals: Feathers, two Comets, two Anvils and an Umbra (Settings "Rival ships": Feathers only) - each ship the
+  // player's isn't is loaded alongside it, for them
   const MIXED = savedSettings().rivalMix !== 'feather';
-  const rivalLoads = (MIXED ? ['feather', 'rocket', 'heavy'] : ['feather']).filter((k) => k !== SHIP)
+  const rivalLoads = (MIXED ? ['feather', 'rocket', 'heavy', 'umbra'] : ['feather']).filter((k) => k !== SHIP)
     .map((k) => [k, loadShip(SHIP_URLS[k][RIVAL_TIER[Q.tier]])]);
   for (const [, l] of rivalLoads) l.catch(() => {});
   status(MAP === 'meadow' ? 'Raising the hills' : 'Building the circuit');
@@ -282,8 +282,10 @@ async function boot() {
   const touch = new TouchControls(input);              // phones and tablets: sticks and buttons on screen (the setting)
   const fx = new FX(scene, camera);
   fx.track = track;
-  // the Umbra's boost: ripples of bent space out of its black hole, carried along a little slower than the ship
+  // the Umbra's boost: ripples of bent space out of its black hole, carried along a little slower than the ship (a
+  // rival's Umbra too)
   if (ship.umbra) ship.onWave = (at, k) => fx.shock(at, (ctl.vel ? ctl.vel.clone().multiplyScalar(0.92) : null), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05);
+  for (const e of race?.entries || []) if (!e.player && e.ship.umbra) e.ship.onWave = (at, k) => fx.shock(at, e.racer.vel.clone().multiplyScalar(0.92), 7 + 5 * k, 0.006 + 0.006 * k, 0.55, 0.3, 0.05);
   // the damage smoke's light: the circuit's sun, and the sky on the side away from it (night on the ocean: moonlight)
   { const L = { space: [[1.0, 0.95, 0.88], [0.16, 0.19, 0.26]], forest: [[1.0, 0.92, 0.78], [0.36, 0.44, 0.46]],
       ice: [[1.0, 0.74, 0.56], [0.34, 0.42, 0.56]], desert: [[1.0, 0.7, 0.46], [0.42, 0.37, 0.42]],

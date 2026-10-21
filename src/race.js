@@ -1,10 +1,11 @@
 // The race: nine ships on a grid (the player fifth), lights, three laps, live positions, ship-to-ship bumping and
-// damage, a score and a results table. Rivals - four Feathers in their teams' paint, two Comets and two Anvils in
-// liveries of their own - are clones of the loaded ships, driven by AI on the same track physics.
+// damage, a score and a results table. Rivals - three Feathers in their teams' paint, two Comets and two Anvils in
+// liveries of their own, and Valentina Cruz's Umbra in hers - are clones of the loaded ships, driven by AI on the same
+// track physics.
 import * as THREE from 'three';
 import { TrackRacer, TRACK_W, turnRate, gripAt, speedScale, DAMAGE, damageSpeed, ATTACK } from './track.js';
 import { Ship } from './ship.js';
-import { HANDLING, RIVAL_SHIPS, LIVERIES } from './ships.js';
+import { HANDLING, RIVAL_SHIPS, RIVAL_PAINT, LIVERIES } from './ships.js';
 import { clamp, damp, mulberry32, smoothstep } from './noise.js';
 
 export const LAPS = 3;
@@ -32,9 +33,14 @@ const HOLD = { throttleUp: 0, throttleDown: 0, throttleAxis: 0, boost: 0, yaw: 0
 // wander: a slow drift off the line, everywhere (m: a human's line); defend: how firmly it covers the player's way
 // past; aggression: how close it passes, how late it gives way.
 // ace: the one rival a bit smarter and faster than the rest ("anvil the smartest and mostly a winner at lower
-// difficulties ... comet the fastest at higher ... balanced the winner at the highest"): the first rival of that ship
+// difficulties ... comet the fastest at higher ... balanced the winner at the highest"; then Brutal's became Valentina
+// Cruz in her Umbra - "in a race difficulty it should be first too"): the first rival of that ship
 // on the grid, starting on pole (the fastest ship mid-field was always passing: it brushed hulls and ran into tails
-// until its hull gave out, or sat boxed in), its engine pace per cent stronger and its racecraft (drive) a step up. kinds: each ship's engine (pace)
+// until its hull gave out, or sat boxed in), its engine pace per cent stronger and its racecraft (drive) a step up.
+// (The Umbra on pole in clean air: its top speed carried it 4-6 % clear of the pack whatever its engine - an engine
+// cut enough to stop that lost it the start, a Feather past it at once on the ice. So its engine stays near the
+// pack's for the launch and its own hold eases it off once clear: 1.2-2.0 % ahead, 27 of 30 races won on five
+// circuits; on the Pyramid Run a Comet mostly takes it.) kinds: each ship's engine (pace)
 // on top of the level's, and the share of its own speed limit in the bends it dares (corner), so the ships finish
 // close together - the Comet a little ahead overall ("a slight
 // cheater"), the Feather and the Anvil level (the Anvil gains on the levels that plan their boost, wrecks least)
@@ -42,16 +48,16 @@ export const AI_LEVELS = {
   // "add an easy setting ... and the enemies are also slower": a tenth less engine than Normal, careful in the bends,
   // pads and boost left to chance, wide of the line, never blocking, easing off more when well ahead of the player
   easy: { pace: [0.84, 0.004, 0.02], corner: 0.9, pads: 0.3, boost: 'random', lane: 10, wander: 7, band: [0.03, 0.08], catchUp: 0.12, defend: 0, aggression: 0.35, speed: 0.25, hold: 0.08, counter: 0.08,
-    kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 } }, ace: { kind: 'heavy', pace: 0, drive: { pads: 0.55, boost: 'plan', lane: 6, wander: 4, corner: 0.92 } } },
+    kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 }, umbra: { pace: 0.9 } }, ace: { kind: 'heavy', pace: 0, drive: { pads: 0.55, boost: 'plan', lane: 6, wander: 4, corner: 0.92 } } },
   // "make normal, hard and brutal a bit easier, like 30 % easier overall": each one's lap a third of the way back
   // toward Easy's (median laps on the ice: Normal 47.0 -> 48.2 s, Hard 44.9 -> 46.4, Brutal 44.6 -> 46.2, Easy 50.2),
   // its aggression and defence 30 % of the way too. speed: the menu's bar for their pace (the laps, not the engine)
   normal: { pace: [0.9235, 0.004, 0.02], corner: 0.95, pads: 0.45, boost: 'random', lane: 8, wander: 5, band: [0.04, 0.04], catchUp: 0.12, defend: 0, aggression: 0.45, speed: 0.5, hold: 0.07, counter: 0.18,
-    kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 } }, ace: { kind: 'heavy', pace: -0.005, drive: { pads: 0.7, boost: 'plan', lane: 5, wander: 3, corner: 0.96 } } },
+    kinds: { rocket: { pace: 0.92 }, heavy: { pace: 1.035 }, umbra: { pace: 0.9 } }, ace: { kind: 'heavy', pace: -0.005, drive: { pads: 0.7, boost: 'plan', lane: 5, wander: 3, corner: 0.96 } } },
   hard: { pace: [0.895, 0.0025, 0.008], corner: 1, pads: 1, boost: 'plan', lane: 3, wander: 0, band: [0.05, 0.015], catchUp: 0.12, defend: 0.42, aggression: 0.67, speed: 0.78, hold: 0.06, counter: 0.32,
-    kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 } }, ace: { kind: 'rocket', pace: 0.02, drive: { lane: 2 } } },
+    kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 }, umbra: { pace: 0.95 } }, ace: { kind: 'rocket', pace: 0.02, drive: { lane: 2 } } },
   brutal: { pace: [0.905, 0.0015, 0.004], corner: 1, pads: 1, boost: 'plan', lane: 2, wander: 0, band: [0.08, 0], defend: 0.7, aggression: 0.8, speed: 0.88, hold: 0.05, counter: 0.45,
-    kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 } }, ace: { kind: 'feather', pace: 0.025, drive: {} } },
+    kinds: { rocket: { pace: 0.965 }, heavy: { pace: 0.995 }, umbra: { pace: 0.98 } }, ace: { kind: 'umbra', pace: 0.025, drive: { hold: 0.2 } } },
 };
 // The catch-up (AI_LEVELS catchUp, the easier levels): the player leading over `on` s clear of the second, the next
 // `who` rivals get the player's engine and that share more, and fly like the best of them (`drive`: the bends at the
@@ -470,12 +476,13 @@ export class Race {
       } else {
         const t = TEAMS[team++], want = opts.mixed === false ? 'feather' : RIVAL_SHIPS[slot] || 'feather';
         const kind = src[want] ? want : 'feather';
-        // a Feather in its team's paint; a Comet or an Anvil in a livery of its own (not the one the player's wears)
+        // a Feather in its team's paint; another ship in a livery of its own (not the one the player's wears) - or its
+        // team's own (RIVAL_PAINT)
         const ship = new Ship(null, { cloneOf: src[kind], team: kind === 'feather' ? t : null, lights: false, engine: t.engine });
         if (kind !== 'feather' && LIVERIES[kind]) {
           const names = LIVERIES[kind].names, pool = [...names.slice(1), names[0]].filter((n) => !(pk === kind && n === opts.livery));
           ship.kind = kind;
-          ship.livery = pool[(worn[kind] = (worn[kind] ?? -1) + 1) % pool.length];
+          ship.livery = RIVAL_PAINT[t.name]?.[kind] || pool[(worn[kind] = (worn[kind] ?? -1) + 1) % pool.length];
         }
         scene.add(ship.root);
         const racer = new TrackRacer(ship, track);
@@ -670,7 +677,7 @@ export class Race {
       // chance of taking them")
       if (order && e.rank <= 3 && !e.finished) {
         const behind = order[e.rank], clear = behind ? e.progress - behind.progress : 0;
-        if (!e.catching) e.racer.thrustScale *= 1 - (AI_LEVELS[this.level].hold || 0) * smoothstep(60, 300, clear);
+        if (!e.catching) e.racer.thrustScale *= 1 - (e.driver.level.hold || 0) * smoothstep(60, 300, clear);   // (the ace's own: AI_LEVELS ace drive)
       }
       e.catchK = (e.catchK || 0) + ((e.catching ? 1 : 0) - (e.catchK || 0)) * Math.min(1, dt / CATCH.ease);
       if (e.catchK > 0.001) {

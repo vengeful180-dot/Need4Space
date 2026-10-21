@@ -44,9 +44,12 @@ export const HANDLING = {
 
 // the rivals' ships, by grid slot (the player's slot, 4, is skipped): two Comets near the front (passing is hard: from
 // the back their speed was lost in the pack), two Anvils further back (off the front row their boost out-dragged the
-// pole-sitter and held the lead), the rest Feathers; the level's ace takes pole (race.js).
-// (Settings "Rival ships": Feathers only puts Feathers in every slot)
-export const RIVAL_SHIPS = ['feather', 'rocket', 'feather', 'rocket', null, 'heavy', 'feather', 'heavy', 'feather'];
+// pole-sitter and held the lead), an Umbra at the back (team Rose: Valentina Cruz's own), the rest Feathers; the
+// level's ace takes pole (race.js). (Settings "Rival ships": Feathers only puts Feathers in every slot)
+export const RIVAL_SHIPS = ['feather', 'rocket', 'feather', 'rocket', null, 'heavy', 'feather', 'heavy', 'umbra'];
+// a rival team's own paint on a ship (race.js): not one of the Ship screen's - its maps are in assets/liveries/<ship>/
+// like theirs. Valentina Cruz's Umbra: rose gold over carbon, its light rose pink (umbra.js UMBRA_GLOW)
+export const RIVAL_PAINT = { Rose: { umbra: 'rose' } };
 
 // which bake of the ships' maps the files are: a livery's maps (and its edge map) fit only the hull atlas they were
 // baked on, and Pages lets a browser keep a file ten minutes - a new bake changes the tag, so the ship and its liveries
