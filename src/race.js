@@ -610,7 +610,9 @@ export class Race {
     }
     if (ev.type === 'scrape' && ev.wall) {
       e.ship.hit(new THREE.Vector3(-ev.side, 0, 0), ev.v / 18, e.ship.root.worldToLocal(ev.at.clone()));
-      this.events.push({ type: 'wallfx', at: ev.at, v: ev.v, player: e.player });
+      // (the blow rides along the barrier with the ship: where along the lap, its speed along it - track.js fieldHit)
+      this.events.push({ type: 'wallfx', at: ev.at, v: ev.v, player: e.player, s: e.racer.s, vs: e.racer.vs, side: ev.side,
+        vel: e.racer.vel.clone() });
     }
     if (ev.type === 'damage') {
       if (ev.why === 'wall') e.dmgWall += ev.amount; else e.dmgShip += ev.amount;

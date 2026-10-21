@@ -1078,7 +1078,9 @@ async function boot() {
             hud.flash('rgba(255,140,30,0.55)');
           }
         } else if (e.type === 'wallfx') {
-          track.fieldHit(e.at, e.v / 14);
+          track.fieldHit(e.at, e.v / 14, e.s, e.vs, e.side);
+          // (the player's own: the air at the blow bent for a moment, carried along with the ship - fx.shock)
+          if (e.player && mode === 'race' && e.v > 6) fx.shock(e.at, e.vel.multiplyScalar(0.9), 8 + Math.min(8, e.v * 0.3), 0.007, 0.4);
           audio.wall(e.at, e.v, e.player && mode === 'race');
           if (e.player && mode === 'race') hud.flash('rgba(90,170,255,0.35)', 0.35);
         } else if (e.type === 'fall') {
