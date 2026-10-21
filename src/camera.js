@@ -149,7 +149,7 @@ export class CameraRig {
     if (Math.abs(this.thud) > 1e-4 && this.mode !== 'orbit') {
       const r = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
       cam.position.addScaledVector(camUp, -0.35 * this.thud).addScaledVector(r, this.thudSide * 0.25 * this.thud);
-      camUp.applyAxisAngle(new THREE.Vector3().subVectors(lookAt, cam.position).normalize(), -this.thudSide * 0.03 * this.thud);
+      camUp.applyAxisAngle(new THREE.Vector3().subVectors(lookAt, cam.position).normalize(), -this.thudSide * 0.045 * this.thud);
     }
     if (amp > 0 && this.mode !== 'orbit') {
       const t = this.t * 9;

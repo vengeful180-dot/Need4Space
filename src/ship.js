@@ -2306,7 +2306,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
   //  touchdown. Each axis is a spring (stiffness k, damping ratio z), so nothing snaps.
   animate(dt, c) {
     const a = (this.anim ||= { lean: 0, leanV: 0, yaw: 0, yawV: 0, sway: 0, swayV: 0, pitch: 0, pitchV: 0, lift: 0, liftV: 0,
-      yawOff: 0, jolt: 0, hum: 0, t: Math.random() * 50, hS: 0, hSV: 0, hR: 0, hRV: 0, hY: 0, hYV: 0 });
+      yawOff: 0, jolt: 0, hum: 0, t: Math.random() * 50, hS: 0, hSV: 0, hR: 0, hRV: 0, hY: 0, hYV: 0, hW: 0, hWV: 0 });
     const spring = (key, target, k, z) => {
       a[key + 'V'] += (k * (target - a[key]) - 2 * z * Math.sqrt(k) * a[key + 'V']) * dt;
       a[key] += a[key + 'V'] * dt;
@@ -2330,10 +2330,11 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     if (c.land) a.liftV -= Math.min(c.land, 30) * 0.09;
     spring('lift', 0, 60, 0.35);
     // a knock's own springs, slow and heavy (hit()): the hull's weight carrying it on into the blow, sagging and rolling,
-    // settling over half a second with one slow swing back
+    // settling over half a second with one slow swing back; the nose knocked away and swinging back past straight
     spring('hS', 0, 9, 0.45);
     spring('hR', 0, 11, 0.4);
     spring('hY', 0, 14, 0.5);
+    spring('hW', 0, 12, 0.3);
     // the nose glancing off a wall turns the racer's heading in one physics step: the hull takes that turn over a
     // few frames instead of snapping (the offset decays away in ~0.2 s)
     if (c.yawKick) a.yawOff += c.yawKick;
@@ -2349,8 +2350,9 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     a.jolt = Math.max(0, a.jolt - dt * 2.5);
     a.hum += ((bo > 0.5 ? bo : 0) - a.hum) * damp(6, dt);
     const j = a.jolt * a.jolt, hz = a.hum * 0.0018;
-    const jx = (noise2(t * 6.0, 3.1) - 0.5) * 0.03 * j, jy = (noise2(t * 5.0, 8.7) - 0.5) * 0.025 * j;
-    const jr = (noise2(t * 4.5, 1.9) - 0.5) * 0.02 * j;
+    // (a hard knock: the hull shudders through ~10 cm and 3 degrees for a moment - at 3 cm it went unseen)
+    const jx = (noise2(t * 6.0, 3.1) - 0.5) * 0.1 * j, jy = (noise2(t * 5.0, 8.7) - 0.5) * 0.08 * j;
+    const jr = (noise2(t * 4.5, 1.9) - 0.5) * 0.06 * j;
     // the Umbra rides its own field: the whole hull levitating 0.4 m higher than the others (its blades clear of the
     // deck), rising and settling on a slow swell a hand's breadth high at any speed, nose and tail rocking with it
     // (each ship on its own beat)
@@ -2362,7 +2364,7 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
       levR = P * 0.011 * Math.sin(u * 1.45 + 2.0);
     }
     this.visual.position.set(a.sway + a.hS + jx + Math.sin(t * 61.0) * hz, a.lift + a.hY + bob + buzz + jy + Math.sin(t * 53.0 + 1.0) * hz + lev, 0);
-    this.visual.rotation.set(a.pitch + rockX + levP, a.yaw + a.yawOff, a.lean + a.hR + rockZ + jr + levR, 'YXZ');
+    this.visual.rotation.set(a.pitch + rockX + levP, a.yaw + a.yawOff + a.hW, a.lean + a.hR + rockZ + jr + levR, 'YXZ');
     // the low side stays clear of the deck however hard it leans ("when they steer the engines hit the ground"), and
     // the ends and corners where the deck turns under the hull (a twist, a loop - c.deckHeight: each point's height
     // over the deck at its own place along the track; else the deck is the plane under the middle): the hull's
@@ -2412,11 +2414,13 @@ uniform vec3 umbraRim; uniform vec4 umbraGlow;`)
     const a = this.anim;
     if (!a) return;
     const k = Math.min(1.5, strength) * (1 - 0.6 * a.jolt);           // knocks in quick succession don't pile up
-    // with weight: the hull carries on into the blow (dir points away from it) and sags, rolls into it, and swings back
-    // slowly on the knock's own springs - it was kicked straight away, a fake punch
-    a.hSV += -dir.x * 1.1 * k;
-    a.hRV += dir.x * 0.75 * k;
-    a.hYV -= 0.9 * k;
+    // with weight: the hull carries on into the blow (dir points away from it) and sags, rolls hard into it, its nose
+    // knocked away, and swings back slowly on the knock's own springs - it was kicked straight away, a fake punch; then
+    // it hardly moved ("too static and fake ... like it happend nothing")
+    a.hSV += -dir.x * 0.6 * k;
+    a.hRV += dir.x * 1.3 * k;
+    a.hYV -= 0.6 * k;
+    a.hWV += -dir.x * 0.5 * k;
     a.yawV += -dir.x * 0.2 * k + dir.z * 0.08 * k;
     a.pitchV += dir.z * 0.2 * k - 0.12 * k;
     a.jolt = Math.min(1, a.jolt + k * 0.45);

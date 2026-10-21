@@ -227,8 +227,8 @@ function laneSection(x) {
 // 6 m, or 'conduit' (dark painted: a galvanised clamp every 1.5 m, a coupling every
 // 6 m). Their sweeps' v is metres along the lap, u across the profile
 function housingMaterial(kind) {
-  const look = { lane: [0x15171b, 0.32, 0.75], strip: [0x8d939b, 0.38, 0.85], conduit: [0x2a2d31, 0.5, 0.45], cap: [0x9aa1aa, 0.34, 0.85],
-    fascia: [0x262a31, 0.4, 0.75] }[kind];
+  const look = { lane: [0x15171b, 0.45, 0.7], strip: [0x8d939b, 0.46, 0.8], conduit: [0x2a2d31, 0.52, 0.45], cap: [0x9aa1aa, 0.46, 0.8],
+    fascia: [0x262a31, 0.48, 0.7] }[kind];
   const mat = new THREE.MeshStandardMaterial({ color: look[0], roughness: look[1], metalness: look[2] });
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vHu;')
@@ -246,7 +246,7 @@ function housingMaterial(kind) {
     float k = 1.0 - smoothstep(0.004, 0.01, fa), head = hsIn(length(q) - 0.007) * k, sock = hsIn(length(q) - 0.0028) * k;
     diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.3, 0.31, 0.32), head * (1.0 - sock));
     diffuseColor.rgb *= 1.0 - 0.85 * sock;
-    hsR = mix(hsR, 0.3, head);` : kind === 'strip' ? `
+    hsR = mix(hsR, 0.4, head);` : kind === 'strip' ? `
     float j = abs(al - 3.0 * floor(al / 3.0 + 0.5)) - 0.0025;
     diffuseColor.rgb *= 1.0 - 0.8 * hsIn(j) * (1.0 - smoothstep(0.01, 0.03, fa));` : kind === 'cap' || kind === 'fascia' ? `
     // (a joint every 6 m)
@@ -348,8 +348,11 @@ function fieldMaterial(shared) {
         float cv = hsh(mod(c1.yz, 512.0));
         float fill = smoothstep(0.5, 0.0, c1.x) * (0.25 + 0.75 * pow(0.5 + 0.5 * sin(time * 1.3 + cv * 40.0), 4.0)) * far;
         float dp = abs(mod(al, 16.0) - 8.0);                // (to the nearest emitter: they stand at 8 m + 16 m steps)
-        float beam = exp(-dp * dp / 0.06) * 1.1 + exp(-dp * dp / 5.0) * 0.4, density = 0.4 + 0.6 * exp(-dp * dp / 18.0);
-        float tq = (1.0 - h) / 0.012, top = exp(-tq * tq), base = exp(-max(h, 0.0) / 0.04) * 0.5, fade = mix(1.0, 0.4, h);
+        // (the thin lit lines - the beam up each emitter, the top edge, the foot - never thinner than about a pixel,
+        // their light kept the same: under a pixel they sparkled and crawled far off)
+        float fa = fwidth(alr), fh = fwidth(h), sb = max(0.06, 2.0 * fa * fa), tw = max(0.012, 1.2 * fh), bw = max(0.04, 1.2 * fh);
+        float beam = exp(-dp * dp / sb) * 1.1 * sqrt(0.06 / sb) + exp(-dp * dp / 5.0) * 0.4, density = 0.4 + 0.6 * exp(-dp * dp / 18.0);
+        float tq = (1.0 - h) / tw, top = exp(-tq * tq) * 0.012 / tw, base = exp(-max(h, 0.0) / bw) * 0.5 * 0.04 / bw, fade = mix(1.0, 0.4, h);
         float nd = distance(vW, shipPos) / 22.0, near = exp(-nd * nd);
         float gz = max(0.0, 1.0 - abs(dot(normalize(cameraPosition - vW), normalize(vN)))), graze = gz * gz * gz;
         float rq2 = (fract(al / 160.0 - time * 0.375) - 0.5) * 160.0 / 3.0, run = exp(-rq2 * rq2);
@@ -372,7 +375,7 @@ function fieldMaterial(shared) {
         }
         cells = min(cells, 2.0);
         // (its ends: a bright seam where it stops, the cells next to it crackling, a glow fading back over a metre)
-        float ve = max(vEnd, 0.0), seam = exp(-ve / 0.05), endGlow = exp(-ve / 0.9);
+        float ve = max(vEnd, 0.0), sw = max(0.05, 1.2 * fa), seam = exp(-ve / sw) * 0.05 / sw, endGlow = exp(-ve / 0.9);
         float crackle = step(0.55, hsh(c1.yz + floor(time * 28.0) * 0.731)) * e1 * min(1.0, cells + core + endGlow * 0.8);
         float k = ((e1 * (0.22 + 0.4 * graze) + e2 * 0.1 + fill * 0.04) * density * fade + beam * 0.5 * (0.6 + 0.4 * fade) + top * 0.7 + base)
           * (0.65 + 1.4 * near + 1.0 * run) + seam * 3.5 + endGlow * (0.5 + 1.2 * e1);
@@ -857,7 +860,8 @@ export class Track {
     // (The aggregate's normal was once added at 'mapN.xy *= normalScale;' - text three only puts in after this hook,
     // so it never reached the deck: it is added below with the layout's slopes.)
     const detail = (this.deckDetail = { map: { value: null }, normal: { value: null } });
-    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 } };
+    // deckSheen: the plates' reflection at a glancing angle (1: a plain dielectric's)
+    this.deckU = { deckW: { value: this.W }, deckRelief: { value: 1 }, deckSheen: { value: 0.3 } };
     const deckMat = new THREE.MeshStandardMaterial({ normalScale: new THREE.Vector2(0.8, 0.8), roughness: 1.0, metalness: 0.5 });
     const grad = (inc, uv, after) => `#undef texture2D\n#define texture2D(s, c) textureGrad(s, c, rdDx, rdDy)\n#define ${uv} rdUv\n${inc}\n` +
       `#undef ${uv}\n#undef texture2D\n#define texture2D texture\n${after}`;
@@ -870,18 +874,19 @@ export class Track {
         .replace('#include <uv_vertex>', '#include <uv_vertex>\n  vRdUv = uv;');
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nuniform sampler2D detailMap;\nuniform sampler2D detailNormal;\nuniform vec2 detailRep;\n' +
-          'uniform float deckRelief;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0;\n' + DECK_LAYOUT)
+          'uniform float deckRelief, deckSheen;\nvarying vec2 vRdUv;\nfloat deckFlat = 0.0, deckF90 = 1.0;\n' + DECK_LAYOUT)
         .replace('#include <clipping_planes_fragment>', '#include <clipping_planes_fragment>\n' + (Q.lite ? '#define DECK_LITE\n' : '') + DECK_MARCH)
         .replace('#include <map_fragment>', grad('#include <map_fragment>', 'vMapUv', `
   diffuseColor.rgb *= mix(0.95 + 0.1 * textureGrad(detailMap, rdUv * detailRep, rdDx * detailRep, rdDy * detailRep).r, 1.0, rdS.a);
   diffuseColor.rgb = diffuseColor.rgb * rdTone * (1.0 - rdS.a) + rdS.rgb;
 // deck: themes`))
         .replace('#include <roughnessmap_fragment>', grad('#include <roughnessmap_fragment>', 'vRoughnessMapUv', `
-  roughnessFactor = clamp(roughnessFactor * rdRoughK, 0.05, 1.0) * (1.0 - rdS.a) + rdRM.x;
+  roughnessFactor = clamp(roughnessFactor * rdRoughK, 0.4, 1.0) * (1.0 - rdS.a) + rdRM.x;
   roughnessFactor = max(roughnessFactor, 0.6 * smoothstep(0.05, 0.4, max(rdFw.x, rdFw.y)));   // (far off: the gaps and bevels a blur, not a mirror)
 // deck: after rough`))
         .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
   metalnessFactor = metalnessFactor * (1.0 - rdS.a) + rdRM.y;
+  deckF90 = mix(deckSheen, 1.0, rdRM.y);
 // deck: after metal`)
         .replace('#include <normal_fragment_maps>', grad('#include <normal_fragment_maps>', 'vNormalMapUv', `
   #ifdef USE_NORMALMAP_TANGENTSPACE
@@ -895,7 +900,10 @@ export class Track {
   #endif
 // deck: after normal`))
         .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n  totalEmissiveRadiance += rdEmit;   // (the light inlays)')
-        .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n' + SPECULAR_AA);
+        // the plates' coating reflects at deckSheen of a plain dielectric's strength (a dull, dusty finish: looking toward
+        // a low sun the whole deck turned silver-white - "the sun reflection is too powerful"); the bare steel, and a
+        // theme's puddles, in full
+        .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n  material.specularColor *= deckF90; material.specularF90 = deckF90;\n' + SPECULAR_AA);
     };
     if (TH.moss || TH.seaMoss) {
       // moss creeping in from both walls - in places a hand's width, in places metres - broken up, in the seams (a sea
@@ -953,7 +961,7 @@ vec2 deckRipple(vec2 p, float t) {
     deckFlat = max(deckFlat, 0.7 * deckMoss);
   }`)
           .replace('// deck: after rough', '// deck: after rough\n  roughnessFactor = mix(roughnessFactor, 0.95, deckMoss) * (1.0 - 0.3 * deckSeaWet);\n  roughnessFactor = mix(roughnessFactor, 0.035, deckPuddle);')
-          .replace('// deck: after metal', '// deck: after metal\n  metalnessFactor *= 1.0 - deckPuddle;')
+          .replace('// deck: after metal', '// deck: after metal\n  metalnessFactor *= 1.0 - deckPuddle;\n  deckF90 = mix(deckF90, 1.0, deckPuddle);')
           // (a puddle's face: flat - the deck's own grain gone under it - and ringed by the drops near the camera)
           .replace('// deck: after normal', `// deck: after normal
   if (deckPuddle > 0.001) {
@@ -2526,17 +2534,17 @@ export class TrackRacer {
       this.x = side * lim;
       // grinding along it drags: ~20 % of the speed for each second of contact (proportional - it never stops a ship)
       this.vs *= Math.exp(-0.22 * this.perks.wall * H.impact * dt);
-      // the nose glances off: a heading into the wall is turned along it (it was thrown back off it - a fake punch out
-      // of the wall; a heavy hull scrapes round and slides on)
+      // the nose glances off: a heading into the wall is turned along it and a little away (thrown back off at a quarter
+      // it was a fake punch; turned only along it, it slid on "like it happend nothing")
       if (this.psi * side > 0) {
         const p0 = this.psi;
-        this.psi = -this.psi * 0.08;
+        this.psi = -this.psi * 0.15;
         this.yawRate *= 0.2;
         this.yawKick += this.psi - p0;
       }
       if (this.vx * side > 0) {
         const hit = Math.abs(this.vx);
-        this.vx = -this.vx * 0.1;                     // (it barely bounces: the weight goes into the wall, 0.3 was a rebound)
+        this.vx = -this.vx * 0.18;                    // (a heavy bounce: 0.3 was a rebound, 0.1 nothing at all)
         // friction: the speed lost along the wall is a share of the blow. It was a share of the SPEED on every
         // 120 Hz step of contact (up to 30 %), so a ship pressed to a wall stopped dead - "touching the wall gets
         // me stuck sometimes"

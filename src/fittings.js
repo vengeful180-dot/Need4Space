@@ -243,7 +243,9 @@ uniform float ftTime;`)
   }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n  roughnessFactor = ftRough;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n  metalnessFactor = ftMetal;')
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(${G}) * ftEmit;`);
+      // (a lens or strip under a few centimetres a pixel: dimmed with it - far off, a bright sliver under a pixel lit or
+      // missed the samples as the camera moved, and sparkled)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>\n  totalEmissiveRadiance += vec3(${G}) * ftEmit * clamp(0.04 / max(length(fwidth(vFit)), 1e-4), 0.3, 1.0);`);
   };
   mat.customProgramCacheKey = () => 'fitting-' + kind + '-' + G;
   return mat;

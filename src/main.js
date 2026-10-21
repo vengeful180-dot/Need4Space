@@ -1083,9 +1083,10 @@ async function boot() {
           if (e.player && mode === 'race' && e.v > 6) fx.shock(e.at, e.vel.multiplyScalar(0.9), 8 + Math.min(8, e.v * 0.3), 0.007, 0.4);
           audio.wall(e.at, e.v, e.player && mode === 'race');
           if (e.player && mode === 'race') {
-            hud.flash('rgba(90,170,255,0.35)', 0.35);
-            // (the weight of it in the camera: a dip and a roll toward the wall - camera.js thud)
-            rig.thudV += Math.min(2.4, e.v / 9);
+            hud.flash('rgba(255,90,50,0.3)', 0.35);
+            // (the weight of it in the camera: a dip and a roll toward the wall - camera.js thud - and a short shake)
+            rig.thudV += Math.min(3, e.v / 7);
+            rig.shake = Math.max(rig.shake, Math.min(0.6, e.v / 40));
             rig.thudSide = e.side || 1;
           }
         } else if (e.type === 'fall') {
