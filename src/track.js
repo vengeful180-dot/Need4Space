@@ -118,7 +118,7 @@ const SPECULAR_AA = /* glsl */`
   }`;
 
 // The deck's first lines in main() (deck.js DECK_LAYOUT): where the view ray meets the deck. With Settings "Road relief",
-// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -6.2 cm; 8 steps looking
+// within 48 m of the camera the ray is marched down through the layout's heights (+9 mm .. -10.5 cm; 8 steps looking
 // down, up to 28 grazing, then the crossing interpolated), its reach eased out from 30 m so nothing pops; past that, or
 // switched off, the surface itself; the crossing refined by halving between the last two steps. There the deck's maps are read (with the surface's own gradients - the meeting point
 // jumps at a groove's edge, and its mip level must not), the layout's finish and its slopes (the screws too) found.
@@ -142,8 +142,8 @@ const DECK_MARCH = /* glsl */`
         float vz = dot(V, n);
         vec2 o = -vec2(dot(V, gx), dot(V, gy)) / max(vz, 0.12) * (1.0 - smoothstep(30.0, 48.0, dist));
         int N = int(mix(28.0, 8.0, clamp(vz, 0.0, 1.0)));
-        float dz = 0.071 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
-        mh = m0 + o * 0.062;
+        float dz = 0.114 / float(N), zPrev = 0.009, dPrev = 0.009 - rdHeight(m0 - o * 0.009, rdFw, false);
+        mh = m0 + o * 0.105;
         for (int i = 1; i <= 28; i++) {
           if (i > N) break;
           float z = 0.009 - dz * float(i), d = z - rdHeight(m0 - o * z, rdFw, false);
