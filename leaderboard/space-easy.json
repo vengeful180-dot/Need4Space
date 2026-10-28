@@ -124,6 +124,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "testtest",
+        "totalMs": 270317,
+        "bestLapMs": 87492,
+        "lapsMs": [
+          89783,
+          87492,
+          93042
+        ],
+        "points": 53,
+        "recordedAt": "2026-10-28T23:24:58.250Z",
+        "runId": "34e21a66-ef97-4134-882e-69678d64aa0c"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "bumba",
         "totalMs": 270792,
         "bestLapMs": 87467,
@@ -513,7 +528,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-23T12:13:53.406Z",
+  "updatedAt": "2026-10-28T23:24:58.250Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -554,7 +569,8 @@
       "5f03a997-361d-4aa7-8c72-49b0807eb122": "steakbbq",
       "4b0d0573-df94-4924-a4c1-44b522542ab8": "Jacky Daytona",
       "efb7f040-fb81-45fd-a856-5e2cb6822c2b": "aa",
-      "37750176-3954-40fd-93bb-f4e8c698a6c2": "mike"
+      "37750176-3954-40fd-93bb-f4e8c698a6c2": "mike",
+      "34e21a66-ef97-4134-882e-69678d64aa0c": "testtest"
     }
   }
 }
