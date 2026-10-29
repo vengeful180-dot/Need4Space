@@ -289,6 +289,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "3d",
+        "totalMs": 278675,
+        "bestLapMs": 87483,
+        "lapsMs": [
+          101992,
+          89200,
+          87483
+        ],
+        "points": 62,
+        "recordedAt": "2026-10-29T17:01:42.405Z",
+        "runId": "54dafde2-56a9-4944-8350-03e6cac23d6b"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "Jimbo",
         "totalMs": 279658,
         "bestLapMs": 90683,
@@ -528,7 +543,7 @@
       }
     ]
   },
-  "updatedAt": "2026-10-28T23:24:58.250Z",
+  "updatedAt": "2026-10-29T17:01:42.405Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -570,7 +585,8 @@
       "4b0d0573-df94-4924-a4c1-44b522542ab8": "Jacky Daytona",
       "efb7f040-fb81-45fd-a856-5e2cb6822c2b": "aa",
       "37750176-3954-40fd-93bb-f4e8c698a6c2": "mike",
-      "34e21a66-ef97-4134-882e-69678d64aa0c": "testtest"
+      "34e21a66-ef97-4134-882e-69678d64aa0c": "testtest",
+      "54dafde2-56a9-4944-8350-03e6cac23d6b": "3d"
     }
   }
 }
