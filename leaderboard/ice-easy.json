@@ -60,10 +60,25 @@
         "points": 64,
         "recordedAt": "2026-10-20T20:50:43.133Z",
         "runId": "f8e9634e-4fd9-4c3c-ab0f-9dce27fb9a56"
+      },
+      {
+        "map": "ice",
+        "difficulty": "easy",
+        "name": "3d",
+        "totalMs": 150033,
+        "bestLapMs": 47158,
+        "lapsMs": [
+          54300,
+          48575,
+          47158
+        ],
+        "points": 62,
+        "recordedAt": "2026-10-29T16:55:57.210Z",
+        "runId": "558846cb-720a-42ee-83e3-8392590bcccb"
       }
     ]
   },
-  "updatedAt": "2026-10-20T20:50:43.133Z",
+  "updatedAt": "2026-10-29T16:55:57.210Z",
   "submissions": {
     "ice:easy": {
       "legacy:140400:48567:45875:45958:72": "V3ngeful",
@@ -72,7 +87,8 @@
       "36771d7c-a940-4a4e-b5c9-bbaf2f45bf22": "human",
       "1dc564c4-a242-4460-b59a-9216a745834b": "RwkY",
       "746354c6-37cb-4c88-b627-040d24a1695e": "Wilbis",
-      "f8e9634e-4fd9-4c3c-ab0f-9dce27fb9a56": "Wilbis"
+      "f8e9634e-4fd9-4c3c-ab0f-9dce27fb9a56": "Wilbis",
+      "558846cb-720a-42ee-83e3-8392590bcccb": "3d"
     }
   }
 }
