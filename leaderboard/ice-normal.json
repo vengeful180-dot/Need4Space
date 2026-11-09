@@ -20,6 +20,21 @@
       {
         "map": "ice",
         "difficulty": "normal",
+        "name": "dickballs",
+        "totalMs": 142725,
+        "bestLapMs": 45383,
+        "lapsMs": [
+          50767,
+          46575,
+          45383
+        ],
+        "points": 78,
+        "recordedAt": "2026-11-09T11:52:29.499Z",
+        "runId": "3c34056f-7955-4d30-9ac4-d44257aa7188"
+      },
+      {
+        "map": "ice",
+        "difficulty": "normal",
         "name": "Spermy",
         "totalMs": 145100,
         "bestLapMs": 47333,
@@ -49,13 +64,14 @@
       }
     ]
   },
-  "updatedAt": "2026-10-20T20:56:23.320Z",
+  "updatedAt": "2026-11-09T11:52:29.499Z",
   "submissions": {
     "ice:normal": {
       "legacy:145692:50625:47042:48025:48": "V3ngeful",
       "legacy:141767:49500:47742:44525:64": "V3ngeful",
       "899138c7-8ea1-4359-a0e4-594be337caa5": "Spermy",
-      "3bbdd21b-b559-4973-ab90-11c375a89a93": "Wilbis"
+      "3bbdd21b-b559-4973-ab90-11c375a89a93": "Wilbis",
+      "3c34056f-7955-4d30-9ac4-d44257aa7188": "dickballs"
     }
   }
 }
