@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "pyramid:hard": [
+      {
+        "map": "pyramid",
+        "difficulty": "hard",
+        "name": "wipeout enjoyer",
+        "totalMs": 246658,
+        "bestLapMs": 77225,
+        "lapsMs": [
+          83392,
+          86042,
+          77225
+        ],
+        "points": 86,
+        "recordedAt": "2026-11-09T12:18:20.178Z",
+        "runId": "e4afbd31-95f6-479b-aa67-4d6d8fcbc18c"
+      }
+    ]
+  },
+  "updatedAt": "2026-11-09T12:18:20.178Z",
+  "submissions": {
+    "pyramid:hard": {
+      "e4afbd31-95f6-479b-aa67-4d6d8fcbc18c": "wipeout enjoyer"
+    }
+  }
+}
