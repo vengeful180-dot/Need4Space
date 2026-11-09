@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "ocean:hard": [
+      {
+        "map": "ocean",
+        "difficulty": "hard",
+        "name": "wipeout enjoyer",
+        "totalMs": 229617,
+        "bestLapMs": 76325,
+        "lapsMs": [
+          76958,
+          76325,
+          76333
+        ],
+        "points": 54,
+        "recordedAt": "2026-11-09T12:11:24.238Z",
+        "runId": "e51df89f-e52b-4e77-a0f4-6717433fd933"
+      }
+    ]
+  },
+  "updatedAt": "2026-11-09T12:11:24.238Z",
+  "submissions": {
+    "ocean:hard": {
+      "e51df89f-e52b-4e77-a0f4-6717433fd933": "wipeout enjoyer"
+    }
+  }
+}
