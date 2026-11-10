@@ -1,7 +1,28 @@
 {
   "schema": 1,
   "boards": {
-    "space:brutal": []
+    "space:brutal": [
+      {
+        "map": "space",
+        "difficulty": "brutal",
+        "name": "wipeout enjoyer",
+        "totalMs": 253275,
+        "bestLapMs": 82442,
+        "lapsMs": [
+          86250,
+          82442,
+          84583
+        ],
+        "points": 72,
+        "recordedAt": "2026-11-10T20:49:53.488Z",
+        "runId": "602e6ba2-4c05-44c7-a194-3b92ea7b6126"
+      }
+    ]
   },
-  "updatedAt": null
+  "updatedAt": "2026-11-10T20:49:53.488Z",
+  "submissions": {
+    "space:brutal": {
+      "602e6ba2-4c05-44c7-a194-3b92ea7b6126": "wipeout enjoyer"
+    }
+  }
 }
