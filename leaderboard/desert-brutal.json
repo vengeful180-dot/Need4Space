@@ -5,6 +5,21 @@
       {
         "map": "desert",
         "difficulty": "brutal",
+        "name": "steer assist sucks",
+        "totalMs": 135567,
+        "bestLapMs": 43283,
+        "lapsMs": [
+          48117,
+          44167,
+          43283
+        ],
+        "points": 70,
+        "recordedAt": "2026-11-10T09:12:16.821Z",
+        "runId": "aaf9f3a2-84c5-4cdb-a7f6-053afec390dd"
+      },
+      {
+        "map": "desert",
+        "difficulty": "brutal",
         "name": "V3ngeful",
         "totalMs": 143383,
         "bestLapMs": 46700,
@@ -34,12 +49,13 @@
       }
     ]
   },
-  "updatedAt": "2026-10-15T02:54:34.319Z",
+  "updatedAt": "2026-11-10T09:12:16.821Z",
   "submissions": {
     "desert:brutal": {
       "1017e260-0720-4600-916f-aad6ec0f246a": "V3ngeful",
       "b3759834-d212-4220-a7c9-ff2a6b58315f": "V3ngeful",
-      "0522bbb1-f33a-4157-af88-8f7504672e0a": "N8dawg00"
+      "0522bbb1-f33a-4157-af88-8f7504672e0a": "N8dawg00",
+      "aaf9f3a2-84c5-4cdb-a7f6-053afec390dd": "steer assist sucks"
     }
   }
 }
