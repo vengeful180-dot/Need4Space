@@ -259,6 +259,21 @@
       {
         "map": "space",
         "difficulty": "easy",
+        "name": "Rockstar North",
+        "totalMs": 275092,
+        "bestLapMs": 87967,
+        "lapsMs": [
+          95408,
+          91717,
+          87967
+        ],
+        "points": 53,
+        "recordedAt": "2026-11-18T03:54:05.086Z",
+        "runId": "d7d2b4c2-48eb-4fad-8a5a-d525a7ff2dbb"
+      },
+      {
+        "map": "space",
+        "difficulty": "easy",
         "name": "zprat",
         "totalMs": 275625,
         "bestLapMs": 89792,
@@ -514,21 +529,6 @@
       {
         "map": "space",
         "difficulty": "easy",
-        "name": "Rockstar North",
-        "totalMs": 299042,
-        "bestLapMs": 98050,
-        "lapsMs": [
-          101267,
-          98050,
-          99725
-        ],
-        "points": 28,
-        "recordedAt": "2026-11-18T01:48:27.548Z",
-        "runId": "c33bdb95-6107-4b20-bd76-49df432647df"
-      },
-      {
-        "map": "space",
-        "difficulty": "easy",
         "name": "big jim",
         "totalMs": 299342,
         "bestLapMs": 94358,
@@ -558,7 +558,7 @@
       }
     ]
   },
-  "updatedAt": "2026-11-18T01:48:27.548Z",
+  "updatedAt": "2026-11-18T03:54:05.086Z",
   "submissions": {
     "space:easy": {
       "legacy:263808:88842:87000:87967:74": "V3ngeful",
@@ -602,7 +602,8 @@
       "37750176-3954-40fd-93bb-f4e8c698a6c2": "mike",
       "34e21a66-ef97-4134-882e-69678d64aa0c": "testtest",
       "54dafde2-56a9-4944-8350-03e6cac23d6b": "3d",
-      "c33bdb95-6107-4b20-bd76-49df432647df": "Rockstar North"
+      "c33bdb95-6107-4b20-bd76-49df432647df": "Rockstar North",
+      "d7d2b4c2-48eb-4fad-8a5a-d525a7ff2dbb": "Rockstar North"
     }
   }
 }
