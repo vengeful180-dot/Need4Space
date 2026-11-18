@@ -21,24 +21,25 @@
         "map": "ocean",
         "difficulty": "easy",
         "name": "Rockstar North",
-        "totalMs": 247642,
-        "bestLapMs": 79783,
+        "totalMs": 221492,
+        "bestLapMs": 72633,
         "lapsMs": [
-          85725,
-          82133,
-          79783
+          75575,
+          72633,
+          73283
         ],
-        "points": 34,
-        "recordedAt": "2026-11-18T01:57:10.431Z",
-        "runId": "9fc20233-927c-4e22-a09b-018ce1256322"
+        "points": 60,
+        "recordedAt": "2026-11-18T13:25:28.626Z",
+        "runId": "47878e57-6804-460d-a758-b3f794f70062"
       }
     ]
   },
-  "updatedAt": "2026-11-18T01:57:10.431Z",
+  "updatedAt": "2026-11-18T13:25:28.626Z",
   "submissions": {
     "ocean:easy": {
       "5e15abbc-3889-4b96-ad91-26fac80ab4eb": "rewair",
-      "9fc20233-927c-4e22-a09b-018ce1256322": "Rockstar North"
+      "9fc20233-927c-4e22-a09b-018ce1256322": "Rockstar North",
+      "47878e57-6804-460d-a758-b3f794f70062": "Rockstar North"
     }
   }
 }
