@@ -61,16 +61,32 @@
         "points": 58,
         "recordedAt": "2026-10-15T02:51:03.533Z",
         "runId": "7b6b1704-78ac-4653-bd19-b3398e9f9b9e"
+      },
+      {
+        "map": "desert",
+        "difficulty": "easy",
+        "name": "Rockstar North",
+        "totalMs": 161600,
+        "bestLapMs": 50767,
+        "lapsMs": [
+          57892,
+          50767,
+          52942
+        ],
+        "points": 34,
+        "recordedAt": "2026-11-18T02:05:05.960Z",
+        "runId": "c581b05f-187f-4378-97af-163ad0e3583d"
       }
     ]
   },
-  "updatedAt": "2026-10-15T02:51:03.533Z",
+  "updatedAt": "2026-11-18T02:05:05.960Z",
   "submissions": {
     "desert:easy": {
       "6cdf662d-99b7-4d71-a458-73a692352f4e": "V3ngeful",
       "f3392656-f58d-43e9-aafd-3ccb5006f10c": "rox",
       "b7875428-9247-42a2-9a33-aa8061c12b3a": "Omar",
-      "7b6b1704-78ac-4653-bd19-b3398e9f9b9e": "N8dawg00"
+      "7b6b1704-78ac-4653-bd19-b3398e9f9b9e": "N8dawg00",
+      "c581b05f-187f-4378-97af-163ad0e3583d": "Rockstar North"
     }
   }
 }
