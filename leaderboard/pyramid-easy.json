@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "boards": {
+    "pyramid:easy": [
+      {
+        "map": "pyramid",
+        "difficulty": "easy",
+        "name": "Rockstar North",
+        "totalMs": 304058,
+        "bestLapMs": 91608,
+        "lapsMs": [
+          106517,
+          105933,
+          91608
+        ],
+        "points": 44,
+        "recordedAt": "2026-11-19T19:15:55.790Z",
+        "runId": "dc3d9ddf-c96b-4779-92ff-6037f42efbd5"
+      }
+    ]
+  },
+  "updatedAt": "2026-11-19T19:15:55.790Z",
+  "submissions": {
+    "pyramid:easy": {
+      "dc3d9ddf-c96b-4779-92ff-6037f42efbd5": "Rockstar North"
+    }
+  }
+}
